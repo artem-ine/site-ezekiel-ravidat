@@ -305,6 +305,28 @@ interface BookDocumentData {
 	isbn: prismic.KeyTextField;
 	
 	/**
+	 * Publish year field in *Book*
+	 *
+	 * - **Field Type**: Number
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book.publish_year
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/number
+	 */
+	publish_year: prismic.NumberField;
+	
+	/**
+	 * Page count field in *Book*
+	 *
+	 * - **Field Type**: Number
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book.page_count
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/number
+	 */
+	page_count: prismic.NumberField;
+	
+	/**
 	 * Format field in *Book*
 	 *
 	 * - **Field Type**: Select
@@ -328,7 +350,7 @@ interface BookDocumentData {
 	owned: prismic.BooleanField;
 	
 	/**
-	 * Personal note field in *Book*
+	 * Description / blurb field in *Book*
 	 *
 	 * - **Field Type**: Rich Text
 	 * - **Placeholder**: *None*
@@ -553,7 +575,7 @@ interface GenreDocumentData {
 	 * Name field in *Genre*
 	 *
 	 * - **Field Type**: Text
-	 * - **Placeholder**: StoryGraph tag, as-is
+	 * - **Placeholder**: Genre, e.g. Science fiction
 	 * - **API ID Path**: genre.name
 	 * - **Tab**: Main
 	 * - **Documentation**: https://prismic.io/docs/fields/text
