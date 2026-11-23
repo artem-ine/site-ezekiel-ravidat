@@ -616,6 +616,77 @@ interface GenreDocumentData {
  */
 export type GenreDocument<Lang extends string = string> = prismic.PrismicDocumentWithUID<Simplify<GenreDocumentData>, "genre", Lang>;
 
+type PageDocumentDataSlicesSlice = HeroSlice | FeaturedShelfSlice | TextBlockSlice | BookSpotlightSlice | CurrentlyReadingSlice
+
+/**
+ * Content for Page documents
+ */
+interface PageDocumentData {
+	/**
+	 * Title field in *Page*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: page.title
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	title: prismic.KeyTextField;
+	
+	/**
+	 * Slice Zone field in *Page*
+	 *
+	 * - **Field Type**: Slice Zone
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: page.slices[]
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/slices
+	 */
+	slices: prismic.SliceZone<PageDocumentDataSlicesSlice>;/**
+	 * Meta Title field in *Page*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: A title of the page used for social media and search engines
+	 * - **API ID Path**: page.meta_title
+	 * - **Tab**: SEO & Metadata
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	meta_title: prismic.KeyTextField;
+	
+	/**
+	 * Meta Description field in *Page*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: A brief summary of the page
+	 * - **API ID Path**: page.meta_description
+	 * - **Tab**: SEO & Metadata
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	meta_description: prismic.KeyTextField;
+	
+	/**
+	 * Meta Image field in *Page*
+	 *
+	 * - **Field Type**: Image
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: page.meta_image
+	 * - **Tab**: SEO & Metadata
+	 * - **Documentation**: https://prismic.io/docs/fields/image
+	 */
+	meta_image: prismic.ImageField<never>;
+}
+
+/**
+ * Page document from Prismic
+ *
+ * - **API ID**: `page`
+ * - **Repeatable**: `true`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type PageDocument<Lang extends string = string> = prismic.PrismicDocumentWithUID<Simplify<PageDocumentData>, "page", Lang>;
+
 /**
  * Content for Series documents
  */
@@ -669,6 +740,8 @@ export interface ShelfDocumentDataBooksItem {
 	book: prismic.ContentRelationshipField<"book">;
 }
 
+type ShelfDocumentDataSlicesSlice = TextBlockSlice | PullQuoteSlice | BookSpotlightSlice
+
 /**
  * Content for Shelf documents
  */
@@ -717,6 +790,17 @@ interface ShelfDocumentData {
 	 * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
 	 */
 	books: prismic.GroupField<Simplify<ShelfDocumentDataBooksItem>>;
+	
+	/**
+	 * Slice Zone field in *Shelf*
+	 *
+	 * - **Field Type**: Slice Zone
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: shelf.slices[]
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/slices
+	 */
+	slices: prismic.SliceZone<ShelfDocumentDataSlicesSlice>;
 }
 
 /**
@@ -810,7 +894,320 @@ interface SiteSettingsDocumentData {
  */
 export type SiteSettingsDocument<Lang extends string = string> = prismic.PrismicDocumentWithoutUID<Simplify<SiteSettingsDocumentData>, "site_settings", Lang>;
 
-export type AllDocumentTypes = AuthorDocument | BookDocument | GenreDocument | SeriesDocument | ShelfDocument | SiteSettingsDocument;
+export type AllDocumentTypes = AuthorDocument | BookDocument | GenreDocument | PageDocument | SeriesDocument | ShelfDocument | SiteSettingsDocument;
+
+/**
+ * Primary content in *Book Spotlight → Default → Primary*
+ */
+export interface BookSpotlightSliceDefaultPrimary {
+	/**
+	 * Book field in *Book Spotlight → Default → Primary*
+	 *
+	 * - **Field Type**: Content Relationship
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book_spotlight.default.primary.book
+	 * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+	 */
+	book: prismic.ContentRelationshipField<"book">;
+	
+	/**
+	 * Note (optional) field in *Book Spotlight → Default → Primary*
+	 *
+	 * - **Field Type**: Rich Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book_spotlight.default.primary.note
+	 * - **Documentation**: https://prismic.io/docs/fields/rich-text
+	 */
+	note: prismic.RichTextField;
+}
+
+/**
+ * Default variation for Book Spotlight Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type BookSpotlightSliceDefault = prismic.SharedSliceVariation<"default", Simplify<BookSpotlightSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Book Spotlight*
+ */
+type BookSpotlightSliceVariation = BookSpotlightSliceDefault
+
+/**
+ * Book Spotlight Shared Slice
+ *
+ * - **API ID**: `book_spotlight`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type BookSpotlightSlice = prismic.SharedSlice<"book_spotlight", BookSpotlightSliceVariation>;
+
+/**
+ * Item in *Currently Reading → Default → Primary → Books (up to 6 are shown)*
+ */
+export interface CurrentlyReadingSliceDefaultPrimaryBooksItem {
+	/**
+	 * Book field in *Currently Reading → Default → Primary → Books (up to 6 are shown)*
+	 *
+	 * - **Field Type**: Content Relationship
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: currently_reading.default.primary.books[].book
+	 * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+	 */
+	book: prismic.ContentRelationshipField<"book">;
+}
+
+/**
+ * Primary content in *Currently Reading → Default → Primary*
+ */
+export interface CurrentlyReadingSliceDefaultPrimary {
+	/**
+	 * Heading field in *Currently Reading → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: currently_reading.default.primary.heading
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	heading: prismic.KeyTextField;
+	
+	/**
+	 * Books (up to 6 are shown) field in *Currently Reading → Default → Primary*
+	 *
+	 * - **Field Type**: Group
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: currently_reading.default.primary.books[]
+	 * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+	 */
+	books: prismic.GroupField<Simplify<CurrentlyReadingSliceDefaultPrimaryBooksItem>>;
+}
+
+/**
+ * Default variation for Currently Reading Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type CurrentlyReadingSliceDefault = prismic.SharedSliceVariation<"default", Simplify<CurrentlyReadingSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Currently Reading*
+ */
+type CurrentlyReadingSliceVariation = CurrentlyReadingSliceDefault
+
+/**
+ * Currently Reading Shared Slice
+ *
+ * - **API ID**: `currently_reading`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type CurrentlyReadingSlice = prismic.SharedSlice<"currently_reading", CurrentlyReadingSliceVariation>;
+
+/**
+ * Primary content in *Featured Shelf → Default → Primary*
+ */
+export interface FeaturedShelfSliceDefaultPrimary {
+	/**
+	 * Shelf field in *Featured Shelf → Default → Primary*
+	 *
+	 * - **Field Type**: Content Relationship
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: featured_shelf.default.primary.shelf
+	 * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+	 */
+	shelf: prismic.ContentRelationshipField<"shelf">;
+	
+	/**
+	 * Heading (optional) field in *Featured Shelf → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: featured_shelf.default.primary.heading
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	heading: prismic.KeyTextField;
+}
+
+/**
+ * Default variation for Featured Shelf Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type FeaturedShelfSliceDefault = prismic.SharedSliceVariation<"default", Simplify<FeaturedShelfSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Featured Shelf*
+ */
+type FeaturedShelfSliceVariation = FeaturedShelfSliceDefault
+
+/**
+ * Featured Shelf Shared Slice
+ *
+ * - **API ID**: `featured_shelf`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type FeaturedShelfSlice = prismic.SharedSlice<"featured_shelf", FeaturedShelfSliceVariation>;
+
+/**
+ * Primary content in *Hero → Default → Primary*
+ */
+export interface HeroSliceDefaultPrimary {
+	/**
+	 * Heading field in *Hero → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: hero.default.primary.heading
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	heading: prismic.KeyTextField;
+	
+	/**
+	 * Subheading field in *Hero → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: hero.default.primary.subheading
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	subheading: prismic.KeyTextField;
+	
+	/**
+	 * Image field in *Hero → Default → Primary*
+	 *
+	 * - **Field Type**: Image
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: hero.default.primary.image
+	 * - **Documentation**: https://prismic.io/docs/fields/image
+	 */
+	image: prismic.ImageField<never>;
+	
+	/**
+	 * Link field in *Hero → Default → Primary*
+	 *
+	 * - **Field Type**: Link
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: hero.default.primary.link
+	 * - **Documentation**: https://prismic.io/docs/fields/link
+	 */
+	link: prismic.LinkField<string, string, unknown, prismic.FieldState, never>;
+}
+
+/**
+ * Default variation for Hero Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type HeroSliceDefault = prismic.SharedSliceVariation<"default", Simplify<HeroSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Hero*
+ */
+type HeroSliceVariation = HeroSliceDefault
+
+/**
+ * Hero Shared Slice
+ *
+ * - **API ID**: `hero`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type HeroSlice = prismic.SharedSlice<"hero", HeroSliceVariation>;
+
+/**
+ * Primary content in *Pull Quote → Default → Primary*
+ */
+export interface PullQuoteSliceDefaultPrimary {
+	/**
+	 * Quote field in *Pull Quote → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: pull_quote.default.primary.quote
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	quote: prismic.KeyTextField;
+	
+	/**
+	 * Attribution field in *Pull Quote → Default → Primary*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: pull_quote.default.primary.attribution
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	attribution: prismic.KeyTextField;
+}
+
+/**
+ * Default variation for Pull Quote Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PullQuoteSliceDefault = prismic.SharedSliceVariation<"default", Simplify<PullQuoteSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Pull Quote*
+ */
+type PullQuoteSliceVariation = PullQuoteSliceDefault
+
+/**
+ * Pull Quote Shared Slice
+ *
+ * - **API ID**: `pull_quote`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PullQuoteSlice = prismic.SharedSlice<"pull_quote", PullQuoteSliceVariation>;
+
+/**
+ * Primary content in *Text Block → Default → Primary*
+ */
+export interface TextBlockSliceDefaultPrimary {
+	/**
+	 * Text field in *Text Block → Default → Primary*
+	 *
+	 * - **Field Type**: Rich Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: text_block.default.primary.text
+	 * - **Documentation**: https://prismic.io/docs/fields/rich-text
+	 */
+	text: prismic.RichTextField;
+}
+
+/**
+ * Default variation for Text Block Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Default
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type TextBlockSliceDefault = prismic.SharedSliceVariation<"default", Simplify<TextBlockSliceDefaultPrimary>, never>;
+
+/**
+ * Slice variation for *Text Block*
+ */
+type TextBlockSliceVariation = TextBlockSliceDefault
+
+/**
+ * Text Block Shared Slice
+ *
+ * - **API ID**: `text_block`
+ * - **Description**: *None*
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type TextBlockSlice = prismic.SharedSlice<"text_block", TextBlockSliceVariation>;
 
 declare module "@prismicio/client" {
 	interface CreateClient {
@@ -838,14 +1235,43 @@ declare module "@prismicio/client" {
 			BookDocumentDataMoodsItem,
 			GenreDocument,
 			GenreDocumentData,
+			PageDocument,
+			PageDocumentData,
+			PageDocumentDataSlicesSlice,
 			SeriesDocument,
 			SeriesDocumentData,
 			ShelfDocument,
 			ShelfDocumentData,
 			ShelfDocumentDataBooksItem,
+			ShelfDocumentDataSlicesSlice,
 			SiteSettingsDocument,
 			SiteSettingsDocumentData,
-			AllDocumentTypes
+			AllDocumentTypes,
+			BookSpotlightSlice,
+			BookSpotlightSliceDefaultPrimary,
+			BookSpotlightSliceVariation,
+			BookSpotlightSliceDefault,
+			CurrentlyReadingSlice,
+			CurrentlyReadingSliceDefaultPrimaryBooksItem,
+			CurrentlyReadingSliceDefaultPrimary,
+			CurrentlyReadingSliceVariation,
+			CurrentlyReadingSliceDefault,
+			FeaturedShelfSlice,
+			FeaturedShelfSliceDefaultPrimary,
+			FeaturedShelfSliceVariation,
+			FeaturedShelfSliceDefault,
+			HeroSlice,
+			HeroSliceDefaultPrimary,
+			HeroSliceVariation,
+			HeroSliceDefault,
+			PullQuoteSlice,
+			PullQuoteSliceDefaultPrimary,
+			PullQuoteSliceVariation,
+			PullQuoteSliceDefault,
+			TextBlockSlice,
+			TextBlockSliceDefaultPrimary,
+			TextBlockSliceVariation,
+			TextBlockSliceDefault
 		}
 	}
 }

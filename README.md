@@ -25,7 +25,7 @@ The repository name lives in `prismic.config.json` (`e29fe22f`). **The Content A
 
 | Variable | Purpose |
 | --- | --- |
-| `PRISMIC_ACCESS_TOKEN` | Server-side read token for the Content API (`scope: master`). **Required** now that API access is private — add it to `.env.local` locally and to Vercel's Environment Variables for deployment. Never expose it to the browser (`NEXT_PUBLIC_*`). |
+| `PRISMIC_ACCESS_TOKEN` | Server-side read token for the Content API (`scope: master`). **Required** now that API access is private, including at `npm run build` — add it to `.env.local` locally and to Vercel's Environment Variables for deployment. Never expose it to the browser (`NEXT_PUBLIC_*`). |
 | `PRISMIC_WRITE_TOKEN` | Write token for the Asset & Migration APIs. Only needed locally when running `npm run import` or `npm run add-book`. Do not add to Vercel. |
 | `PRISMIC_WEBHOOK_SECRET` | If set, `POST /api/revalidate` rejects payloads whose `secret` differs. Use the same value as the webhook secret in Prismic. |
 | `NEXT_PUBLIC_PRISMIC_ENVIRONMENT` | Optional override to point the client at a Prismic environment domain instead of production. |
@@ -56,7 +56,7 @@ npx prismic@latest type list                  # types known locally
 
 The Prismic dashboard's "connect your project to the coding agent" onboarding step is marked done by the CLI when `prismic init`, `prismic pull` or `prismic sync` succeeds (`push` alone does not). Run `prismic pull` once after the first push if the dashboard still shows that banner.
 
-Slice Machine is deprecated and is not used here. The models contain no slices, so the page types have no slice zone.
+Slice Machine is deprecated and is not used here. Slices are plain files created with `prismic slice create` and live in `slices/<Name>/` (`model.json` plus a React component); `slices/index.ts` is generated.
 
 ### Custom types
 
@@ -66,10 +66,24 @@ Slice Machine is deprecated and is not used here. The models contain no slices, 
 | Author | `author` | `name`, optional `sort_name`, `photo`, `bio`. |
 | Series | `series` | `name`, `description`. Books point at the series; the series does not list its books. |
 | Genre | `genre` | `name` (the genre), `accent` colour, `description`. Genres are sourced from Open Library / Google Books subjects via `scripts/genre-mapping.json`, not StoryGraph. |
-| Shelf | `shelf` | Optional curated shelf: ordered `books` group, `layout_hint`. |
+| Page | `page` | Free-form pages (home, about): `title`, a slice zone, SEO & Metadata tab. |
+| Shelf | `shelf` | Optional curated shelf: ordered `books` group, `layout_hint`, plus a slice zone for editorial content above the book grid. |
 | Site settings | `site_settings` | Single type: title, tagline, about, featured shelf, SEO. |
 
-`book` and `shelf` are page types (each document gets its own URL); `author`, `series`, `genre` and `site_settings` are custom types. All except Site settings are repeatable and have a `uid`. `prismic.config.json` declares the routes `/books/:uid` and `/shelves/:uid`, but **the Next.js routes for them are not built yet** (no UI in this scaffold), so those URLs 404 for now.
+`book`, `shelf` and `page` are page types (each document gets its own URL); `author`, `series`, `genre` and `site_settings` are custom types. All except Site settings are repeatable and have a `uid`. `prismic.config.json` declares the routes `/books/:uid`, `/shelves/:uid` and `/:uid`. Only `/:uid` (the `page` type) is built; **the Next.js routes for books and shelves are not built yet**, so those URLs 404 for now.
+
+### Slices
+
+| Slice | Fields | Used in |
+| --- | --- | --- |
+| Hero (`hero`) | `heading`, `subheading`, `image`, `link` (with text) | `page` |
+| Featured Shelf (`featured_shelf`) | `shelf` (link to `shelf`), optional `heading` | `page` |
+| Text Block (`text_block`) | `text` (rich text) | `page`, `shelf` |
+| Book Spotlight (`book_spotlight`) | `book` (link to `book`), optional `note` (rich text) | `page`, `shelf` |
+| Currently Reading (`currently_reading`) | `heading`, `books` group of links to `book` (Prismic groups have no max, so the component shows the first 6) | `page` |
+| Pull Quote (`pull_quote`) | `quote`, `attribution` | `shelf` |
+
+The components in `slices/` are deliberately bare: semantic HTML, no styling. Linked books and shelves are loaded with `fetchLinks` (see `lib/related.ts`) and shown as plain titles, because their detail routes do not exist yet. The shelf slice zone is modelled but nothing renders it yet.
 
 ### How the StoryGraph export maps onto `book`
 
@@ -143,13 +157,15 @@ Ezekiel decided there are no public reviews in v1. The `review` field exists so 
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
 - Author `links`, series `books` back-references, `purchase_year`, `edition_year`, publisher.
 - StoryGraph tags: not modelled, they are not genres.
-- Slices. There is no About page yet; `site_settings.about` holds the blurb.
+- Visual design: slice components are unstyled placeholders.
 
 ## Routes in this scaffold
 
 | Route | What it does |
 | --- | --- |
-| `/` | Connection check against Prismic. |
+| `/` | Renders the `page` document with UID `home` (so create a `page` with UID `home` for the home page). If none is published it shows the Prismic connection check instead. |
+| `/[uid]` | Renders any `page` document by UID through the slice zone (`/about`, and also `/home`). |
+| `/slice-simulator` | Slice preview for the Prismic page builder. Set it with `prismic preview set-simulator <url>/slice-simulator`. |
 | `/api/preview`, `/api/exit-preview` | Draft preview support (`<PrismicPreview>` is in the root layout). |
 | `/api/revalidate` | Webhook target to clear cached Prismic content after publish. |
 

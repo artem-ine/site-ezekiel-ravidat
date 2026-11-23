@@ -1,0 +1,41 @@
+{
+  "id": "currently_reading",
+  "name": "Currently Reading",
+  "type": "SharedSlice",
+  "variations": [
+    {
+      "description": "Default",
+      "docURL": "",
+      "id": "default",
+      "imageUrl": "",
+      "name": "Default",
+      "primary": {
+        "heading": {
+          "config": {
+            "label": "Heading"
+          },
+          "type": "Text"
+        },
+        "books": {
+          "config": {
+            "fields": {
+              "book": {
+                "config": {
+                  "customtypes": [
+                    "book"
+                  ],
+                  "label": "Book",
+                  "select": "document"
+                },
+                "type": "Link"
+              }
+            },
+            "label": "Books (up to 6 are shown)"
+          },
+          "type": "Group"
+        }
+      },
+      "version": ""
+    }
+  ]
+}

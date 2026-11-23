@@ -1,0 +1,33 @@
+{
+  "id": "featured_shelf",
+  "name": "Featured Shelf",
+  "type": "SharedSlice",
+  "variations": [
+    {
+      "description": "Default",
+      "docURL": "",
+      "id": "default",
+      "imageUrl": "",
+      "name": "Default",
+      "primary": {
+        "shelf": {
+          "config": {
+            "customtypes": [
+              "shelf"
+            ],
+            "label": "Shelf",
+            "select": "document"
+          },
+          "type": "Link"
+        },
+        "heading": {
+          "config": {
+            "label": "Heading (optional)"
+          },
+          "type": "Text"
+        }
+      },
+      "version": ""
+    }
+  ]
+}
