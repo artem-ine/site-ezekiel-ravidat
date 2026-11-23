@@ -305,6 +305,28 @@ interface BookDocumentData {
 	isbn: prismic.KeyTextField;
 	
 	/**
+	 * Publish year field in *Book*
+	 *
+	 * - **Field Type**: Number
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book.publish_year
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/number
+	 */
+	publish_year: prismic.NumberField;
+	
+	/**
+	 * Page count field in *Book*
+	 *
+	 * - **Field Type**: Number
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book.page_count
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/number
+	 */
+	page_count: prismic.NumberField;
+	
+	/**
 	 * Format field in *Book*
 	 *
 	 * - **Field Type**: Select
