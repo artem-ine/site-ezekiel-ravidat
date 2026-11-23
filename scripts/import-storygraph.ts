@@ -64,7 +64,8 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   console.log(`Parsing StoryGraph CSV: ${args.csvPath}`);
-  const { books: allBooks, summary: csvSummary } = parseStorygraphCsv(args.csvPath);
+  const { books: parsedBooks, summary: csvSummary } = parseStorygraphCsv(args.csvPath);
+  const allBooks = parsedBooks.filter((b) => b.owned);
   const targetBooks =
     args.limit && args.limit > 0 ? allBooks.slice(0, args.limit) : allBooks;
 

@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { parse } from "csv-parse/sync";
 import type { RichTextField } from "@prismicio/client";
 import {
@@ -8,14 +9,18 @@ import {
   slugify,
   type NormalizedIsbn,
 } from "./slug";
+import { REPO_ROOT } from "./env";
+
+const OWNED_OVERRIDE_TITLES = new Set<string>(
+  (
+    JSON.parse(
+      fs.readFileSync(path.join(REPO_ROOT, "scripts/owned-overrides.json"), "utf8"),
+    ) as { titles: string[] }
+  ).titles,
+);
 
 export type BookFormat = "paperback" | "hardcover" | "digital" | "audio";
-export type ReadStatus =
-  | "to-read"
-  | "currently-reading"
-  | "read"
-  | "did-not-finish"
-  | "paused";
+export type ReadStatus = "not-read" | "currently-reading" | "read" | "did-not-finish";
 export type ContributorRole =
   | "narrator"
   | "translator"
@@ -96,12 +101,17 @@ const IMPORT_STATUSES = new Set<string>([
 ]);
 
 const VALID_STATUSES = new Set<ReadStatus>([
-  "to-read",
+  "not-read",
   "currently-reading",
   "read",
   "did-not-finish",
-  "paused",
 ]);
+
+export function mapStoryGraphReadStatus(raw: string): ReadStatus | null {
+  const s = raw.trim().toLowerCase();
+  if (s === "" || s === "to-read") return "not-read";
+  return VALID_STATUSES.has(s as ReadStatus) ? (s as ReadStatus) : null;
+}
 
 function parseSlashDate(raw: string): { isoDate: string | null; year: number | null } {
   const s = raw.trim();
@@ -231,16 +241,23 @@ export function parseStorygraphCsv(csvPath: string): {
   for (let i = 0; i < records.length; i++) {
     const row = records[i];
     const rowIndex = i + 1;
-    const owned = (row["Owned?"] ?? "").trim() === "Yes";
+    const ownedInCsv = (row["Owned?"] ?? "").trim() === "Yes";
+    const ownedByOverride = !ownedInCsv && OWNED_OVERRIDE_TITLES.has((row["Title"] ?? "").trim());
+    const owned = ownedInCsv || ownedByOverride;
     const statusRaw = (row["Read Status"] ?? "").trim();
-    const key = `Owned=${owned ? "Yes" : "No"}, Status=${statusRaw || "(empty)"}`;
+    const ownedLabel = ownedByOverride ? "Override" : owned ? "Yes" : "No";
+    const key = `Owned=${ownedLabel}, Status=${statusRaw || "(empty)"}`;
 
     const shouldImport = owned || IMPORT_STATUSES.has(statusRaw);
     if (!shouldImport) {
       skippedBreakdown[key] = (skippedBreakdown[key] ?? 0) + 1;
       continue;
     }
-    keptBreakdown[key] = (keptBreakdown[key] ?? 0) + 1;
+    if (owned) {
+      keptBreakdown[key] = (keptBreakdown[key] ?? 0) + 1;
+    } else {
+      skippedBreakdown[key] = (skippedBreakdown[key] ?? 0) + 1;
+    }
 
     const title = decodeHtmlEntities(row["Title"] ?? "").trim();
     const authors = decodeHtmlEntities(row["Authors"] ?? "")
@@ -261,7 +278,7 @@ export function parseStorygraphCsv(csvPath: string): {
     }
 
     const format = asSelect(row["Format"] ?? "", [...VALID_FORMATS]);
-    const readStatus = asSelect(statusRaw, [...VALID_STATUSES]);
+    const readStatus = mapStoryGraphReadStatus(statusRaw);
 
     const dateAddedParsed = parseSlashDate(row["Date Added"] ?? "");
     const lastDateParsed = parseSlashDate(row["Last Date Read"] ?? "");
@@ -360,7 +377,8 @@ export function parseStorygraphCsv(csvPath: string): {
     });
   }
 
-  // Assign deterministic, unique URL-safe UIDs across all kept rows
+  // UIDs are assigned across every importable row, owned or not, so an owned
+  // copy keeps the uid it already has in Prismic when an unowned duplicate exists.
   const slugCounts = new Map<string, number>();
   for (const item of preliminary) {
     slugCounts.set(item.baseSlug, (slugCounts.get(item.baseSlug) ?? 0) + 1);
@@ -388,12 +406,13 @@ export function parseStorygraphCsv(csvPath: string): {
     return result;
   });
 
+  const ownedBooks = books.filter((b) => b.owned);
   return {
-    books,
+    books: ownedBooks,
     summary: {
       totalRows: records.length,
-      keptRows: books.length,
-      skippedRows: records.length - books.length,
+      keptRows: ownedBooks.length,
+      skippedRows: records.length - ownedBooks.length,
       keptBreakdown,
       skippedBreakdown,
       unicodeReplacementCount,

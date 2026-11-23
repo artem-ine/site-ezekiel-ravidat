@@ -94,7 +94,7 @@ The components in `slices/` are deliberately bare: semantic HTML, no styling. Li
 | Contributors, e.g. `Name (Narrator)` | `contributors[].name` + `contributors[].role` |
 | ISBN/UID | `isbn` (may be ISBN-13/10, ASIN or empty) |
 | Format | `format`: paperback, hardcover, digital, audio |
-| Read Status | `read_status`: to-read, currently-reading, read, did-not-finish, paused |
+| Read Status | `read_status`: `not-read` (StoryGraph `to-read` or empty), `currently-reading`, `read`, `did-not-finish` |
 | Date Added | `date_added` |
 | Last Date Read | `last_date_read` (`year_read` is populated from it, including year-only entries like `2021`) |
 | Dates Read, e.g. `2025/08/01-2025/08/03` | `dates_read[].date_started` / `date_finished` |
@@ -112,7 +112,8 @@ Notes on the import mapping:
 - Empty cells map to an empty field. Blank `Read Status`, `Format` and `Pace` are valid.
 - `uid` is unique per type. Duplicate editions (same title/author in different formats) are deterministically disambiguated (`<title-slug>`, `<title-slug>-<isbn>`, `<title-slug>-<format>`, or `-<n>`).
 - HTML entities (`&amp;`, `&#39;`, etc.) are decoded and `Review` HTML is converted into Prismic rich text blocks.
-- Only rows where `Owned? = Yes` or `Read Status` is `read`, `did-not-finish`, or `currently-reading` are imported; unowned `to-read` rows are skipped.
+- Only owned books belong on the website. Rows with `Owned? = No` are skipped, whatever their read status, unless the title is listed in `scripts/owned-overrides.json`. That committed file holds exact StoryGraph titles the owner confirmed as owned even though the export says `Owned? = No`. Override titles are imported with `owned = true` and keep their authors, series and genres. Every `book` draft has `owned = true`.
+- `read_status` is sortable and filterable as `read`, `not-read`, `did-not-finish` or `currently-reading`. Empty StoryGraph status and `to-read` both map to `not-read`.
 - StoryGraph `Tags` are not imported. `genres`, `series`, `series_position`, `blurb`, `publish_year`, `page_count`, `subtitle`, and `cover` are enriched from Open Library (with optional Google Books fallback) and mapped through `scripts/genre-mapping.json`.
 
 ### Importing & adding books
@@ -132,8 +133,8 @@ npm run import
 # Re-sync updated fields for previously imported items
 npm run import -- --update
 
-# Add a single book later by ISBN or "Title Author"
-npm run add-book -- 9780316246620 --owned --status to-read
+# Add a single owned book later by ISBN or "Title Author" (owned by default, status defaults to not-read)
+npm run add-book -- 9780316246620 --status read
 npm run add-book -- "Ancillary Justice Ann Leckie" --dry-run
 ```
 

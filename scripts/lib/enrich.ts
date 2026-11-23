@@ -244,6 +244,12 @@ function extractDescription(raw: unknown): string | null {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+function redactApiKey(url: string): string {
+  return url.replace(/([?&])key=[^&]*(&|$)/, (_m, pre: string, post: string) =>
+    post ? pre : "",
+  );
+}
+
 class RatePacer {
   private lastStartAt = 0;
   private blockedUntil = 0;
@@ -373,7 +379,8 @@ export class BookEnricher {
     url: string,
     provider: "ol" | "gb",
   ): Promise<{ status: number; data: Record<string, unknown> | null }> {
-    const cached = !this.options.noCache ? this.cache.httpJson[url] : undefined;
+    const cacheKey = redactApiKey(url);
+    const cached = !this.options.noCache ? this.cache.httpJson[cacheKey] : undefined;
     if (cached) {
       return {
         status: cached.status,
@@ -435,7 +442,7 @@ export class BookEnricher {
 
     // Do not cache transient 0 / 429 / 5xx failures
     if (result.status === 200 || result.status === 404) {
-      this.cache.httpJson[url] = result;
+      this.cache.httpJson[cacheKey] = result;
       this.dirty = true;
     }
     return result;

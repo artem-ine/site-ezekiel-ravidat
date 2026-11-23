@@ -19,28 +19,38 @@ interface AddBookArgs {
   noCache: boolean;
 }
 
+const READ_STATUSES: ReadStatus[] = ["not-read", "currently-reading", "read", "did-not-finish"];
+
 function parseArgs(argv: string[]): AddBookArgs {
   const queryParts: string[] = [];
-  let owned = false;
-  let readStatus: ReadStatus | null = null;
+  const owned = true;
+  let readStatus: ReadStatus | null = "not-read";
   let format: BookFormat | null = null;
   let dryRun = false;
   let noCache = false;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--owned") owned = true;
-    else if (a === "--dry-run") dryRun = true;
+    if (a === "--not-owned") {
+      console.error("Only owned books belong on the website, so this book was not added.");
+      process.exit(1);
+    } else if (a === "--dry-run") dryRun = true;
     else if (a === "--no-cache") noCache = true;
-    else if (a === "--status" && argv[i + 1]) readStatus = argv[++i] as ReadStatus;
-    else if (a === "--format" && argv[i + 1]) format = argv[++i] as BookFormat;
+    else if (a === "--status" && argv[i + 1]) {
+      const value = argv[++i] as ReadStatus;
+      if (!READ_STATUSES.includes(value)) {
+        console.error(`Unknown --status "${value}". Use one of: ${READ_STATUSES.join(", ")}.`);
+        process.exit(1);
+      }
+      readStatus = value;
+    } else if (a === "--format" && argv[i + 1]) format = argv[++i] as BookFormat;
     else if (!a.startsWith("-")) queryParts.push(a);
   }
 
   const query = queryParts.join(" ").trim();
   if (!query) {
     console.error(
-      'Usage: npm run add-book -- <isbn or "title author"> [--owned] [--status read|to-read|currently-reading|did-not-finish|paused] [--format paperback|hardcover|digital|audio] [--dry-run]',
+      `Usage: npm run add-book -- <isbn or "title author"> [--status ${READ_STATUSES.join("|")}] [--format paperback|hardcover|digital|audio] [--dry-run]`,
     );
     process.exit(1);
   }

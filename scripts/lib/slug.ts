@@ -340,7 +340,11 @@ export function looksLikePhysicalCollation(text: string): boolean {
 }
 
 export function plainTextToRichText(text: string): RichTextField {
-  const cleaned = decodeHtmlEntities(text).replace(/\r\n?/g, "\n").trim();
+  const cleaned = decodeHtmlEntities(
+    text.replace(/<br\s*\/?>/gi, "\n").replace(/<\/?[a-z][^>]*>/gi, ""),
+  )
+    .replace(/\r\n?/g, "\n")
+    .trim();
   if (!cleaned || looksLikePhysicalCollation(cleaned)) return [];
   // Strip common Open Library markdown/source footer noise like "([source][1])"
   const paragraphs = cleaned
