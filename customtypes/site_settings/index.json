@@ -1,56 +1,56 @@
 {
   "format": "custom",
   "id": "site_settings",
-  "label": "Site settings",
-  "repeatable": false,
-  "status": true,
   "json": {
     "Main": {
       "site_title": {
-        "type": "Text",
         "config": {
           "label": "Site title"
-        }
+        },
+        "type": "Text"
       },
       "tagline": {
-        "type": "Text",
         "config": {
           "label": "Tagline"
-        }
+        },
+        "type": "Text"
       },
       "about": {
-        "type": "StructuredText",
         "config": {
           "label": "About",
           "multi": "paragraph,strong,em,hyperlink,list-item,o-list-item"
-        }
+        },
+        "type": "StructuredText"
       },
       "featured_shelf": {
-        "type": "Link",
         "config": {
-          "label": "Featured shelf",
-          "select": "document",
           "customtypes": [
             "shelf"
-          ]
-        }
+          ],
+          "label": "Featured shelf",
+          "select": "document"
+        },
+        "type": "Link"
       }
     },
     "SEO": {
       "meta_description": {
-        "type": "Text",
         "config": {
           "label": "Meta description"
-        }
+        },
+        "type": "Text"
       },
       "meta_image": {
-        "type": "Image",
         "config": {
-          "label": "Meta image",
           "constraint": {},
+          "label": "Meta image",
           "thumbnails": []
-        }
+        },
+        "type": "Image"
       }
     }
-  }
+  },
+  "label": "Site settings",
+  "repeatable": false,
+  "status": true
 }
