@@ -109,7 +109,7 @@ The site never renders `review`.
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
 - Author `links`, series `books` back-references, `purchase_year`, `edition_year`, `page_count`, publisher. Add them if the UI needs them.
 - StoryGraph tags: not modelled, they are not genres.
-- Slices and page types. There is no About page yet; `site_settings.about` holds the blurb.
+- Slices. There is no About page yet; `site_settings.about` holds the blurb.
 
 ## Routes in this scaffold
 
