@@ -1,0 +1,34 @@
+{
+  "id": "book_spotlight",
+  "name": "Book Spotlight",
+  "type": "SharedSlice",
+  "variations": [
+    {
+      "description": "Default",
+      "docURL": "",
+      "id": "default",
+      "imageUrl": "",
+      "name": "Default",
+      "primary": {
+        "book": {
+          "config": {
+            "customtypes": [
+              "book"
+            ],
+            "label": "Book",
+            "select": "document"
+          },
+          "type": "Link"
+        },
+        "note": {
+          "config": {
+            "label": "Note (optional)",
+            "multi": "paragraph,strong,em,hyperlink"
+          },
+          "type": "StructuredText"
+        }
+      },
+      "version": ""
+    }
+  ]
+}

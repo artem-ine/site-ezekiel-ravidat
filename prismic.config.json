@@ -6,6 +6,10 @@
       "path": "/books/:uid"
     },
     {
+      "type": "page",
+      "path": "/:uid"
+    },
+    {
       "type": "shelf",
       "path": "/shelves/:uid"
     }

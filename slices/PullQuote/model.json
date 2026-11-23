@@ -1,0 +1,29 @@
+{
+  "id": "pull_quote",
+  "name": "Pull Quote",
+  "type": "SharedSlice",
+  "variations": [
+    {
+      "description": "Default",
+      "docURL": "",
+      "id": "default",
+      "imageUrl": "",
+      "name": "Default",
+      "primary": {
+        "quote": {
+          "config": {
+            "label": "Quote"
+          },
+          "type": "Text"
+        },
+        "attribution": {
+          "config": {
+            "label": "Attribution"
+          },
+          "type": "Text"
+        }
+      },
+      "version": ""
+    }
+  ]
+}

@@ -51,6 +51,23 @@
           "label": "Books (in display order)"
         },
         "type": "Group"
+      },
+      "slices": {
+        "config": {
+          "choices": {
+            "text_block": {
+              "type": "SharedSlice"
+            },
+            "pull_quote": {
+              "type": "SharedSlice"
+            },
+            "book_spotlight": {
+              "type": "SharedSlice"
+            }
+          }
+        },
+        "fieldset": "Slice Zone",
+        "type": "Slices"
       }
     }
   },

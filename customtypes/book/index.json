@@ -119,6 +119,7 @@
       "publish_year": {
         "config": {
           "label": "Publish year",
+          "max": 2100,
           "min": 0,
           "step": 1
         },
@@ -127,7 +128,7 @@
       "page_count": {
         "config": {
           "label": "Page count",
-          "min": 0,
+          "min": 1,
           "step": 1
         },
         "type": "Number"
@@ -153,7 +154,7 @@
       },
       "blurb": {
         "config": {
-          "label": "Personal note",
+          "label": "Description / blurb",
           "multi": "paragraph,strong,em,hyperlink,list-item,o-list-item"
         },
         "type": "StructuredText"
