@@ -1,4 +1,13 @@
 {
   "repositoryName": "e29fe22f",
-  "routes": []
+  "routes": [
+    {
+      "type": "book",
+      "path": "/books/:uid"
+    },
+    {
+      "type": "shelf",
+      "path": "/shelves/:uid"
+    }
+  ]
 }

@@ -46,7 +46,7 @@ npx prismic@latest type list                  # types known locally
 
 The Prismic dashboard's "connect your project to the coding agent" onboarding step is marked done by the CLI when `prismic init`, `prismic pull` or `prismic sync` succeeds (`push` alone does not). Run `prismic pull` once after the first push if the dashboard still shows that banner.
 
-Slice Machine is deprecated and is not used here. The models contain no slices.
+Slice Machine is deprecated and is not used here. The models contain no slices, so the page types have no slice zone.
 
 ### Custom types
 
@@ -59,7 +59,7 @@ Slice Machine is deprecated and is not used here. The models contain no slices.
 | Shelf | `shelf` | Optional curated shelf: ordered `books` group, `layout_hint`. |
 | Site settings | `site_settings` | Single type: title, tagline, about, featured shelf, SEO. |
 
-All types except Site settings are repeatable and have a `uid`. None is a page type yet, so `prismic.config.json` has no routes. Add routes when the UI needs `/books/:uid` and friends.
+`book` and `shelf` are page types (each document gets its own URL); `author`, `series`, `genre` and `site_settings` are custom types. All except Site settings are repeatable and have a `uid`. `prismic.config.json` declares the routes `/books/:uid` and `/shelves/:uid`, but **the Next.js routes for them are not built yet** (no UI in this scaffold), so those URLs 404 for now.
 
 ### How the StoryGraph export maps onto `book`
 
