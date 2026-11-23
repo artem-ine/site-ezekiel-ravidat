@@ -553,7 +553,7 @@ interface GenreDocumentData {
 	 * Name field in *Genre*
 	 *
 	 * - **Field Type**: Text
-	 * - **Placeholder**: StoryGraph tag, as-is
+	 * - **Placeholder**: Genre, e.g. Science fiction
 	 * - **API ID Path**: genre.name
 	 * - **Tab**: Main
 	 * - **Documentation**: https://prismic.io/docs/fields/text

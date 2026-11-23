@@ -1,60 +1,54 @@
 {
   "format": "custom",
   "id": "book",
-  "label": "Book",
-  "repeatable": true,
-  "status": true,
   "json": {
     "Main": {
       "uid": {
-        "type": "UID",
         "config": {
           "label": "UID"
-        }
+        },
+        "type": "UID"
       },
       "title": {
-        "type": "Text",
         "config": {
           "label": "Title"
-        }
+        },
+        "type": "Text"
       },
       "subtitle": {
-        "type": "Text",
         "config": {
           "label": "Subtitle"
-        }
+        },
+        "type": "Text"
       },
       "authors": {
-        "type": "Group",
         "config": {
-          "label": "Authors",
           "fields": {
             "author": {
-              "type": "Link",
               "config": {
-                "label": "Author",
-                "select": "document",
                 "customtypes": [
                   "author"
-                ]
-              }
+                ],
+                "label": "Author",
+                "select": "document"
+              },
+              "type": "Link"
             }
-          }
-        }
+          },
+          "label": "Authors"
+        },
+        "type": "Group"
       },
       "contributors": {
-        "type": "Group",
         "config": {
-          "label": "Contributors",
           "fields": {
             "name": {
-              "type": "Text",
               "config": {
                 "label": "Name"
-              }
+              },
+              "type": "Text"
             },
             "role": {
-              "type": "Select",
               "config": {
                 "label": "Role",
                 "options": [
@@ -64,64 +58,66 @@
                   "illustrator",
                   "other"
                 ]
-              }
+              },
+              "type": "Select"
             }
-          }
-        }
+          },
+          "label": "Contributors"
+        },
+        "type": "Group"
       },
       "series": {
-        "type": "Link",
         "config": {
-          "label": "Series",
-          "select": "document",
           "customtypes": [
             "series"
-          ]
-        }
+          ],
+          "label": "Series",
+          "select": "document"
+        },
+        "type": "Link"
       },
       "series_position": {
-        "type": "Number",
         "config": {
           "label": "Series position",
           "min": 0,
           "step": 0.5
-        }
+        },
+        "type": "Number"
       },
       "genres": {
-        "type": "Group",
         "config": {
-          "label": "Genres",
           "fields": {
             "genre": {
-              "type": "Link",
               "config": {
-                "label": "Genre",
-                "select": "document",
                 "customtypes": [
                   "genre"
-                ]
-              }
+                ],
+                "label": "Genre",
+                "select": "document"
+              },
+              "type": "Link"
             }
-          }
-        }
+          },
+          "label": "Genres"
+        },
+        "type": "Group"
       },
       "cover": {
-        "type": "Image",
         "config": {
-          "label": "Cover",
           "constraint": {},
+          "label": "Cover",
           "thumbnails": []
-        }
+        },
+        "type": "Image"
       },
       "isbn": {
-        "type": "Text",
         "config": {
           "label": "ISBN / StoryGraph UID",
           "placeholder": "ISBN-13, ISBN-10, ASIN or empty"
-        }
+        },
+        "type": "Text"
       },
       "format": {
-        "type": "Select",
         "config": {
           "label": "Format",
           "options": [
@@ -130,26 +126,26 @@
             "digital",
             "audio"
           ]
-        }
+        },
+        "type": "Select"
       },
       "owned": {
-        "type": "Boolean",
         "config": {
-          "label": "Owned",
-          "default_value": false
-        }
+          "default_value": false,
+          "label": "Owned"
+        },
+        "type": "Boolean"
       },
       "blurb": {
-        "type": "StructuredText",
         "config": {
           "label": "Personal note",
           "multi": "paragraph,strong,em,hyperlink,list-item,o-list-item"
-        }
+        },
+        "type": "StructuredText"
       }
     },
     "Reading": {
       "read_status": {
-        "type": "Select",
         "config": {
           "label": "Read status",
           "options": [
@@ -159,91 +155,91 @@
             "did-not-finish",
             "paused"
           ]
-        }
+        },
+        "type": "Select"
       },
       "date_added": {
-        "type": "Date",
         "config": {
           "label": "Date added"
-        }
+        },
+        "type": "Date"
       },
       "last_date_read": {
-        "type": "Date",
         "config": {
           "label": "Last date read"
-        }
+        },
+        "type": "Date"
       },
       "year_read": {
-        "type": "Number",
         "config": {
           "label": "Year read",
-          "min": 1900,
           "max": 2100,
+          "min": 1900,
           "step": 1
-        }
+        },
+        "type": "Number"
       },
       "read_count": {
-        "type": "Number",
         "config": {
           "label": "Read count",
           "min": 0,
           "step": 1
-        }
+        },
+        "type": "Number"
       },
       "dates_read": {
-        "type": "Group",
         "config": {
-          "label": "Dates read",
           "fields": {
             "date_started": {
-              "type": "Date",
               "config": {
                 "label": "Started"
-              }
+              },
+              "type": "Date"
             },
             "date_finished": {
-              "type": "Date",
               "config": {
                 "label": "Finished"
-              }
+              },
+              "type": "Date"
             }
-          }
-        }
+          },
+          "label": "Dates read"
+        },
+        "type": "Group"
       },
       "rating": {
-        "type": "Number",
         "config": {
           "label": "Star rating",
-          "min": 0,
           "max": 5,
+          "min": 0,
           "step": 0.25
-        }
+        },
+        "type": "Number"
       },
       "review": {
-        "type": "StructuredText",
         "config": {
           "label": "Review (private, not displayed in v1)",
           "multi": "paragraph,strong,em,hyperlink,list-item,o-list-item"
-        }
+        },
+        "type": "StructuredText"
       }
     },
     "StoryGraph": {
       "moods": {
-        "type": "Group",
         "config": {
-          "label": "Moods",
           "fields": {
             "mood": {
-              "type": "Text",
               "config": {
                 "label": "Mood"
-              }
+              },
+              "type": "Text"
             }
-          }
-        }
+          },
+          "label": "Moods"
+        },
+        "type": "Group"
       },
       "pace": {
-        "type": "Select",
         "config": {
           "label": "Pace",
           "options": [
@@ -251,10 +247,10 @@
             "medium",
             "fast"
           ]
-        }
+        },
+        "type": "Select"
       },
       "character_or_plot_driven": {
-        "type": "Select",
         "config": {
           "label": "Character- or plot-driven?",
           "options": [
@@ -262,10 +258,10 @@
             "Plot",
             "A mix"
           ]
-        }
+        },
+        "type": "Select"
       },
       "strong_character_development": {
-        "type": "Select",
         "config": {
           "label": "Strong character development?",
           "options": [
@@ -273,10 +269,10 @@
             "No",
             "It's complicated"
           ]
-        }
+        },
+        "type": "Select"
       },
       "loveable_characters": {
-        "type": "Select",
         "config": {
           "label": "Loveable characters?",
           "options": [
@@ -284,10 +280,10 @@
             "No",
             "It's complicated"
           ]
-        }
+        },
+        "type": "Select"
       },
       "diverse_characters": {
-        "type": "Select",
         "config": {
           "label": "Diverse characters?",
           "options": [
@@ -295,10 +291,10 @@
             "No",
             "It's complicated"
           ]
-        }
+        },
+        "type": "Select"
       },
       "flawed_characters": {
-        "type": "Select",
         "config": {
           "label": "Flawed characters?",
           "options": [
@@ -306,33 +302,37 @@
             "No",
             "It's complicated"
           ]
-        }
+        },
+        "type": "Select"
       },
       "content_warnings": {
-        "type": "Text",
         "config": {
           "label": "Content warnings",
           "placeholder": "As exported, comma-separated"
-        }
+        },
+        "type": "Text"
       },
       "content_warning_description": {
-        "type": "Text",
         "config": {
           "label": "Content warning description"
-        }
+        },
+        "type": "Text"
       },
       "source": {
-        "type": "Select",
         "config": {
+          "default_value": "manual",
           "label": "Source",
           "options": [
             "storygraph",
             "goodreads",
             "manual"
-          ],
-          "default_value": "manual"
-        }
+          ]
+        },
+        "type": "Select"
       }
     }
-  }
+  },
+  "label": "Book",
+  "repeatable": true,
+  "status": true
 }

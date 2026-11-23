@@ -44,6 +44,8 @@ npx prismic@latest gen types                  # regenerate prismicio-types.d.ts
 npx prismic@latest type list                  # types known locally
 ```
 
+The Prismic dashboard's "connect your project to the coding agent" onboarding step is marked done by the CLI when `prismic init`, `prismic pull` or `prismic sync` succeeds (`push` alone does not). Run `prismic pull` once after the first push if the dashboard still shows that banner.
+
 Slice Machine is deprecated and is not used here. The models contain no slices.
 
 ### Custom types
