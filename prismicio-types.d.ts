@@ -367,7 +367,7 @@ interface BookDocumentData {
 	 * - **Tab**: Reading
 	 * - **Documentation**: https://prismic.io/docs/fields/select
 	 */
-	read_status: prismic.SelectField<"to-read" | "currently-reading" | "read" | "did-not-finish" | "paused">;
+	read_status: prismic.SelectField<"not-read" | "currently-reading" | "read" | "did-not-finish">;
 	
 	/**
 	 * Date added field in *Book*

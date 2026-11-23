@@ -117,21 +117,21 @@
         "type": "Text"
       },
       "publish_year": {
-        "type": "Number",
         "config": {
           "label": "Publish year",
           "max": 2100,
           "min": 0,
           "step": 1
-        }
+        },
+        "type": "Number"
       },
       "page_count": {
-        "type": "Number",
         "config": {
           "label": "Page count",
           "min": 1,
           "step": 1
-        }
+        },
+        "type": "Number"
       },
       "format": {
         "config": {
@@ -165,11 +165,10 @@
         "config": {
           "label": "Read status",
           "options": [
-            "to-read",
+            "not-read",
             "currently-reading",
             "read",
-            "did-not-finish",
-            "paused"
+            "did-not-finish"
           ]
         },
         "type": "Select"
