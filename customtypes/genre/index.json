@@ -16,7 +16,7 @@
         "type": "Text",
         "config": {
           "label": "Name",
-          "placeholder": "StoryGraph tag, as-is"
+          "placeholder": "Genre, e.g. Science fiction"
         }
       },
       "accent": {

@@ -53,7 +53,7 @@ Slice Machine is deprecated and is not used here. The models contain no slices.
 | Book | `book` | The catalog. Links to authors, one series and genres. Tabs: Main, Reading, StoryGraph. |
 | Author | `author` | `name`, optional `sort_name`, `photo`, `bio`. |
 | Series | `series` | `name`, `description`. Books point at the series; the series does not list its books. |
-| Genre | `genre` | `name` (a StoryGraph tag as-is), `accent` colour, `description`. |
+| Genre | `genre` | `name` (the genre), `accent` colour, `description`. Genres are sourced from Open Library or Google Books subjects, not StoryGraph. |
 | Shelf | `shelf` | Optional curated shelf: ordered `books` group, `layout_hint`. |
 | Site settings | `site_settings` | Single type: title, tagline, about, featured shelf, SEO. |
 
@@ -79,7 +79,6 @@ All types except Site settings are repeatable and have a `uid`. None is a page t
 | Star Rating | `rating` (0 to 5, quarter steps) |
 | Review | `review` (private, see below) |
 | Content Warnings, Content Warning Description | `content_warnings`, `content_warning_description` |
-| Tags | `genres[].genre` (one `genre` document per tag, as-is) |
 | Owned? | `owned` |
 
 Notes for the import step (not done here):
@@ -88,7 +87,7 @@ Notes for the import step (not done here):
 - `uid` must be unique per type. Titles repeat, so derive it from title plus a disambiguator (for example the ISBN) when needed.
 - Decode HTML entities (`&amp;`) and wrap `Review` HTML into rich text.
 - The catalog is owned books plus the full read history, so import rows that are `Owned? = Yes` or have been read, and skip unowned to-read rows.
-- The sample export has an empty `Tags` column, so genres may have to be added by hand or from another source.
+- StoryGraph `Tags` are a different thing from genres and are not imported (the column is empty in the sample export). `genres` are filled from Open Library or Google Books subjects during cover/metadata enrichment, one `genre` document per genre.
 
 ### Reviews are not public in v1
 
@@ -107,7 +106,7 @@ The site never renders `review`.
 - Visitor accounts, search index, live StoryGraph sync.
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
 - Author `links`, series `books` back-references, `purchase_year`, `edition_year`, `page_count`, publisher. Add them if the UI needs them.
-- A separate tag type. StoryGraph tags become `genre` documents.
+- StoryGraph tags: not modelled, they are not genres.
 - Slices and page types. There is no About page yet; `site_settings.about` holds the blurb.
 
 ## Routes in this scaffold
