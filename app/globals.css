@@ -531,6 +531,12 @@
     background: #1e140e;
   }
 
+  .room-minimap__stack {
+    fill: rgb(92 64 40 / 0.55);
+    stroke: rgb(58 42 28 / 0.7);
+    stroke-width: 0.4;
+  }
+
   .room-minimap__aisle {
     stroke: #c4a35a;
     stroke-width: 1.8;

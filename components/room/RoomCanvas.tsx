@@ -30,6 +30,7 @@ import {
 import {
   buildAisleSigns,
   shelfFaceAmount,
+  shelfFaceNormal,
   windowWorldPose,
   type AisleSign,
   type FloorPlan,
@@ -181,8 +182,7 @@ function WalkCamera({
     let targetZ = z;
     let targetY = EYE_HEIGHT;
     if (face.slot && amount > 0.05) {
-      const fx = Math.sin(face.slot.facing);
-      const fz = -Math.cos(face.slot.facing);
+      const { x: fx, z: fz } = shelfFaceNormal(face.slot.facing);
       // Stand back from the case so the full bay fits.
       targetX = THREE.MathUtils.lerp(x, face.slot.x + fx * SHELF_DIST, amount * 0.85);
       targetZ = THREE.MathUtils.lerp(z, face.slot.z + fz * SHELF_DIST, amount * 0.85);
@@ -434,8 +434,9 @@ function EntrancePlate({ landmark }: { landmark: FloorPlan["entrance"] }) {
 
 function DeskAlcove() {
   const wood = useWoodTexture(5);
+  // South-west clearing — clear of stacks and windows.
   return (
-    <group position={[-5.2, 0, 2]}>
+    <group position={[-9.0, 0, 3.0]}>
       <mesh position={[0, 0.55, 0]}>
         <boxGeometry args={[1.6, 0.12, 0.9]} />
         <meshStandardMaterial map={wood} color={PALETTE.walnut} roughness={1} />
@@ -453,11 +454,11 @@ function DeskAlcove() {
           <span className="label">Reading desk</span>
         </div>
       </Html>
-      <mesh position={[1.7, 0.7, 0.6]}>
+      <mesh position={[1.8, 0.7, 0.35]}>
         <boxGeometry args={[0.9, 1.1, 0.45]} />
         <meshStandardMaterial color={PALETTE.oxblood} roughness={1} />
       </mesh>
-      <Html position={[1.7, 1.4, 0.6]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
+      <Html position={[1.8, 1.4, 0.35]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
         <div className="room-sign-3d">
           <span className="label">Catalogue</span>
         </div>

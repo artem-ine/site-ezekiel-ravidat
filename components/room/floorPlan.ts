@@ -5,14 +5,14 @@ import { MAX_SPINES_PER_SIDE } from "@/components/room/roomConfig";
 export type Vec2 = { x: number; z: number };
 
 export type AisleId =
-  | "main"
-  | "west"
-  | "east"
-  | "north"
-  | "loop-w"
-  | "loop-e"
+  | "center"
+  | "west-aisle"
+  | "east-aisle"
+  | "cross-s"
+  | "cross-m"
+  | "cross-n"
   | "desk"
-  | "back";
+  | "loop";
 
 export type ShelfSlot = {
   id: string;
@@ -60,9 +60,18 @@ export type Collider = {
   maxZ: number;
 };
 
+export type StackCenter = {
+  id: string;
+  x: number;
+  z: number;
+  /** Long axis along Z (books face ±X) when true; along X when false. */
+  alongZ: boolean;
+};
+
 export type FloorPlan = {
   aisles: { id: AisleId; from: Vec2; to: Vec2; width: number }[];
   slots: ShelfSlot[];
+  stacks: StackCenter[];
   landmarks: Landmark[];
   colliders: Collider[];
   windows: WallWindow[];
@@ -73,83 +82,179 @@ export type FloorPlan = {
 /** Small radius so corners and junctions stay passable. */
 export const PLAYER_R = 0.22;
 
-/** Branching library with wide aisles and clear junction pads. */
-export function buildFloorPlan(): FloorPlan {
-  const aisles: FloorPlan["aisles"] = [
-    { id: "main", from: { x: 0, z: 5 }, to: { x: 0, z: -14 }, width: 3.2 },
-    { id: "west", from: { x: 0, z: -2 }, to: { x: -11, z: -2 }, width: 3.0 },
-    { id: "east", from: { x: 0, z: -2 }, to: { x: 11, z: -2 }, width: 3.0 },
-    { id: "north", from: { x: 0, z: -8 }, to: { x: 0, z: -14 }, width: 3.0 },
-    { id: "loop-w", from: { x: -11, z: -2 }, to: { x: -11, z: -12 }, width: 2.8 },
-    { id: "loop-e", from: { x: 11, z: -2 }, to: { x: 11, z: -12 }, width: 2.8 },
-    { id: "back", from: { x: -11, z: -12 }, to: { x: 11, z: -12 }, width: 2.8 },
-    { id: "desk", from: { x: 0, z: 2.5 }, to: { x: -6, z: 2.5 }, width: 2.6 },
-  ];
+/** Half the case depth — backs of a double-sided stack meet near the centre. */
+const STACK_HALF = 0.3;
+/** Case body along its long axis (matches ShelfBay depth 3.4). */
+const STACK_HALF_LEN = 1.7;
+/** Comfortable aisle clear width between facing book faces (~body + turn). */
+const AISLE_CLEAR = 3.2;
 
-  // Cases sit farther from the aisle centre so walking clearance is generous.
-  const slots: ShelfSlot[] = [
-    ...bayPair("main", 0, 0.5, "Hall"),
-    ...bayPair("main", 0, -5, "Hall"),
-    ...bayPair("main", 0, -10.5, "Hall"),
-    ...bayPairAlong("west", -5, -2, "West"),
-    ...bayPairAlong("west", -9, -2, "West"),
-    ...bayPairAlong("east", 5, -2, "East"),
-    ...bayPairAlong("east", 9, -2, "East"),
-    ...bayPair("loop-w", -11, -6, "Loop"),
-    ...bayPair("loop-w", -11, -9.5, "Loop"),
-    ...bayPair("loop-e", 11, -6, "Loop"),
-    ...bayPair("loop-e", 11, -9.5, "Loop"),
-    ...bayPairAlong("back", -5.5, -12, "Back"),
-    ...bayPairAlong("back", 5.5, -12, "Back"),
-    ...bayPair("north", 0, -13.2, "North"),
-  ];
+/**
+ * Open reading room: free-standing double-sided stacks in parallel rows,
+ * with cross-aisles and clearings — nothing against the walls or windows.
+ */
+export function buildFloorPlan(): FloorPlan {
+  const floor = { minX: -13, maxX: 13, minZ: -15, maxZ: 6.5 };
+
+  // Four N–S stack rows. Books face ±X into the aisles between rows.
+  // Column spacing leaves ≥ AISLE_CLEAR between facing spines; outer columns
+  // stay well clear of the walls/windows (~4–5 units).
+  const columns = [-8, -3.2, 3.2, 8];
+  // Three bays per column with cross-aisle gaps between them.
+  const bayZs = [0.6, -5.0, -10.6];
+  const hints = ["A–C", "D–G", "H–L", "M–R", "S–Z", "Recent"];
+
+  const slots: ShelfSlot[] = [];
+  const stacks: StackCenter[] = [];
+  let hintIdx = 0;
+
+  for (let c = 0; c < columns.length; c += 1) {
+    const cx = columns[c];
+    const aisleId: AisleId =
+      cx < -5 ? "west-aisle" : cx > 5 ? "east-aisle" : "center";
+    for (let b = 0; b < bayZs.length; b += 1) {
+      const cz = bayZs[b];
+      const hint = hints[hintIdx % hints.length];
+      hintIdx += 1;
+      const stackId = `stack-${c}-${b}`;
+      stacks.push({ id: stackId, x: cx, z: cz, alongZ: true });
+      slots.push(...doubleStack(aisleId, stackId, cx, cz, true, hint));
+    }
+  }
 
   const entrance: Landmark = {
     id: "entrance",
     label: "Entrance",
     x: 0,
-    z: 4.2,
+    z: 4.4,
     yaw: 0,
   };
 
   const landmarks: Landmark[] = [
     entrance,
-    { id: "desk", label: "Reading desk", x: -4.2, z: 3.5, yaw: -Math.PI / 2 },
-    { id: "catalogue", label: "Card catalogue", x: -2.6, z: 3.3, yaw: -0.5 },
-    { id: "north", label: "North stacks", x: 0, z: -12.6, yaw: 0 },
+    { id: "desk", label: "Reading desk", x: -9.2, z: 3.6, yaw: Math.PI / 2 },
+    { id: "catalogue", label: "Card catalogue", x: -7.4, z: 3.4, yaw: 0.4 },
+    { id: "north", label: "North stacks", x: 0, z: -12.4, yaw: 0 },
   ];
 
-  // Wide mullioned windows set into outer walls, parallel to those walls (never across an aisle).
+  const aisles: FloorPlan["aisles"] = [
+    { id: "center", from: { x: 0, z: 5 }, to: { x: 0, z: -13.5 }, width: 5.8 },
+    { id: "west-aisle", from: { x: -5.6, z: 2 }, to: { x: -5.6, z: -12.5 }, width: 3.6 },
+    { id: "east-aisle", from: { x: 5.6, z: 2 }, to: { x: 5.6, z: -12.5 }, width: 3.6 },
+    { id: "cross-s", from: { x: -10, z: -2.2 }, to: { x: 10, z: -2.2 }, width: 2.8 },
+    { id: "cross-m", from: { x: -10, z: -7.8 }, to: { x: 10, z: -7.8 }, width: 2.8 },
+    { id: "cross-n", from: { x: -10, z: -13.2 }, to: { x: 10, z: -13.2 }, width: 2.6 },
+    { id: "desk", from: { x: 0, z: 3.5 }, to: { x: -9.5, z: 3.5 }, width: 2.8 },
+    { id: "loop", from: { x: -10.5, z: 2 }, to: { x: -10.5, z: -12 }, width: 2.4 },
+  ];
+
+  // Wide mullioned windows in outer walls only — stacks stay clear of them.
   const windows: WallWindow[] = [
-    { id: "w-w1", wall: "west", along: 2.5, width: 3.6, height: 1.85 },
-    { id: "w-w2", wall: "west", along: -4.0, width: 3.6, height: 1.85 },
-    { id: "w-w3", wall: "west", along: -10.0, width: 3.6, height: 1.85 },
-    { id: "w-e1", wall: "east", along: 2.5, width: 3.6, height: 1.85 },
-    { id: "w-e2", wall: "east", along: -4.0, width: 3.6, height: 1.85 },
-    { id: "w-e3", wall: "east", along: -10.0, width: 3.6, height: 1.85 },
+    { id: "w-w1", wall: "west", along: 2.0, width: 3.6, height: 1.85 },
+    { id: "w-w2", wall: "west", along: -5.0, width: 3.6, height: 1.85 },
+    { id: "w-w3", wall: "west", along: -11.0, width: 3.6, height: 1.85 },
+    { id: "w-e1", wall: "east", along: 2.0, width: 3.6, height: 1.85 },
+    { id: "w-e2", wall: "east", along: -5.0, width: 3.6, height: 1.85 },
+    { id: "w-e3", wall: "east", along: -11.0, width: 3.6, height: 1.85 },
     { id: "w-n1", wall: "north", along: -5.5, width: 3.4, height: 1.7 },
     { id: "w-n2", wall: "north", along: 5.5, width: 3.4, height: 1.7 },
     { id: "w-s1", wall: "south", along: -5.5, width: 3.4, height: 1.7 },
     { id: "w-s2", wall: "south", along: 5.5, width: 3.4, height: 1.7 },
   ];
 
-  const colliders: Collider[] = [
-    { minX: -14, maxX: 14, minZ: 7.0, maxZ: 7.8 },
-    { minX: -14, maxX: 14, minZ: -16.5, maxZ: -15.6 },
-    { minX: -14.2, maxX: -13.3, minZ: -16.5, maxZ: 7.5 },
-    { minX: 13.3, maxX: 14.2, minZ: -16.5, maxZ: 7.5 },
-    ...slots.map((slot) => caseCollider(slot)),
-    { minX: -6.0, maxX: -4.4, minZ: 1.5, maxZ: 2.4 },
+  const wallColliders: Collider[] = [
+    { minX: floor.minX - 0.4, maxX: floor.maxX + 0.4, minZ: floor.maxZ, maxZ: floor.maxZ + 0.8 },
+    { minX: floor.minX - 0.4, maxX: floor.maxX + 0.4, minZ: floor.minZ - 0.8, maxZ: floor.minZ },
+    { minX: floor.minX - 0.8, maxX: floor.minX, minZ: floor.minZ, maxZ: floor.maxZ },
+    { minX: floor.maxX, maxX: floor.maxX + 0.8, minZ: floor.minZ, maxZ: floor.maxZ },
   ];
+
+  const colliders: Collider[] = [
+    ...wallColliders,
+    ...stacks.map((stack) => stackCollider(stack)),
+    // Reading desk / catalogue block in the south-west clearing.
+    { minX: -10.2, maxX: -7.8, minZ: 2.4, maxZ: 3.6 },
+    { minX: -7.2, maxX: -6.2, minZ: 2.8, maxZ: 3.6 },
+  ];
+
+  // Sanity: nearest stack face to a wall should leave room to stand and turn.
+  void AISLE_CLEAR;
 
   return {
     aisles,
     slots,
+    stacks,
     landmarks,
     colliders,
     windows,
-    floor: { minX: -14, maxX: 14, minZ: -16.5, maxZ: 7.5 },
+    floor,
     entrance,
+  };
+}
+
+/** Two back-to-back ShelfBay slots sharing a free-standing stack centre. */
+function doubleStack(
+  aisleId: AisleId,
+  stackId: string,
+  cx: number,
+  cz: number,
+  faceX: boolean,
+  hint: string,
+): ShelfSlot[] {
+  if (faceX) {
+    return [
+      {
+        id: `${stackId}-W`,
+        aisleId,
+        x: cx - STACK_HALF,
+        z: cz,
+        facing: Math.PI,
+        labelHint: hint,
+      },
+      {
+        id: `${stackId}-E`,
+        aisleId,
+        x: cx + STACK_HALF,
+        z: cz,
+        facing: 0,
+        labelHint: hint,
+      },
+    ];
+  }
+  return [
+    {
+      id: `${stackId}-N`,
+      aisleId,
+      x: cx,
+      z: cz - STACK_HALF,
+      facing: Math.PI / 2,
+      labelHint: hint,
+    },
+    {
+      id: `${stackId}-S`,
+      aisleId,
+      x: cx,
+      z: cz + STACK_HALF,
+      facing: -Math.PI / 2,
+      labelHint: hint,
+    },
+  ];
+}
+
+function stackCollider(stack: StackCenter): Collider {
+  if (stack.alongZ) {
+    return {
+      minX: stack.x - STACK_HALF - 0.08,
+      maxX: stack.x + STACK_HALF + 0.08,
+      minZ: stack.z - STACK_HALF_LEN,
+      maxZ: stack.z + STACK_HALF_LEN,
+    };
+  }
+  return {
+    minX: stack.x - STACK_HALF_LEN,
+    maxX: stack.x + STACK_HALF_LEN,
+    minZ: stack.z - STACK_HALF - 0.08,
+    maxZ: stack.z + STACK_HALF + 0.08,
   };
 }
 
@@ -180,7 +285,6 @@ export function windowWorldPose(
     };
   }
   if (win.wall === "north") {
-    // Far end of the room (min Z): pane in XZ wall plane, normal +Z into the stacks.
     return {
       x: win.along,
       y,
@@ -190,7 +294,6 @@ export function windowWorldPose(
       inwardZ: 1,
     };
   }
-  // South / entrance wall (max Z): normal −Z into the room.
   return {
     x: win.along,
     y,
@@ -201,89 +304,62 @@ export function windowWorldPose(
   };
 }
 
-/** Small POV-height signs at shelf ends in the aisle, naming that section. */
+/**
+ * Book-face normal in XZ. ShelfBay rotates around Y so local +X (spines) maps to
+ * (cos(facing), −sin(facing)).
+ */
+export function shelfFaceNormal(facing: number): { x: number; z: number } {
+  return { x: Math.cos(facing), z: -Math.sin(facing) };
+}
+
+/** Small POV-height signs at the ends of each stack, naming that section. */
 export function buildAisleSigns(placed: PlacedShelf[]): AisleSign[] {
   const signs: AisleSign[] = [];
+  const seen = new Set<string>();
+
   for (const slot of placed) {
     if (!slot.shelf) continue;
-    const fx = Math.sin(slot.facing);
-    const fz = -Math.cos(slot.facing);
-    // Sideways along the shelf face (perpendicular to facing).
-    const endX = -fz;
-    const endZ = fx;
-    const into = 0.62;
-    const along = 1.55;
-    const label = slot.shelf.label;
-    // Two ends of the bay: arrows point toward the shelf mid from the aisle approach.
+    // One sign pair per double-sided stack (use the east/south face as key).
+    const stackKey = slot.id.replace(/-(W|E|N|S)$/, "");
+    if (seen.has(stackKey)) continue;
+    seen.add(stackKey);
+
+    const mates = placed.filter((p) => p.id.startsWith(stackKey) && p.shelf);
+    if (mates.length === 0) continue;
+    const label =
+      mates
+        .map((m) => m.shelf!.label)
+        .find(Boolean) ?? slot.shelf.label;
+
+    // Stack long axis from first mate facing.
+    const face = shelfFaceNormal(mates[0].facing);
+    // End direction = perpendicular to face (along the bay).
+    const endX = -face.z;
+    const endZ = face.x;
+    const cx = mates.reduce((s, m) => s + m.x, 0) / mates.length;
+    const cz = mates.reduce((s, m) => s + m.z, 0) / mates.length;
+    const along = STACK_HALF_LEN + 0.35;
+    // Sign faces into the nearer aisle (same as the first mate's face).
+    const signFacing = mates[0].facing;
+
     signs.push({
-      id: `sign-${slot.id}-a`,
-      x: slot.x + fx * into + endX * along,
-      z: slot.z + fz * into + endZ * along,
+      id: `sign-${stackKey}-a`,
+      x: cx + endX * along + face.x * 0.15,
+      z: cz + endZ * along + face.z * 0.15,
       y: 1.38,
-      facing: slot.facing,
+      facing: signFacing,
       text: `${label} →`,
     });
     signs.push({
-      id: `sign-${slot.id}-b`,
-      x: slot.x + fx * into - endX * along,
-      z: slot.z + fz * into - endZ * along,
+      id: `sign-${stackKey}-b`,
+      x: cx - endX * along + face.x * 0.15,
+      z: cz - endZ * along + face.z * 0.15,
       y: 1.38,
-      facing: slot.facing,
+      facing: signFacing,
       text: `← ${label}`,
     });
   }
   return signs;
-}
-
-function bayPair(aisleId: AisleId, x: number, z: number, hint: string): ShelfSlot[] {
-  const offset = 2.05;
-  return [
-    { id: `${aisleId}-L-${z}`, aisleId, x: x - offset, z, facing: 0, labelHint: hint },
-    { id: `${aisleId}-R-${z}`, aisleId, x: x + offset, z, facing: Math.PI, labelHint: hint },
-  ];
-}
-
-function bayPairAlong(aisleId: AisleId, x: number, z: number, hint: string): ShelfSlot[] {
-  const offset = 2.05;
-  return [
-    {
-      id: `${aisleId}-N-${x}`,
-      aisleId,
-      x,
-      z: z - offset,
-      facing: Math.PI / 2,
-      labelHint: hint,
-    },
-    {
-      id: `${aisleId}-S-${x}`,
-      aisleId,
-      x,
-      z: z + offset,
-      facing: -Math.PI / 2,
-      labelHint: hint,
-    },
-  ];
-}
-
-function caseCollider(slot: ShelfSlot): Collider {
-  // Tight box on the case body only — leaves junction pads open.
-  const hw = 0.28;
-  const hd = 1.35;
-  const alongX = Math.abs(Math.cos(slot.facing)) > 0.5;
-  if (alongX) {
-    return {
-      minX: slot.x - hw,
-      maxX: slot.x + hw,
-      minZ: slot.z - hd,
-      maxZ: slot.z + hd,
-    };
-  }
-  return {
-    minX: slot.x - hd,
-    maxX: slot.x + hd,
-    minZ: slot.z - hw,
-    maxZ: slot.z + hw,
-  };
 }
 
 export type PlacedShelf = ShelfSlot & {
@@ -350,17 +426,14 @@ export function moveWithCollision(
   const tryZ = z + dz;
   if (!hitsAny(tryX, tryZ, colliders)) return { x: tryX, z: tryZ };
 
-  // Prefer the freer axis so you glide along shelves instead of sticking.
   const freeX = !hitsAny(tryX, z, colliders);
   const freeZ = !hitsAny(x, tryZ, colliders);
   if (freeX && freeZ) {
-    // Both free alone but not together (rare corner) — pick longer delta.
     return Math.abs(dx) >= Math.abs(dz) ? { x: tryX, z } : { x, z: tryZ };
   }
   if (freeX) return { x: tryX, z };
   if (freeZ) return { x, z: tryZ };
 
-  // Nudge along the wall with a shorter step.
   const hx = dx * 0.5;
   const hz = dz * 0.5;
   if (!hitsAny(x + hx, z, colliders)) return { x: x + hx, z };
@@ -383,19 +456,19 @@ export function shelfFaceAmount(
     const toX = slot.x - x;
     const toZ = slot.z - z;
     const dist = Math.hypot(toX, toZ);
-    if (dist > 5.5 || dist < 0.5) continue;
+    if (dist > 5.5 || dist < 0.45) continue;
 
-    const faceX = Math.sin(slot.facing);
-    const faceZ = -Math.cos(slot.facing);
+    const { x: faceX, z: faceZ } = shelfFaceNormal(slot.facing);
     const along = (x - slot.x) * faceX + (z - slot.z) * faceZ;
-    if (along < 0.8 || along > 5.0) continue;
+    // Stand in front of the spines, not behind the case.
+    if (along < 0.7 || along > 4.2) continue;
 
     const lookX = Math.sin(yaw);
     const lookZ = -Math.cos(yaw);
     const towardX = toX / dist;
     const towardZ = toZ / dist;
     const align = lookX * towardX + lookZ * towardZ;
-    if (align < 0.6) continue;
+    if (align < 0.55) continue;
 
     const score = align * (1 - dist / 6);
     if (score > bestScore) {

@@ -412,9 +412,9 @@ export function LibraryRoom({ books }: Props) {
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Branching pixel library. Hold W S or arrows to walk, A D to turn. Scroll also walks. Drag
-          vertically or hold R and F to look up and down. Home or the mini-map returns to the
-          entrance. Click a book to open it; Escape closes it.
+          Open pixel library with free-standing stacks. Hold W S or arrows to walk, A D to turn.
+          Scroll also walks. Drag vertically or hold R and F to look up and down. Home or the
+          mini-map returns to the entrance. Click a book to open it; Escape closes it.
         </p>
 
         <nav className="room-sr-only" aria-label="Books near you">
@@ -558,6 +558,22 @@ function MiniMap({
             className="room-minimap__aisle"
           />
         ))}
+        {plan.stacks.map((stack) => {
+          const worldW = stack.alongZ ? 0.7 : 3.4;
+          const worldH = stack.alongZ ? 3.4 : 0.7;
+          const rw = (worldW / w) * 100;
+          const rh = (worldH / h) * 100;
+          return (
+            <rect
+              key={stack.id}
+              x={toX(stack.x) - rw / 2}
+              y={toY(stack.z) - rh / 2}
+              width={rw}
+              height={rh}
+              className="room-minimap__stack"
+            />
+          );
+        })}
         {plan.landmarks.map((mark) => (
           <circle
             key={mark.id}
