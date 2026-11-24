@@ -702,11 +702,13 @@ function BookSpine3D({
 }) {
   const group = useRef<THREE.Group>(null);
   const coverRef = useRef<THREE.Mesh>(null);
+  const bodyMat = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
   const coverMap = useCoverMap(book.coverUrl, loadCover || selected);
   const cloth = spineCloth(book);
   const clothMap = useMemo(() => makeSpineTexture(cloth, seed), [cloth, seed]);
   const progress = useRef(preferReducedMotion && selected ? 1 : 0);
+  const hoverAmt = useRef(0);
   const lean = pose === "lean" ? ((seed % 2 === 0 ? 1 : -1) * (0.12 + (seed % 5) * 0.02)) : 0;
 
   useEffect(
@@ -717,30 +719,34 @@ function BookSpine3D({
   );
 
   useFrame((_, delta) => {
-    if (!selected && progress.current < 0.001 && !group.current) return;
+    if (!group.current) return;
     const target = selected ? 1 : 0;
     if (preferReducedMotion) progress.current = target;
-    else {
-      if (Math.abs(target - progress.current) < 0.001) {
-        progress.current = target;
+    else progress.current += (target - progress.current) * Math.min(1, delta * 6);
+    const hoverTarget = hovered && !selected ? 1 : 0;
+    hoverAmt.current += (hoverTarget - hoverAmt.current) * Math.min(1, delta * 14);
+    const t = progress.current;
+    const h = hoverAmt.current;
+    const lift = h * 0.05;
+    const slide = h * 0.03;
+
+    if (t < 0.001 && !selected) {
+      group.current.position.set(rest.x + slide, rest.y + lift, rest.z);
+      group.current.rotation.set(
+        pose === "flat" ? Math.PI / 2 : 0,
+        0,
+        pose === "flat" ? lean * 0.3 : lean,
+      );
+    } else {
+      group.current.position.set(rest.x + t * 0.55 + slide, rest.y + t * 0.1 + lift, rest.z);
+      if (pose === "flat" && t < 0.05) {
+        group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);
       } else {
-        progress.current += (target - progress.current) * Math.min(1, delta * 6);
+        group.current.rotation.set(0, (Math.PI / 2) * t, lean * (1 - t));
       }
     }
-    const t = progress.current;
-    if (!group.current) return;
-    if (t < 0.001 && !selected) {
-      group.current.position.copy(rest);
-      group.current.rotation.set(pose === "flat" ? Math.PI / 2 : 0, 0, pose === "flat" ? lean * 0.3 : lean);
-      return;
-    }
-    group.current.position.set(rest.x + t * 0.55, rest.y + t * 0.1, rest.z);
-    if (pose === "flat" && t < 0.05) {
-      group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);
-    } else {
-      group.current.rotation.set(0, (Math.PI / 2) * t, lean * (1 - t));
-    }
     if (coverRef.current) coverRef.current.rotation.y = -(Math.PI * 0.72) * t;
+    if (bodyMat.current) bodyMat.current.emissiveIntensity = h * 0.35;
   });
 
   const pick = (event: ThreeEvent<PointerEvent>) => {
@@ -754,14 +760,12 @@ function BookSpine3D({
   const bodyW = facing ? depth + 0.02 : depth;
   const bodyH = pose === "flat" ? thickness : height;
   const bodyD = pose === "flat" ? height : thickness;
-  // Generous hit volume covering bevel, lean, and headband/tail.
   const hitW = Math.max(bodyW, 0.14) + 0.1;
   const hitH = bodyH + 0.08;
   const hitD = bodyD + 0.1;
 
   return (
     <group ref={group} position={rest.toArray()}>
-      {/* Invisible pick target — visuals do not raycast so bevels cannot steal clicks */}
       <mesh
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -784,11 +788,25 @@ function BookSpine3D({
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
+      {/* Outline / lift cue so the hovered spine is obvious on a crowded bay. */}
+      <mesh scale={[1.1, 1.12, 1.1]} raycast={noopRaycast}>
+        <boxGeometry args={[bodyW, bodyH, bodyD]} />
+        <meshBasicMaterial
+          color={hovered ? "#ffe7b0" : "#1a120c"}
+          transparent
+          opacity={hovered ? 0.5 : 0.22}
+          depthWrite={false}
+        />
+      </mesh>
+
       <mesh raycast={noopRaycast}>
         <boxGeometry args={[bodyW, bodyH, bodyD]} />
         <meshStandardMaterial
+          ref={bodyMat}
           map={spineMap}
           color={coverMap ? "#ffffff" : cloth}
+          emissive="#c9a227"
+          emissiveIntensity={0}
           roughness={0.92}
         />
       </mesh>

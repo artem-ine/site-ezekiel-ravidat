@@ -1,8 +1,18 @@
 import type { LibraryBook } from "@/lib/books";
 import type { ShelfGroup } from "@/components/library/groupBooks";
 import { MAX_SPINES_PER_SIDE } from "@/components/room/roomConfig";
+import {
+  PLAYER_R,
+  depenetrate,
+  hitsAny,
+  moveWithCollision,
+  nudgeFromColliders,
+  type Collider,
+  type Vec2,
+} from "@/components/room/collision";
 
-export type Vec2 = { x: number; z: number };
+export type { Collider, Vec2 };
+export { PLAYER_R, depenetrate, hitsAny, moveWithCollision, nudgeFromColliders };
 
 export type AisleId =
   | "center"
@@ -53,13 +63,6 @@ export type Landmark = {
   yaw: number;
 };
 
-export type Collider = {
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
-};
-
 export type StackCenter = {
   id: string;
   x: number;
@@ -79,13 +82,10 @@ export type FloorPlan = {
   entrance: Landmark;
 };
 
-/** Small radius so corners and junctions stay passable. */
-export const PLAYER_R = 0.22;
-
 /** Half the case depth — backs of a double-sided stack meet near the centre. */
-const STACK_HALF = 0.3;
-/** Case body along its long axis (matches ShelfBay depth 3.4). */
-const STACK_HALF_LEN = 1.7;
+const STACK_HALF = 0.26;
+/** Collision length along the bay — slightly inside the visual 3.4 so ends stay passable. */
+const STACK_HALF_LEN = 1.5;
 /** Comfortable aisle clear width between facing book faces (~body + turn). */
 const AISLE_CLEAR = 3.2;
 
@@ -99,9 +99,9 @@ export function buildFloorPlan(): FloorPlan {
   // Four N–S stack rows. Books face ±X into the aisles between rows.
   // Column spacing leaves ≥ AISLE_CLEAR between facing spines; outer columns
   // stay well clear of the walls/windows (~4–5 units).
-  const columns = [-8, -3.2, 3.2, 8];
-  // Three bays per column with cross-aisle gaps between them.
-  const bayZs = [0.6, -5.0, -10.6];
+  const columns = [-8.2, -3.0, 3.0, 8.2];
+  // Three bays per column; north bay leaves a clear walk north of the stack ends.
+  const bayZs = [0.8, -5.2, -10.6];
   const hints = ["A–C", "D–G", "H–L", "M–R", "S–Z", "Recent"];
 
   const slots: ShelfSlot[] = [];
@@ -132,8 +132,9 @@ export function buildFloorPlan(): FloorPlan {
 
   const landmarks: Landmark[] = [
     entrance,
-    { id: "desk", label: "Reading desk", x: -9.2, z: 3.6, yaw: Math.PI / 2 },
-    { id: "catalogue", label: "Card catalogue", x: -7.4, z: 3.4, yaw: 0.4 },
+    // Stand in the clear path beside the desk/catalogue, not inside their colliders.
+    { id: "desk", label: "Reading desk", x: -6.2, z: 3.8, yaw: Math.PI / 2 },
+    { id: "catalogue", label: "Card catalogue", x: -5.4, z: 3.2, yaw: 0.4 },
     { id: "north", label: "North stacks", x: 0, z: -12.4, yaw: 0 },
   ];
 
@@ -172,12 +173,11 @@ export function buildFloorPlan(): FloorPlan {
   const colliders: Collider[] = [
     ...wallColliders,
     ...stacks.map((stack) => stackCollider(stack)),
-    // Reading desk / catalogue block in the south-west clearing.
-    { minX: -10.2, maxX: -7.8, minZ: 2.4, maxZ: 3.6 },
-    { minX: -7.2, maxX: -6.2, minZ: 2.8, maxZ: 3.6 },
+    // Reading desk / catalogue — kept west of the south path so cross-s stays clear.
+    { minX: -10.0, maxX: -8.4, minZ: 2.5, maxZ: 3.5 },
+    { minX: -8.2, maxX: -7.4, minZ: 2.9, maxZ: 3.5 },
   ];
 
-  // Sanity: nearest stack face to a wall should leave room to stand and turn.
   void AISLE_CLEAR;
 
   return {
@@ -371,74 +371,6 @@ export function placeShelves(plan: FloorPlan, shelves: ShelfGroup[]): PlacedShel
     ...slot,
     shelf: shelves[index] ?? null,
   }));
-}
-
-function overlaps(x: number, z: number, box: Collider, radius: number): boolean {
-  return (
-    x + radius > box.minX &&
-    x - radius < box.maxX &&
-    z + radius > box.minZ &&
-    z - radius < box.maxZ
-  );
-}
-
-function hitsAny(x: number, z: number, colliders: Collider[], radius = PLAYER_R): boolean {
-  for (const box of colliders) {
-    if (overlaps(x, z, box, radius)) return true;
-  }
-  return false;
-}
-
-/** Push out if the player somehow ends up inside a collider. */
-function unstick(x: number, z: number, colliders: Collider[]): Vec2 {
-  if (!hitsAny(x, z, colliders)) return { x, z };
-  const steps = [
-    [0.35, 0],
-    [-0.35, 0],
-    [0, 0.35],
-    [0, -0.35],
-    [0.5, 0.5],
-    [-0.5, 0.5],
-    [0.5, -0.5],
-    [-0.5, -0.5],
-  ];
-  for (const [sx, sz] of steps) {
-    if (!hitsAny(x + sx, z + sz, colliders)) return { x: x + sx, z: z + sz };
-  }
-  return { x, z };
-}
-
-/**
- * Move with axis slide. Turning is never gated by this — only translation is.
- */
-export function moveWithCollision(
-  x: number,
-  z: number,
-  dx: number,
-  dz: number,
-  colliders: Collider[],
-): Vec2 {
-  const start = unstick(x, z, colliders);
-  x = start.x;
-  z = start.z;
-
-  const tryX = x + dx;
-  const tryZ = z + dz;
-  if (!hitsAny(tryX, tryZ, colliders)) return { x: tryX, z: tryZ };
-
-  const freeX = !hitsAny(tryX, z, colliders);
-  const freeZ = !hitsAny(x, tryZ, colliders);
-  if (freeX && freeZ) {
-    return Math.abs(dx) >= Math.abs(dz) ? { x: tryX, z } : { x, z: tryZ };
-  }
-  if (freeX) return { x: tryX, z };
-  if (freeZ) return { x, z: tryZ };
-
-  const hx = dx * 0.5;
-  const hz = dz * 0.5;
-  if (!hitsAny(x + hx, z, colliders)) return { x: x + hx, z };
-  if (!hitsAny(x, z + hz, colliders)) return { x, z: z + hz };
-  return { x, z };
 }
 
 export function shelfFaceAmount(

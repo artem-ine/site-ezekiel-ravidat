@@ -24,6 +24,7 @@ import { clampPitch, statusMark } from "@/components/room/roomConfig";
 import {
   buildFloorPlan,
   moveWithCollision,
+  nudgeFromColliders,
   nearbyBooks,
   nearestLandmark,
   placeShelves,
@@ -187,6 +188,12 @@ export function LibraryRoom({ books }: Props) {
         (keys.left ? 1 : 0) * -2.6 + (keys.right ? 1 : 0) * 2.6;
       body.vyaw += (wishYaw - body.vyaw) * Math.min(1, dt * 10);
       body.yaw = wrapYaw(body.yaw + body.vyaw * dt);
+      // Turning is never blocked — soft-nudge away if we pivot into a wall.
+      if (Math.abs(body.vyaw) > 0.05) {
+        const nudged = nudgeFromColliders(body.x, body.z, plan.colliders);
+        body.x = nudged.x;
+        body.z = nudged.z;
+      }
 
       const wish =
         (keys.forward ? 1 : 0) + (keys.back ? -1 : 0);
@@ -363,6 +370,11 @@ export function LibraryRoom({ books }: Props) {
     posRef.current.yaw = nextYaw;
     posRef.current.vyaw = 0;
     posRef.current.pitch = nextPitch;
+    const nudged = nudgeFromColliders(posRef.current.x, posRef.current.z, plan.colliders);
+    posRef.current.x = nudged.x;
+    posRef.current.z = nudged.z;
+    setX(nudged.x);
+    setZ(nudged.z);
     setYaw(nextYaw);
     setPitch(nextPitch);
   };
