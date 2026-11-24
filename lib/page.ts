@@ -1,15 +1,20 @@
 import { cacheLife } from "next/cache";
+import { NotFoundError } from "@prismicio/client";
 import { cacheTagPrismicPages } from "@prismicio/next";
 import { createClient } from "@/prismicio";
-import { sliceFetchLinks } from "@/lib/related";
+
+const fetchLinks = ["book.title", "book.subtitle", "shelf.title"];
 
 export async function getPageByUID(uid: string, ref?: string) {
-	"use cache";
-	cacheLife("max");
-	const client = createClient();
-	const page = await client
-		.getByUID("page", uid, { ref, fetchLinks: sliceFetchLinks })
-		.catch(() => undefined);
-	if (page) cacheTagPrismicPages([page]);
-	return page;
+  "use cache";
+  cacheLife("hours");
+
+  try {
+    const page = await createClient().getByUID("page", uid, { ref, fetchLinks });
+    cacheTagPrismicPages([page]);
+    return page;
+  } catch (error) {
+    if (error instanceof NotFoundError) return undefined;
+    throw error;
+  }
 }

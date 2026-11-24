@@ -123,7 +123,13 @@ The site never renders `review`.
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
 - Author `links`, series `books` back-references, `purchase_year`, `edition_year`, `page_count`, publisher. Add them if the UI needs them.
 - StoryGraph tags: not modelled, they are not genres.
-- Visual design: slice components are unstyled placeholders.
+- Final visual design: the current styling is a quiet foundation (layout, header and slices only). Shelves and book pages are not designed yet.
+
+## Styling
+
+Tailwind CSS v4 (`@tailwindcss/postcss`, configured in `postcss.config.mjs`). All design tokens live in one place, `app/globals.css`: the palette (aged paper, walnut ink, oxblood and brass accents), the fonts (EB Garamond for text, Courier Prime for small catalogue labels, loaded in `app/layout.tsx` with `next/font`), spacing and sizes. Change the values there and the whole site follows. Motion is limited to three small cues and is switched off under `prefers-reduced-motion`.
+
+Pages are cached for an hour (`cacheLife("hours")` in `lib/page.ts`) and revalidated by the `/api/revalidate` webhook when content is published.
 
 ## Routes in this scaffold
 

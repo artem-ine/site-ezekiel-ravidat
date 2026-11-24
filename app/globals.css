@@ -1,9 +1,116 @@
-:root {
-  color-scheme: light dark;
+@import "tailwindcss";
+
+/*
+  Design tokens. Retune the palette, fonts and spacing here; nothing else in the
+  codebase hard-codes colours or font names.
+*/
+@theme inline {
+  --font-serif: var(--font-garamond), "Iowan Old Style", Georgia, serif;
+  --font-mono: var(--font-courier), "Courier New", monospace;
 }
 
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  line-height: 1.5;
+@theme {
+  /* Dim lamplight: aged paper, walnut ink, oxblood and brass accents. */
+  --color-paper: #e7d9bd;
+  --color-paper-deep: #dccaa7;
+  --color-walnut: #2f2118;
+  --color-ink: #2f2118;
+  --color-ink-soft: #5c4837;
+  --color-oxblood: #7a2e2a;
+  --color-brass: #a07b35;
+  --color-moss: #3f5a3c;
+
+  --spacing-gutter: 1.5rem;
+  --spacing-section: 3rem;
+  --container-page: 44rem;
+
+  --text-body: 1.2rem;
+  --text-label: 0.8rem;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+  }
+
+  body {
+    min-height: 100vh;
+    font-size: var(--text-body);
+    line-height: 1.65;
+    font-feature-settings: "liga", "kern", "onum";
+    /* Lamplight from the upper left, a darker edge at the foot, and a paper grain made of SVG noise. */
+    background-image:
+      radial-gradient(ellipse 70% 45% at 15% -5%, rgb(255 214 140 / 0.3), transparent 70%),
+      radial-gradient(ellipse 90% 40% at 50% 115%, rgb(60 35 15 / 0.2), transparent 70%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .25 0 0 0 0 .17 0 0 0 0 .1 0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  ::selection {
+    background-color: var(--color-brass);
+    color: var(--color-walnut);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-oxblood);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Small catalogue-card labels: years, call numbers, section names. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-soft);
+  }
+
+  /* Links are quiet: an underline that draws in on hover. */
+  .ink-link {
+    color: var(--color-oxblood);
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    background-size: 100% 1px;
+  }
+
+  .ink-link:hover {
+    color: var(--color-ink);
+  }
+}
+
+/* Motion: a page settling in, the header rule drawing, and links underlining. */
+@media (prefers-reduced-motion: no-preference) {
+  .ink-link {
+    transition:
+      background-size 250ms ease,
+      color 250ms ease;
+  }
+
+  .ink-link:hover {
+    background-size: 100% 2px;
+  }
+
+  @keyframes settle {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+
+  @keyframes draw-rule {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  .settle {
+    animation: settle 600ms ease-out both;
+  }
+
+  .draw-rule {
+    transform-origin: left;
+    animation: draw-rule 900ms ease-out both;
+  }
 }
