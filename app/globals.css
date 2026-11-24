@@ -427,6 +427,12 @@
     height: 100% !important;
   }
 
+  .room-canvas--pixel,
+  .room-canvas--pixel canvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
   .room-loading {
     position: absolute;
     inset: 0;

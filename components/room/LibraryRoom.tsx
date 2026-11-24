@@ -22,10 +22,12 @@ import {
 import { STATUS_LABEL } from "@/lib/spine-style";
 import {
   BAY_SPACING,
+  clampPitch,
   clampYaw,
   nearbyBooksFromShelves,
   NEAR_RADIUS,
   statusMark,
+  YAW_MAX,
 } from "@/components/room/roomConfig";
 import { canCreateWebGL, RoomErrorBoundary } from "@/components/room/RoomErrorBoundary";
 
@@ -92,17 +94,20 @@ export function LibraryRoom({ books }: Props) {
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [depth, setDepth] = useState(0);
   const [yaw, setYaw] = useState(0);
+  const [pitch, setPitch] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const dragRef = useRef<{
     x: number;
     y: number;
     depth: number;
     yaw: number;
+    pitch: number;
     active: boolean;
     pointerId: number;
   } | null>(null);
   const skipDragRef = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
+  const facingWall = Math.abs(yaw) > YAW_MAX * 0.45;
 
   useEffect(() => {
     setWebglOk(canCreateWebGL());
@@ -133,6 +138,7 @@ export function LibraryRoom({ books }: Props) {
   const walkBy = useCallback(
     (delta: number) => {
       setSelectedUid(null);
+      setPitch(0);
       setDepth((current) => clampWalk(current + delta));
     },
     [clampWalk],
@@ -140,7 +146,13 @@ export function LibraryRoom({ books }: Props) {
   const lookBy = useCallback((delta: number) => {
     setYaw((current) => clampYaw(current + delta));
   }, []);
-  const faceAisle = useCallback(() => setYaw(0), []);
+  const pitchBy = useCallback((delta: number) => {
+    setPitch((current) => clampPitch(current + delta));
+  }, []);
+  const faceAisle = useCallback(() => {
+    setYaw(0);
+    setPitch(0);
+  }, []);
 
   useEffect(() => {
     setDepth((current) => clampWalk(current));
@@ -156,10 +168,12 @@ export function LibraryRoom({ books }: Props) {
       }
       if (event.key === "ArrowUp" || event.key === "w" || event.key === "W") {
         event.preventDefault();
-        walkBy(-0.35);
+        if (facingWall) pitchBy(0.08);
+        else walkBy(-0.35);
       } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
-        walkBy(0.35);
+        if (facingWall) pitchBy(-0.08);
+        else walkBy(0.35);
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
         lookBy(-0.18);
@@ -187,7 +201,7 @@ export function LibraryRoom({ books }: Props) {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [calm, walkBy, lookBy, faceAisle, maxDepth, selectedUid]);
+  }, [calm, walkBy, lookBy, pitchBy, faceAisle, maxDepth, selectedUid, facingWall]);
 
   useEffect(() => {
     if (calm) return;
@@ -228,6 +242,7 @@ export function LibraryRoom({ books }: Props) {
       y: event.clientY,
       depth,
       yaw,
+      pitch,
       active: false,
       pointerId: event.pointerId,
     };
@@ -244,8 +259,14 @@ export function LibraryRoom({ books }: Props) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       setSelectedUid(null);
     }
-    setDepth(clampWalk(drag.depth + dy / 180));
     setYaw(clampYaw(drag.yaw + dx / 220));
+    const facing = Math.abs(clampYaw(drag.yaw + dx / 220)) > YAW_MAX * 0.45;
+    if (facing) {
+      setPitch(clampPitch(drag.pitch + dy / 280));
+    } else {
+      setDepth(clampWalk(drag.depth + dy / 180));
+      setPitch(0);
+    }
   };
 
   const onPointerUp = (event: ReactPointerEvent) => {
@@ -293,9 +314,9 @@ export function LibraryRoom({ books }: Props) {
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Walkable library aisle. Use W and S or up and down arrows or scroll to walk. Use A and D or
-          left and right arrows to turn toward a shelf. Click a nearby book to open it; Escape closes
-          it or faces the aisle again. Card catalogue filters the shelves.
+          Walkable pixel library aisle. Use scroll to walk the aisle. Use A and D or left and right
+          arrows to turn toward a shelf. While facing a wall, W and S or drag up and down look gently
+          up and down. Click a book to open it; Escape closes it or faces the aisle again.
         </p>
 
         <nav className="room-sr-only" aria-label="Books near you in the aisle">
@@ -329,6 +350,7 @@ export function LibraryRoom({ books }: Props) {
             shelves={shelves}
             depth={depth}
             yaw={yaw}
+            pitch={pitch}
             selectedUid={selectedUid}
             onSelect={selectBook}
             preferReducedMotion={reducedMotion}
@@ -377,7 +399,9 @@ export function LibraryRoom({ books }: Props) {
               ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}`
               : "Aisle"}
           </p>
-          <p className="room-hud__hint label">←→ look · scroll walk · click book · Esc</p>
+          <p className="room-hud__hint label">
+            {facingWall ? "W/S look · ←→ turn · scroll walk · Esc" : "←→ look · scroll walk · click book · Esc"}
+          </p>
           {Math.abs(yaw) > 0.2 && (
             <button type="button" className="room-catalogue-pull" onClick={faceAisle}>
               Face aisle
