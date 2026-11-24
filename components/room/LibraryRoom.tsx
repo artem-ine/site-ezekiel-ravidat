@@ -412,9 +412,9 @@ export function LibraryRoom({ books }: Props) {
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Open pixel library with free-standing stacks. Hold W S or arrows to walk, A D to turn.
-          Scroll also walks. Drag vertically or hold R and F to look up and down. Home or the
-          mini-map returns to the entrance. Click a book to open it; Escape closes it.
+          Cozy pixel reading room with floor piles and furniture. Hold W S or arrows to walk, A D
+          to turn. Scroll also walks. Drag vertically or hold R and F to look up and down. Home or
+          the mini-map returns to the entrance. Click a book to open it; Escape closes it.
         </p>
 
         <nav className="room-sr-only" aria-label="Books near you">
@@ -493,7 +493,7 @@ export function LibraryRoom({ books }: Props) {
             {sectionLabel}
             {facing.slot?.shelf ? ` · ${facing.slot.shelf.books.length} vols` : ""}
           </p>
-          <p className="room-hud__hint label">WASD walk/turn · R/F or drag pitch · scroll · map</p>
+          <p className="room-hud__hint label">WASD · R/F pitch · piles &amp; nooks · map</p>
           <button type="button" className="room-catalogue-pull" onClick={goEntrance}>
             Entrance
           </button>

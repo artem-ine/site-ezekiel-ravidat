@@ -9,7 +9,6 @@ import { spineCloth } from "@/lib/spine-style";
 import {
   makeSpineTexture,
   pixelateImage,
-  useLampTexture,
   useRugTexture,
   useWoodTexture,
 } from "@/components/room/woodTexture";
@@ -37,9 +36,13 @@ import {
   type PlacedShelf,
   type WallWindow,
 } from "@/components/room/floorPlan";
+import { CozyFurniturePiece } from "@/components/room/CozyFurniture";
 
 const ROW_YS = [0.42, 0.88, 1.34, 1.8, 2.26];
+const LOW_ROW_YS = [0.38, 0.78];
 const SHELF_DIST = shelfViewDistance(FOV_SHELF);
+const PILE_BOOK_CAP = 14;
+const TABLE_BOOK_CAP = 10;
 
 type Props = {
   plan: FloorPlan;
@@ -69,6 +72,14 @@ export function RoomCanvas({
     [placed, x, z],
   );
 
+  const nearbyFurniture = useMemo(
+    () =>
+      plan.furniture.filter(
+        (piece) => Math.hypot(piece.x - x, piece.z - z) <= RENDER_RADIUS + 2,
+      ),
+    [plan.furniture, x, z],
+  );
+
   const signs = useMemo(() => buildAisleSigns(placed), [placed]);
   const nearbySigns = useMemo(
     () => signs.filter((sign) => Math.hypot(sign.x - x, sign.z - z) <= 5.5),
@@ -91,17 +102,25 @@ export function RoomCanvas({
     >
       <PixelScale />
       <color attach="background" args={[PALETTE.fog]} />
-      <fog attach="fog" args={[PALETTE.fog, 12, 30]} />
-      <hemisphereLight args={["#e8eef6", PALETTE.walnut, 0.5]} />
-      <ambientLight intensity={0.32} color="#e4eaf2" />
-      {/* Cool daylight through the windows — lamps on bays stay warm separately */}
-      <directionalLight position={[-9, 11, 3]} intensity={0.62} color="#e7eef8" />
-      <directionalLight position={[7, 9, -3]} intensity={0.28} color="#d9e4f2" />
+      <fog attach="fog" args={[PALETTE.fog, 11, 26]} />
+      <hemisphereLight args={["#e8eef6", PALETTE.walnut, 0.48]} />
+      <ambientLight intensity={0.3} color="#e4eaf2" />
+      {/* Cool daylight through the windows — furniture lamps add warm pools. */}
+      <directionalLight position={[-9, 11, 3]} intensity={0.58} color="#e7eef8" />
+      <directionalLight position={[7, 9, -3]} intensity={0.26} color="#d9e4f2" />
 
       <WalkCamera x={x} z={z} yaw={yaw} pitch={pitch} placed={nearby} />
       <RoomShell plan={plan} preferReducedMotion={preferReducedMotion} />
       <EntrancePlate landmark={plan.entrance} />
       <DeskAlcove />
+
+      {nearbyFurniture.map((piece) => (
+        <CozyFurniturePiece
+          key={piece.id}
+          piece={piece}
+          preferReducedMotion={preferReducedMotion}
+        />
+      ))}
 
       {nearbySigns.map((sign) => (
         <AisleDirectionalSign
@@ -115,7 +134,7 @@ export function RoomCanvas({
 
       {nearby.map((slot) =>
         slot.shelf ? (
-          <ShelfBay
+          <BookNook
             key={slot.id}
             slot={slot}
             playerX={x}
@@ -434,31 +453,30 @@ function EntrancePlate({ landmark }: { landmark: FloorPlan["entrance"] }) {
 
 function DeskAlcove() {
   const wood = useWoodTexture(5);
-  // South-west clearing — clear of stacks and windows.
   return (
-    <group position={[-9.0, 0, 3.0]}>
+    <group position={[-7.5, 0, 2.8]}>
       <mesh position={[0, 0.55, 0]}>
-        <boxGeometry args={[1.6, 0.12, 0.9]} />
+        <boxGeometry args={[1.5, 0.12, 0.85]} />
         <meshStandardMaterial map={wood} color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <mesh position={[-0.6, 0.28, 0]}>
+      <mesh position={[-0.55, 0.28, 0]}>
         <boxGeometry args={[0.12, 0.55, 0.12]} />
         <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <mesh position={[0.6, 0.28, 0]}>
+      <mesh position={[0.55, 0.28, 0]}>
         <boxGeometry args={[0.12, 0.55, 0.12]} />
         <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <Html position={[0, 1.1, 0]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
+      <Html position={[0, 1.05, 0]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
         <div className="room-sign-3d">
           <span className="label">Reading desk</span>
         </div>
       </Html>
-      <mesh position={[1.8, 0.7, 0.35]}>
-        <boxGeometry args={[0.9, 1.1, 0.45]} />
+      <mesh position={[1.7, 0.65, 0.2]}>
+        <boxGeometry args={[0.8, 1.0, 0.4]} />
         <meshStandardMaterial color={PALETTE.oxblood} roughness={1} />
       </mesh>
-      <Html position={[1.8, 1.4, 0.35]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
+      <Html position={[1.7, 1.3, 0.2]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
         <div className="room-sign-3d">
           <span className="label">Catalogue</span>
         </div>
@@ -507,7 +525,59 @@ function AisleDirectionalSign({
   );
 }
 
-function ShelfBay({
+function BookNook({
+  slot,
+  playerX,
+  playerZ,
+  selectedUid,
+  onSelect,
+  preferReducedMotion,
+}: {
+  slot: PlacedShelf;
+  playerX: number;
+  playerZ: number;
+  selectedUid: string | null;
+  onSelect: (uid: string | null) => void;
+  preferReducedMotion: boolean;
+}) {
+  if (slot.display === "low-shelf") {
+    return (
+      <LowShelf
+        slot={slot}
+        playerX={playerX}
+        playerZ={playerZ}
+        selectedUid={selectedUid}
+        onSelect={onSelect}
+        preferReducedMotion={preferReducedMotion}
+      />
+    );
+  }
+  if (slot.display === "table") {
+    return (
+      <TableBookStack
+        slot={slot}
+        playerX={playerX}
+        playerZ={playerZ}
+        selectedUid={selectedUid}
+        onSelect={onSelect}
+        preferReducedMotion={preferReducedMotion}
+      />
+    );
+  }
+  return (
+    <FloorBookPile
+      slot={slot}
+      playerX={playerX}
+      playerZ={playerZ}
+      selectedUid={selectedUid}
+      onSelect={onSelect}
+      preferReducedMotion={preferReducedMotion}
+    />
+  );
+}
+
+/** Short case against the quiet north end — still uses Spines / BookSpine3D. */
+function LowShelf({
   slot,
   playerX,
   playerZ,
@@ -524,48 +594,100 @@ function ShelfBay({
 }) {
   const shelf = slot.shelf!;
   const wood = useWoodTexture(hashUid(slot.id) % 5);
-  const lamp = useLampTexture();
   const dist = Math.hypot(slot.x - playerX, slot.z - playerZ);
   const active = dist < 5.5;
   const books = shelf.books.slice(0, MAX_SPINES_PER_SIDE);
 
   return (
     <group position={[slot.x, 0, slot.z]} rotation={[0, slot.facing, 0]}>
-      <mesh position={[0, 1.4, 0]}>
-        <boxGeometry args={[0.55, 2.85, 3.4]} />
-        <meshStandardMaterial map={wood} roughness={1} metalness={0} color={PALETTE.honey} />
+      <mesh position={[0, 0.7, 0]}>
+        <boxGeometry args={[0.5, 1.35, 2.4]} />
+        <meshStandardMaterial map={wood} roughness={1} color={PALETTE.honey} />
       </mesh>
-      {ROW_YS.map((y) => (
-        <mesh key={y} position={[0.12, y - 0.18, 0]}>
-          <boxGeometry args={[0.42, 0.07, 3.2]} />
+      {LOW_ROW_YS.map((y) => (
+        <mesh key={y} position={[0.1, y - 0.12, 0]}>
+          <boxGeometry args={[0.38, 0.06, 2.2]} />
           <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
         </mesh>
       ))}
-      <mesh position={[0.4, 2.78, 0]}>
-        <boxGeometry args={[0.06, 0.22, 1.05]} />
-        <meshStandardMaterial color={PALETTE.brass} roughness={0.85} metalness={0.2} />
-      </mesh>
-      {active && (
-        <pointLight
-          position={[0.8, 2.4, 0]}
-          intensity={0.75}
-          distance={5.5}
-          color={PALETTE.lamp}
-        />
-      )}
-      <mesh position={[0.7, 2.65, 0]}>
-        <boxGeometry args={[0.3, 0.1, 0.3]} />
-        <meshStandardMaterial
-          map={lamp}
-          emissive={PALETTE.lamp}
-          emissiveIntensity={active ? 0.8 : 0.25}
-          color={PALETTE.brass}
-        />
-      </mesh>
       <Spines
         books={books}
+        rowYs={LOW_ROW_YS}
+        span={2.0}
         facing={active}
         loadCovers={dist < 7}
+        selectedUid={selectedUid}
+        onSelect={onSelect}
+        preferReducedMotion={preferReducedMotion}
+      />
+    </group>
+  );
+}
+
+/** Pillars and sprawls of books on the floor beside furniture. */
+function FloorBookPile({
+  slot,
+  playerX,
+  playerZ,
+  selectedUid,
+  onSelect,
+  preferReducedMotion,
+}: {
+  slot: PlacedShelf;
+  playerX: number;
+  playerZ: number;
+  selectedUid: string | null;
+  onSelect: (uid: string | null) => void;
+  preferReducedMotion: boolean;
+}) {
+  const shelf = slot.shelf!;
+  const dist = Math.hypot(slot.x - playerX, slot.z - playerZ);
+  const active = dist < 5.0;
+  const books = shelf.books.slice(0, PILE_BOOK_CAP);
+
+  return (
+    <group position={[slot.x, 0, slot.z]} rotation={[0, slot.facing, 0]}>
+      <PileSpines
+        books={books}
+        facing={active}
+        loadCovers={dist < 6.5}
+        selectedUid={selectedUid}
+        onSelect={onSelect}
+        preferReducedMotion={preferReducedMotion}
+      />
+    </group>
+  );
+}
+
+/** Flat / leaning stacks on a coffee or side table. */
+function TableBookStack({
+  slot,
+  playerX,
+  playerZ,
+  selectedUid,
+  onSelect,
+  preferReducedMotion,
+}: {
+  slot: PlacedShelf;
+  playerX: number;
+  playerZ: number;
+  selectedUid: string | null;
+  onSelect: (uid: string | null) => void;
+  preferReducedMotion: boolean;
+}) {
+  const shelf = slot.shelf!;
+  const dist = Math.hypot(slot.x - playerX, slot.z - playerZ);
+  const active = dist < 5.0;
+  const books = shelf.books.slice(0, TABLE_BOOK_CAP);
+  const tableY = 0.44;
+
+  return (
+    <group position={[slot.x, 0, slot.z]} rotation={[0, slot.facing, 0]}>
+      <TableSpines
+        books={books}
+        tableY={tableY}
+        facing={active}
+        loadCovers={dist < 6.5}
         selectedUid={selectedUid}
         onSelect={onSelect}
         preferReducedMotion={preferReducedMotion}
@@ -590,6 +712,66 @@ function Spines({
   selectedUid,
   onSelect,
   preferReducedMotion,
+  rowYs = ROW_YS,
+  span = 2.7,
+}: {
+  books: LibraryBook[];
+  facing: boolean;
+  loadCovers: boolean;
+  selectedUid: string | null;
+  onSelect: (uid: string | null) => void;
+  preferReducedMotion: boolean;
+  rowYs?: number[];
+  span?: number;
+}) {
+  const perRow = Math.ceil(books.length / rowYs.length) || 1;
+
+  return (
+    <group>
+      {books.map((book, i) => {
+        const seed = hashUid(book.uid);
+        const row = Math.min(rowYs.length - 1, Math.floor(i / perRow));
+        const col = i % perRow;
+        const pose = bookPose(seed);
+        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.15);
+        const height = 0.28 + (seed % 7) * 0.018;
+        const depth = 0.11 + (seed % 3) * 0.01;
+        const z = -span / 2 + col * (span / Math.max(perRow - 1, 1));
+        const shelfY = rowYs[row];
+        const rest =
+          pose === "flat"
+            ? new THREE.Vector3(0.28, shelfY + 0.04, z)
+            : new THREE.Vector3(0.34, shelfY + height / 2 - 0.02, z);
+
+        return (
+          <BookSpine3D
+            key={book.uid}
+            book={book}
+            rest={rest}
+            thickness={thickness}
+            height={height}
+            depth={depth}
+            pose={pose}
+            seed={seed}
+            facing={facing}
+            loadCover={loadCovers}
+            selected={selectedUid === book.uid}
+            onSelect={onSelect}
+            preferReducedMotion={preferReducedMotion}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+function PileSpines({
+  books,
+  facing,
+  loadCovers,
+  selectedUid,
+  onSelect,
+  preferReducedMotion,
 }: {
   books: LibraryBook[];
   facing: boolean;
@@ -598,24 +780,82 @@ function Spines({
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
 }) {
-  const perRow = Math.ceil(books.length / ROW_YS.length) || 1;
-
   return (
     <group>
       {books.map((book, i) => {
         const seed = hashUid(book.uid);
-        const row = Math.min(ROW_YS.length - 1, Math.floor(i / perRow));
-        const col = i % perRow;
-        const pose = bookPose(seed);
         const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.15);
-        const height = 0.28 + (seed % 7) * 0.018;
-        const depth = 0.11 + (seed % 3) * 0.01;
-        const z = -1.35 + col * (2.7 / Math.max(perRow - 1, 1));
-        const shelfY = ROW_YS[row];
+        const height = 0.26 + (seed % 7) * 0.016;
+        const depth = 0.12 + (seed % 3) * 0.01;
+        const pillar = i % 3;
+        const level = Math.floor(i / 3);
+        const isUpright = seed % 5 === 0;
+        const pose: Pose = isUpright ? (seed % 2 === 0 ? "lean" : "upright") : "flat";
+        const baseX = (pillar - 1) * 0.22 + ((seed % 5) - 2) * 0.01;
+        const baseZ = ((seed % 7) - 3) * 0.04;
         const rest =
           pose === "flat"
-            ? new THREE.Vector3(0.28, shelfY + 0.04, z)
-            : new THREE.Vector3(0.34, shelfY + height / 2 - 0.02, z);
+            ? new THREE.Vector3(baseX, 0.04 + level * (thickness + 0.01), baseZ)
+            : new THREE.Vector3(baseX + 0.2, height / 2 + 0.02, baseZ + pillar * 0.05);
+
+        return (
+          <BookSpine3D
+            key={book.uid}
+            book={book}
+            rest={rest}
+            thickness={thickness}
+            height={height}
+            depth={depth}
+            pose={pose}
+            seed={seed}
+            facing={facing}
+            loadCover={loadCovers}
+            selected={selectedUid === book.uid}
+            onSelect={onSelect}
+            preferReducedMotion={preferReducedMotion}
+          />
+        );
+      })}
+    </group>
+  );
+}
+
+function TableSpines({
+  books,
+  tableY,
+  facing,
+  loadCovers,
+  selectedUid,
+  onSelect,
+  preferReducedMotion,
+}: {
+  books: LibraryBook[];
+  tableY: number;
+  facing: boolean;
+  loadCovers: boolean;
+  selectedUid: string | null;
+  onSelect: (uid: string | null) => void;
+  preferReducedMotion: boolean;
+}) {
+  return (
+    <group>
+      {books.map((book, i) => {
+        const seed = hashUid(book.uid);
+        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.14);
+        const height = 0.26 + (seed % 5) * 0.014;
+        const depth = 0.12 + (seed % 3) * 0.01;
+        const stack = i % 2;
+        const level = Math.floor(i / 2);
+        const leanUpright = seed % 6 === 0;
+        const pose: Pose = leanUpright ? "lean" : "flat";
+        const rest =
+          pose === "flat"
+            ? new THREE.Vector3(
+                (stack - 0.5) * 0.35 + ((seed % 3) - 1) * 0.02,
+                tableY + 0.04 + level * (thickness + 0.008),
+                ((seed % 5) - 2) * 0.05,
+              )
+            : new THREE.Vector3(0.35, tableY + height / 2, (stack - 0.5) * 0.2);
 
         return (
           <BookSpine3D
