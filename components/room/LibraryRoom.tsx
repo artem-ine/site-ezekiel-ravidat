@@ -22,10 +22,11 @@ import {
 import { STATUS_LABEL } from "@/lib/spine-style";
 import {
   BAY_SPACING,
-  clampYaw,
+  clampBay,
   nearbyBooksFromShelves,
   NEAR_RADIUS,
   statusMark,
+  type ShelfSide,
 } from "@/components/room/roomConfig";
 import { canCreateWebGL, RoomErrorBoundary } from "@/components/room/RoomErrorBoundary";
 
@@ -81,6 +82,7 @@ function useCalmMode() {
 export function LibraryRoom({ books }: Props) {
   const calm = useCalmMode();
   const [webglOk, setWebglOk] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [sort, setSort] = useState<SortKey>("title");
   const [filters, setFilters] = useState<Filters>({
     status: "all",
@@ -89,18 +91,20 @@ export function LibraryRoom({ books }: Props) {
     series: "all",
   });
   const [catalogueOpen, setCatalogueOpen] = useState(false);
-  const [depth, setDepth] = useState(0);
-  const [yaw, setYaw] = useState(0);
-  const dragRef = useRef<{
-    x: number;
-    y: number;
-    depth: number;
-    yaw: number;
-  } | null>(null);
+  const [bay, setBay] = useState(0);
+  const [side, setSide] = useState<ShelfSide>("left");
+  const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const dragRef = useRef<{ x: number; y: number; bay: number; side: ShelfSide } | null>(null);
+  const wheelAcc = useRef(0);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setWebglOk(canCreateWebGL());
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const sync = () => setReducedMotion(motion.matches);
+    sync();
+    motion.addEventListener("change", sync);
+    return () => motion.removeEventListener("change", sync);
   }, []);
 
   const options = useMemo(() => collectFilterOptions(books), [books]);
@@ -111,23 +115,22 @@ export function LibraryRoom({ books }: Props) {
     [books],
   );
 
-  const maxDepth = Math.max(0, shelves.length - 1);
-  const clampWalk = useCallback(
-    (next: number) => Math.min(maxDepth, Math.max(0, next)),
-    [maxDepth],
+  const maxBay = Math.max(0, shelves.length - 1);
+  const goBay = useCallback(
+    (delta: number) => {
+      setSelectedUid(null);
+      setBay((current) => clampBay(current + delta, maxBay));
+    },
+    [maxBay],
   );
-  const walkBy = useCallback(
-    (delta: number) => setDepth((current) => clampWalk(current + delta)),
-    [clampWalk],
-  );
-  const lookBy = useCallback((delta: number) => {
-    setYaw((current) => clampYaw(current + delta));
+  const flipSide = useCallback((next: ShelfSide) => {
+    setSelectedUid(null);
+    setSide(next);
   }, []);
-  const faceAisle = useCallback(() => setYaw(0), []);
 
   useEffect(() => {
-    setDepth((current) => clampWalk(current));
-  }, [maxDepth, clampWalk]);
+    setBay((current) => clampBay(current, maxBay));
+  }, [maxBay]);
 
   useEffect(() => {
     if (calm) return;
@@ -139,32 +142,34 @@ export function LibraryRoom({ books }: Props) {
       }
       if (event.key === "ArrowUp" || event.key === "w" || event.key === "W") {
         event.preventDefault();
-        walkBy(-0.35);
+        goBay(-1);
       } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
-        walkBy(0.35);
+        goBay(1);
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        lookBy(-0.18);
+        flipSide("left");
       } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        lookBy(0.18);
+        flipSide("right");
       } else if (event.key === "Home") {
         event.preventDefault();
-        setDepth(0);
+        setBay(0);
+        setSelectedUid(null);
       } else if (event.key === "End") {
         event.preventDefault();
-        setDepth(maxDepth);
+        setBay(maxBay);
+        setSelectedUid(null);
       } else if (event.key === "Escape") {
         event.preventDefault();
         setCatalogueOpen(false);
-        faceAisle();
+        setSelectedUid(null);
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [calm, walkBy, lookBy, faceAisle, maxDepth]);
+  }, [calm, goBay, flipSide, maxBay]);
 
   useEffect(() => {
     if (calm) return;
@@ -173,30 +178,38 @@ export function LibraryRoom({ books }: Props) {
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      walkBy(event.deltaY * 0.004);
+      wheelAcc.current += event.deltaY;
+      if (Math.abs(wheelAcc.current) < 60) return;
+      goBay(wheelAcc.current > 0 ? 1 : -1);
+      wheelAcc.current = 0;
     };
 
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, [calm, walkBy]);
+  }, [calm, goBay]);
 
   const onPointerDown = (event: ReactPointerEvent) => {
     if (calm) return;
     if ((event.target as HTMLElement).closest("a, button, select, label, summary")) return;
-    dragRef.current = { x: event.clientX, y: event.clientY, depth, yaw };
+    dragRef.current = { x: event.clientX, y: event.clientY, bay, side };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   };
 
-  const onPointerMove = (event: ReactPointerEvent) => {
-    if (!dragRef.current) return;
-    const walkDelta = (dragRef.current.y - event.clientY) / 180;
-    const lookDelta = (event.clientX - dragRef.current.x) / 220;
-    setDepth(clampWalk(dragRef.current.depth + walkDelta));
-    setYaw(clampYaw(dragRef.current.yaw + lookDelta));
+  const onPointerMove = (_event: ReactPointerEvent) => {
+    // Navigation commits on pointer up so a swipe does not skip several bays.
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (event: ReactPointerEvent) => {
+    const start = dragRef.current;
     dragRef.current = null;
+    if (!start || event.type === "pointercancel") return;
+    const dy = start.y - event.clientY;
+    const dx = event.clientX - start.x;
+    if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 55) {
+      goBay(dy > 0 ? -1 : 1);
+    } else if (Math.abs(dx) > 55) {
+      flipSide(dx > 0 ? "right" : "left");
+    }
   };
 
   if (books.length === 0) {
@@ -225,19 +238,19 @@ export function LibraryRoom({ books }: Props) {
     return calmView;
   }
 
-  const active = shelves[Math.round(depth)];
-  const nearbyBooks = nearbyBooksFromShelves(shelves, depth);
+  const active = shelves[bay];
+  const nearbyBooks = nearbyBooksFromShelves(shelves, bay, side);
 
   return (
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Three-dimensional library aisle. Use W and S or up and down arrows to walk. Use A and D or
-          left and right arrows to turn toward a shelf. Escape faces down the aisle again. Open the
-          card catalogue for filters. Nearby books are listed as links below for screen readers.
+          Library shelf stations. Use up and down arrows or scroll to move between bays. Use left and
+          right arrows to face the left or right wall square-on. Click a book to open it; Escape
+          closes it. Card catalogue filters the shelves. Books at this station are listed below.
         </p>
 
-        <nav className="room-sr-only" aria-label="Books near you in the aisle">
+        <nav className="room-sr-only" aria-label="Books at this shelf station">
           <ul>
             {nearbyBooks.map((book) => {
               const authors = book.authors.join(", ") || "Unknown author";
@@ -261,9 +274,16 @@ export function LibraryRoom({ books }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           role="application"
-          aria-label="Walkable library aisle"
+          aria-label="Shelf stations"
         >
-          <RoomCanvas shelves={shelves} depth={depth} yaw={yaw} />
+          <RoomCanvas
+            shelves={shelves}
+            bay={bay}
+            side={side}
+            selectedUid={selectedUid}
+            onSelect={setSelectedUid}
+            preferReducedMotion={reducedMotion}
+          />
         </div>
 
         <aside className="room-plate" aria-label="Library nameplate">
@@ -299,15 +319,10 @@ export function LibraryRoom({ books }: Props) {
         <div className="room-hud">
           <p className="room-hud__bay label" aria-live="polite">
             {active
-              ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}`
-              : "Aisle"}
+              ? `${active.label} · ${side} · ${bay + 1}/${shelves.length}`
+              : "Station"}
           </p>
-          <p className="room-hud__hint label">←→ look · scroll walk · Esc aisle</p>
-          {Math.abs(yaw) > 0.2 && (
-            <button type="button" className="room-catalogue-pull" onClick={faceAisle}>
-              Face aisle
-            </button>
-          )}
+          <p className="room-hud__hint label">↑↓ bay · ←→ wall · click book · Esc</p>
           <button
             type="button"
             className="room-catalogue-pull"

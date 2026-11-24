@@ -493,6 +493,84 @@
     border: 1px solid rgb(47 33 24 / 0.25);
   }
 
+  .room-book-card {
+    width: min(18rem, 70vw);
+    max-height: 70vh;
+    overflow: auto;
+    padding: 0.85rem 0.95rem 1rem;
+    background: linear-gradient(180deg, #efe2c6, #dccaa7);
+    color: #2f2118;
+    border: 1px solid #a07b35;
+    box-shadow: 0 14px 36px rgb(0 0 0 / 0.4);
+    font-family: var(--font-serif);
+  }
+
+  .room-book-card h2 {
+    margin: 0.35rem 0 0;
+    font-size: 1.35rem;
+    line-height: 1.2;
+  }
+
+  .room-book-card__sub {
+    margin: 0.25rem 0 0;
+    font-style: italic;
+    color: #5c4837;
+  }
+
+  .room-book-card__by {
+    margin: 0.45rem 0 0.7rem;
+  }
+
+  .room-book-card dl {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.25rem 0.7rem;
+    margin: 0;
+  }
+
+  .room-book-card dt {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #5c4837;
+  }
+
+  .room-book-card dd {
+    margin: 0;
+  }
+
+  .room-book-card__blurb {
+    margin: 0.75rem 0 0;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    color: #5c4837;
+  }
+
+  .room-book-card__link {
+    display: inline-block;
+    margin-top: 0.85rem;
+    color: #7a2e2a;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .room-book-card__close {
+    appearance: none;
+    float: right;
+    border: 1px solid #a07b35;
+    background: #efe2c6;
+    color: #2f2118;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.25rem 0.45rem;
+    cursor: pointer;
+  }
+
   .room-world {
     position: absolute;
     inset: 0;
