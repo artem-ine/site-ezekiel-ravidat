@@ -5,7 +5,7 @@ Personal library site for Ezekiel Ravidat. Next.js (App Router, TypeScript) with
 - Prismic repository: `e29fe22f` (https://e29fe22f.prismic.io/), Free plan, single locale (`en-us`)
 - Hosting target: Vercel (`*.vercel.app`)
 
-**Status: scaffold, content model and Prismic wiring only.** The home page only proves the Prismic connection works. There is no library UI and no imported data yet.
+**Status: scaffold, content model, Prismic wiring, and StoryGraph import tooling.** The home page checks the Prismic connection; library UI pages are not built yet.
 
 ## Setup
 
@@ -13,21 +13,31 @@ Requires Node 20.9+ (developed on Node 22) and npm.
 
 ```sh
 npm install
-cp .env.example .env.local   # optional, see below
+cp .env.example .env.local   # fill PRISMIC_ACCESS_TOKEN (and PRISMIC_WRITE_TOKEN for imports)
 npm run dev                  # http://localhost:3000
 ```
 
 The home page lists the custom types it finds in the Prismic repository. If it says "none yet", the models have not been pushed.
 
-### Environment variables
+### Environment variables & Prismic API tokens
 
-The repository name lives in `prismic.config.json` (not an env var). All variables below are optional.
+The repository name lives in `prismic.config.json` (`e29fe22f`). **The Content API access is set to `private`** so private book `review` fields cannot be read publicly without a token.
 
 | Variable | Purpose |
 | --- | --- |
-| `PRISMIC_ACCESS_TOKEN` | Server-side token for the Content API. Required once the repository API access is set to private, including at `npm run build`. Never expose it to the browser. |
+| `PRISMIC_ACCESS_TOKEN` | Server-side read token for the Content API (`scope: master`). **Required** now that API access is private, including at `npm run build` — add it to `.env.local` locally and to Vercel's Environment Variables for deployment. Never expose it to the browser (`NEXT_PUBLIC_*`). |
+| `PRISMIC_WRITE_TOKEN` | Write token for the Asset & Migration APIs. Only needed locally when running `npm run import` or `npm run add-book`. Do not add to Vercel. |
 | `PRISMIC_WEBHOOK_SECRET` | If set, `POST /api/revalidate` rejects payloads whose `secret` differs. Use the same value as the webhook secret in Prismic. |
-| `NEXT_PUBLIC_PRISMIC_ENVIRONMENT` | Point the client at a Prismic environment domain instead of production. |
+| `NEXT_PUBLIC_PRISMIC_ENVIRONMENT` | Optional override to point the client at a Prismic environment domain instead of production. |
+| `GOOGLE_BOOKS_API_KEY` | Optional API key for Google Books fallback during book metadata/cover enrichment (prevents unauthenticated HTTP 429 rate limits). |
+
+To create or inspect tokens via the Prismic CLI (or in the Prismic dashboard under **Settings → API & Security**):
+
+```sh
+npx prismic@latest token list --task-id <tid> --user-intent "List tokens"
+npx prismic@latest token create --task-id <tid> --user-intent "Create read token"          # -> PRISMIC_ACCESS_TOKEN
+npx prismic@latest token create --write --task-id <tid> --user-intent "Create write token" # -> PRISMIC_WRITE_TOKEN
+```
 
 ## Prismic models
 
@@ -52,10 +62,10 @@ Slice Machine is deprecated and is not used here. Slices are plain files created
 
 | Type | API ID | Notes |
 | --- | --- | --- |
-| Book | `book` | The catalog. Links to authors, one series and genres. Tabs: Main, Reading, StoryGraph. |
+| Book | `book` | The catalog. Links to authors, one series and genres. Tabs: Main, Reading, StoryGraph. Includes `publish_year`, `page_count`, `blurb`, and private `review`. |
 | Author | `author` | `name`, optional `sort_name`, `photo`, `bio`. |
 | Series | `series` | `name`, `description`. Books point at the series; the series does not list its books. |
-| Genre | `genre` | `name` (the genre), `accent` colour, `description`. Genres are sourced from Open Library or Google Books subjects, not StoryGraph. |
+| Genre | `genre` | `name` (the genre), `accent` colour, `description`. Genres are sourced from Open Library / Google Books subjects via `scripts/genre-mapping.json`, not StoryGraph. |
 | Page | `page` | Free-form pages (home, about): `title`, a slice zone, SEO & Metadata tab. |
 | Shelf | `shelf` | Optional curated shelf: ordered `books` group, `layout_hint`, plus a slice zone for editorial content above the book grid. |
 | Site settings | `site_settings` | Single type: title, tagline, about, featured shelf, SEO. |
@@ -84,44 +94,69 @@ The components in `slices/` are deliberately bare: semantic HTML, no styling. Li
 | Contributors, e.g. `Name (Narrator)` | `contributors[].name` + `contributors[].role` |
 | ISBN/UID | `isbn` (may be ISBN-13/10, ASIN or empty) |
 | Format | `format`: paperback, hardcover, digital, audio |
-| Read Status | `read_status`: to-read, currently-reading, read, did-not-finish, paused |
+| Read Status | `read_status`: `not-read` (StoryGraph `to-read` or empty), `currently-reading`, `read`, `did-not-finish` |
 | Date Added | `date_added` |
-| Last Date Read | `last_date_read` (`year_read` is derived from it at import) |
+| Last Date Read | `last_date_read` (`year_read` is populated from it, including year-only entries like `2021`) |
 | Dates Read, e.g. `2025/08/01-2025/08/03` | `dates_read[].date_started` / `date_finished` |
 | Read Count | `read_count` |
 | Moods | `moods[].mood` |
 | Pace | `pace` |
 | Character- or Plot-Driven?, Strong Character Development?, Loveable / Diverse / Flawed Characters? | the five fields of the same names |
 | Star Rating | `rating` (0 to 5, quarter steps) |
-| Review | `review` (private, see below) |
+| Review | `review` (private, HTML converted to Prismic rich text; see below) |
 | Content Warnings, Content Warning Description | `content_warnings`, `content_warning_description` |
 | Owned? | `owned` |
 
-Notes for the import step (not done here):
+Notes on the import mapping:
 
 - Empty cells map to an empty field. Blank `Read Status`, `Format` and `Pace` are valid.
-- `uid` must be unique per type. Titles repeat, so derive it from title plus a disambiguator (for example the ISBN) when needed.
-- Decode HTML entities (`&amp;`) and wrap `Review` HTML into rich text.
-- The catalog is owned books plus the full read history, so import rows that are `Owned? = Yes` or have been read, and skip unowned to-read rows.
-- StoryGraph `Tags` are a different thing from genres and are not imported (the column is empty in the sample export). `genres` are filled from Open Library or Google Books subjects during cover/metadata enrichment, one `genre` document per genre.
+- `uid` is unique per type. Duplicate editions (same title/author in different formats) are deterministically disambiguated (`<title-slug>`, `<title-slug>-<isbn>`, `<title-slug>-<format>`, or `-<n>`).
+- HTML entities (`&amp;`, `&#39;`, etc.) are decoded and `Review` HTML is converted into Prismic rich text blocks.
+- Only owned books belong on the website. Rows with `Owned? = No` are skipped, whatever their read status, unless the title is listed in `scripts/owned-overrides.json`. That committed file holds exact StoryGraph titles the owner confirmed as owned even though the export says `Owned? = No`. Override titles are imported with `owned = true` and keep their authors, series and genres. Every `book` draft has `owned = true`.
+- `read_status` is sortable and filterable as `read`, `not-read`, `did-not-finish` or `currently-reading`. Empty StoryGraph status and `to-read` both map to `not-read`.
+- StoryGraph `Tags` are not imported. `genres`, `series`, `series_position`, `blurb`, `publish_year`, `page_count`, `subtitle`, and `cover` are enriched from Open Library (with optional Google Books fallback) and mapped through `scripts/genre-mapping.json`.
+
+### Importing & adding books
+
+Scripts create assets in Prismic's Media Library and documents as **drafts inside the Prismic Migration Release** (they never auto-publish so you can review them in Prismic before publishing).
+
+```sh
+# Dry run enrichment + genre mapping on the first 20 books (no writes)
+npm run import -- --dry-run --limit 20
+
+# Enrich the full CSV and write .cache/last-enrichment-summary.json (no writes)
+npm run import -- --enrich-only
+
+# Import all keepable rows into the Migration Release as drafts (resumable via .cache/prismic-state.json)
+npm run import
+
+# Re-sync updated fields for previously imported items
+npm run import -- --update
+
+# Add a single owned book later by ISBN or "Title Author" (owned by default, status defaults to not-read)
+npm run add-book -- 9780316246620 --status read
+npm run add-book -- "Ancillary Justice Ann Leckie" --dry-run
+```
+
+Useful flags for `npm run import`:
+- `--csv <path>` — path to a StoryGraph CSV export (defaults to the local export path or `STORYGRAPH_CSV_PATH`)
+- `--limit <N>` — process only the first `N` importable rows
+- `--dry-run` / `--enrich-only` — run parsing, Open Library/Google Books lookup, cover download, and genre mapping locally without touching Prismic
+- `--update` — update existing documents in the Migration Release/repo when local payload hashes change
+- `--no-cache` — bypass `.cache/lookup-cache.json`
+
+**Migration Release 1,000-document limit:** Prismic Migration Releases cap simultaneous draft documents at 1,000. Since a full library (genres + series + authors + books) can exceed 1,000 documents, `npm run import` checkpoints every uploaded asset and document to `.cache/prismic-state.json` (gitignored) and stops cleanly if the release limit is hit. Publish the first batch in Prismic, then re-run `npm run import` to push the remaining drafts without duplicating already-created assets or documents.
 
 ### Reviews are not public in v1
 
-Ezekiel decided there are no public reviews in v1. The `review` field exists so the data survives, but **Prismic's Content API is public by default, so anything stored in `review` is readable by anyone who knows the repository name**. Before importing reviews, make the API private and use a token on the server:
-
-```sh
-npx prismic@latest repo set-api-access private
-npx prismic@latest token create     # put the result in PRISMIC_ACCESS_TOKEN
-```
-
-The site never renders `review`.
+Ezekiel decided there are no public reviews in v1. The `review` field exists so the data survives, and **Prismic's Content API is set to `private`** (`PRISMIC_ACCESS_TOKEN` required server-side). The site never renders `review`.
 
 ### Deliberately left out
 
 - Locales: English only (`en-us`).
 - Visitor accounts, search index, live StoryGraph sync.
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
-- Author `links`, series `books` back-references, `purchase_year`, `edition_year`, `page_count`, publisher. Add them if the UI needs them.
+- Author `links`, series `books` back-references, `purchase_year`, `edition_year`, publisher.
 - StoryGraph tags: not modelled, they are not genres.
 - Final visual design: the current styling is a quiet foundation (layout, header and slices only). Shelves and book pages are not designed yet.
 
@@ -152,8 +187,10 @@ npx prismic@latest preview add https://<your-app>.vercel.app/api/preview --name 
 ## Scripts
 
 ```sh
-npm run dev     # development server
-npm run build   # production build
-npm run start   # serve the production build
-npm run lint
+npm run dev      # development server
+npm run build    # production build
+npm run start    # serve the production build
+npm run lint     # ESLint
+npm run import   # StoryGraph CSV -> Prismic Migration Release drafts
+npm run add-book # add a single book by ISBN or "title author"
 ```
