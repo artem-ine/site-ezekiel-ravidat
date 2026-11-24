@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPreviewRef } from "@prismicio/next";
 import { PageContent } from "@/components/PageContent";
+import { SiteShell } from "@/components/SiteShell";
 import { getPageByUID } from "@/lib/page";
 import { createClient } from "@/prismicio";
 
@@ -10,7 +11,11 @@ export default async function Page({ params }: PageProps<"/[uid]">) {
   const page = await getPageByUID(uid, await getPreviewRef());
   if (!page) notFound();
 
-  return <PageContent slices={page.data.slices} />;
+  return (
+    <SiteShell>
+      <PageContent slices={page.data.slices} />
+    </SiteShell>
+  );
 }
 
 export async function generateMetadata({ params }: PageProps<"/[uid]">): Promise<Metadata> {
