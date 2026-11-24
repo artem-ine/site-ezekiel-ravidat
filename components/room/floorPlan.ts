@@ -1,8 +1,18 @@
 import type { LibraryBook } from "@/lib/books";
 import type { ShelfGroup } from "@/components/library/groupBooks";
 import { MAX_SPINES_PER_SIDE } from "@/components/room/roomConfig";
+import {
+  PLAYER_R,
+  depenetrate,
+  hitsAny,
+  moveWithCollision,
+  nudgeFromColliders,
+  type Collider,
+  type Vec2,
+} from "@/components/room/collision";
 
-export type Vec2 = { x: number; z: number };
+export type { Collider, Vec2 };
+export { PLAYER_R, depenetrate, hitsAny, moveWithCollision, nudgeFromColliders };
 
 export type AisleId =
   | "center"
@@ -54,13 +64,6 @@ export type Landmark = {
   yaw: number;
 };
 
-export type Collider = {
-  minX: number;
-  maxX: number;
-  minZ: number;
-  maxZ: number;
-};
-
 /** Mini-map markers for reading nooks / piles. */
 export type StackCenter = {
   id: string;
@@ -105,9 +108,6 @@ export type FloorPlan = {
   entrance: Landmark;
 };
 
-/** Forgiving player radius — slides past furniture edges. */
-export const PLAYER_R = 0.2;
-
 function box(cx: number, cz: number, hx: number, hz: number): Collider {
   return { minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz };
 }
@@ -148,10 +148,10 @@ export function buildFloorPlan(): FloorPlan {
 
   // Genre / section placements — order matches groupIntoShelves output.
   const slots: ShelfSlot[] = [
-    // North low shelves (quiet end)
-    slot("low-n1", "center", -3.2, -9.8, 0, "A–C", "low-shelf"),
-    slot("low-n2", "center", 0, -9.8, 0, "D–G", "low-shelf"),
-    slot("low-n3", "center", 3.2, -9.8, 0, "H–L", "low-shelf"),
+    // North low shelves (quiet end) — leave a walk strip in front
+    slot("low-n1", "center", -3.4, -10.2, 0, "A–C", "low-shelf"),
+    slot("low-n2", "center", 0, -10.2, 0, "D–G", "low-shelf"),
+    slot("low-n3", "center", 3.4, -10.2, 0, "H–L", "low-shelf"),
     // Floor piles along the west hearth nook
     slot("pile-w1", "hearth", -6.4, -1.2, Math.PI / 2, "M–R", "pile"),
     slot("pile-w2", "hearth", -8.2, -5.2, Math.PI / 2, "S–Z", "pile"),
@@ -160,15 +160,15 @@ export function buildFloorPlan(): FloorPlan {
     slot("pile-e1", "east-nook", 6.2, -0.8, -Math.PI / 2, "Fiction", "pile"),
     slot("pile-e2", "east-nook", 7.4, -4.4, -Math.PI / 2, "Nonfic", "pile"),
     slot("pile-e3", "east-nook", 4.6, -5.8, -0.3, "Poetry", "pile"),
-    // Table stacks in the middle clearings
-    slot("table-c1", "cross-m", -2.4, -3.2, 0, "Essays", "table"),
-    slot("table-c2", "cross-m", 2.6, -3.2, Math.PI, "Art", "table"),
-    slot("table-s1", "cross-s", 3.2, 1.0, -0.6, "Kids", "table"),
-    // More floor piles near entrance / sofa
-    slot("pile-s1", "desk", -4.8, 2.0, 0.8, "Mystery", "pile"),
-    slot("pile-s2", "center", 2.2, -0.4, -0.5, "Sci-Fi", "pile"),
-    slot("pile-n1", "cross-n", -4.0, -7.2, 0.2, "History", "pile"),
-    slot("pile-n2", "cross-n", 4.2, -7.0, -0.2, "Travel", "pile"),
+    // Table stacks in the middle clearings (match furniture table centres)
+    slot("table-c1", "cross-m", -2.8, -4.2, 0, "Essays", "table"),
+    slot("table-c2", "cross-m", 3.0, -4.2, Math.PI, "Art", "table"),
+    slot("table-s1", "cross-s", 3.4, 1.2, -0.6, "Kids", "table"),
+    // More floor piles near entrance / sofa — clear of the centre walk
+    slot("pile-s1", "desk", -4.8, 2.4, 0.8, "Mystery", "pile"),
+    slot("pile-s2", "center", 2.6, -0.8, -0.5, "Sci-Fi", "pile"),
+    slot("pile-n1", "cross-n", -4.4, -6.4, 0.2, "History", "pile"),
+    slot("pile-n2", "cross-n", 4.6, -6.2, -0.2, "Travel", "pile"),
   ];
 
   const stacks: StackCenter[] = slots.map((s) => ({
@@ -179,36 +179,35 @@ export function buildFloorPlan(): FloorPlan {
   }));
 
   const furniture: FurniturePiece[] = [
-    // Rugs under living zones
-    { id: "rug-hearth", kind: "rug", x: -7.0, z: -3.0, yaw: 0.1, scale: 1.15 },
-    { id: "rug-east", kind: "rug", x: 6.0, z: -3.0, yaw: -0.08, scale: 1.0 },
-    { id: "rug-center", kind: "rug", x: 0.2, z: -3.2, yaw: 0.05, scale: 0.85 },
-    // Hearth + sofa
-    { id: "fireplace", kind: "fireplace", x: -9.6, z: -3.2, yaw: Math.PI / 2 },
-    { id: "sofa", kind: "sofa", x: -6.6, z: -3.2, yaw: -Math.PI / 2 },
-    { id: "armchair-w", kind: "armchair", x: -7.4, z: -0.6, yaw: -0.4 },
-    { id: "side-hearth", kind: "side-table", x: -7.8, z: -5.0, yaw: 0.2 },
-    { id: "lamp-hearth", kind: "floor-lamp", x: -8.6, z: -5.6, yaw: 0 },
-    { id: "plant-hearth", kind: "plant", x: -9.0, z: -1.0, yaw: 0.3 },
-    { id: "cat", kind: "cat", x: -5.6, z: -4.4, yaw: 0.7 },
-    { id: "cushion-cat", kind: "cushion", x: -5.6, z: -4.4, yaw: 0.5, scale: 1.1 },
-    // East lounge
-    { id: "bean-1", kind: "beanbag", x: 6.8, z: -2.0, yaw: -0.8, scale: 1.05 },
-    { id: "bean-2", kind: "beanbag", x: 5.2, z: -4.2, yaw: 0.6, scale: 0.95 },
-    { id: "bean-3", kind: "beanbag", x: 7.6, z: -5.2, yaw: 2.2, scale: 1.0 },
-    { id: "cushion-e1", kind: "cushion", x: 4.8, z: -1.4, yaw: 0.4 },
-    { id: "cushion-e2", kind: "cushion", x: 7.2, z: -3.6, yaw: -0.5 },
-    { id: "armchair-e", kind: "armchair", x: 4.4, z: 0.4, yaw: Math.PI * 0.7 },
-    { id: "lamp-east", kind: "floor-lamp", x: 8.4, z: -1.2, yaw: 0 },
-    // Centre tables (books sit on matching slots)
-    { id: "table-mid-l", kind: "low-table", x: -2.4, z: -3.2, yaw: 0.1 },
-    { id: "table-mid-r", kind: "low-table", x: 2.6, z: -3.2, yaw: -0.05 },
-    { id: "table-south", kind: "side-table", x: 3.2, z: 1.0, yaw: 0.3 },
-    { id: "lamp-read", kind: "reading-lamp", x: 3.8, z: 1.5, yaw: -0.4 },
+    // Rugs — separated so they never overlap (z-fight).
+    { id: "rug-hearth", kind: "rug", x: -7.2, z: -3.0, yaw: 0.08, scale: 1.0 },
+    { id: "rug-east", kind: "rug", x: 6.4, z: -3.2, yaw: -0.06, scale: 0.95 },
+    // Hearth + sofa with room to walk around
+    { id: "fireplace", kind: "fireplace", x: -9.8, z: -3.2, yaw: Math.PI / 2 },
+    { id: "sofa", kind: "sofa", x: -7.0, z: -3.2, yaw: -Math.PI / 2 },
+    { id: "armchair-w", kind: "armchair", x: -7.6, z: -0.4, yaw: -0.4 },
+    { id: "side-hearth", kind: "side-table", x: -8.0, z: -5.2, yaw: 0.2 },
+    { id: "lamp-hearth", kind: "floor-lamp", x: -8.8, z: -5.8, yaw: 0 },
+    { id: "plant-hearth", kind: "plant", x: -9.2, z: -0.8, yaw: 0.3 },
+    { id: "cat", kind: "cat", x: -5.4, z: -4.6, yaw: 0.7 },
+    { id: "cushion-cat", kind: "cushion", x: -5.4, z: -4.6, yaw: 0.5, scale: 1.1 },
+    // East lounge — bean bags spaced for body-width gaps
+    { id: "bean-1", kind: "beanbag", x: 7.0, z: -1.6, yaw: -0.8, scale: 1.0 },
+    { id: "bean-2", kind: "beanbag", x: 5.0, z: -4.4, yaw: 0.6, scale: 0.95 },
+    { id: "bean-3", kind: "beanbag", x: 7.8, z: -5.4, yaw: 2.2, scale: 1.0 },
+    { id: "cushion-e1", kind: "cushion", x: 4.6, z: -1.2, yaw: 0.4 },
+    { id: "cushion-e2", kind: "cushion", x: 7.4, z: -3.4, yaw: -0.5 },
+    { id: "armchair-e", kind: "armchair", x: 4.0, z: 1.8, yaw: Math.PI * 0.7 },
+    { id: "lamp-east", kind: "floor-lamp", x: 8.6, z: -1.0, yaw: 0 },
+    // Centre tables pulled off the centre path
+    { id: "table-mid-l", kind: "low-table", x: -2.8, z: -4.2, yaw: 0.1 },
+    { id: "table-mid-r", kind: "low-table", x: 3.0, z: -4.2, yaw: -0.05 },
+    { id: "table-south", kind: "side-table", x: 3.4, z: 1.2, yaw: 0.3 },
+    { id: "lamp-read", kind: "reading-lamp", x: 4.0, z: 1.6, yaw: -0.4 },
     // Desk corner extras
-    { id: "side-desk", kind: "side-table", x: -6.2, z: 3.2, yaw: 0 },
-    { id: "cushion-desk", kind: "cushion", x: -5.0, z: 3.4, yaw: 0.2 },
-    { id: "plant-entrance", kind: "plant", x: 4.6, z: 3.4, yaw: -0.2 },
+    { id: "side-desk", kind: "side-table", x: -6.4, z: 3.4, yaw: 0 },
+    { id: "cushion-desk", kind: "cushion", x: -5.0, z: 3.6, yaw: 0.2 },
+    { id: "plant-entrance", kind: "plant", x: 4.8, z: 3.6, yaw: -0.2 },
   ];
 
   const windows: WallWindow[] = [
@@ -235,9 +234,9 @@ export function buildFloorPlan(): FloorPlan {
     ...wallColliders,
     ...furniture.flatMap((piece) => furnitureColliders(piece)),
     ...slots.map((s) => slotCollider(s)),
-    // Reading desk / catalogue (DeskAlcove meshes)
-    box(-7.5, 2.8, 1.0, 0.55),
-    box(-5.8, 3.0, 0.5, 0.4),
+    // Reading desk / catalogue — west of the south walk so the path stays open.
+    box(-8.2, 2.8, 0.85, 0.45),
+    box(-6.6, 3.0, 0.4, 0.35),
   ];
 
   return {
@@ -265,30 +264,42 @@ function slot(
   return { id, aisleId, x, z, facing, labelHint, display };
 }
 
+/** Axis-aligned box; swap extents when the piece is yawed ~90°. */
+function orientedBox(
+  piece: FurniturePiece,
+  alongLocalX: number,
+  alongLocalZ: number,
+): Collider {
+  const turned = Math.abs(Math.sin(piece.yaw)) > 0.7;
+  return turned
+    ? box(piece.x, piece.z, alongLocalZ, alongLocalX)
+    : box(piece.x, piece.z, alongLocalX, alongLocalZ);
+}
+
 /** Tight, forgiving colliders so paths stay walkable. */
 function furnitureColliders(piece: FurniturePiece): Collider[] {
   const s = piece.scale ?? 1;
   switch (piece.kind) {
     case "sofa":
-      return [box(piece.x, piece.z, 0.55, 1.35)];
+      return [orientedBox(piece, 0.48, 1.2)];
     case "armchair":
-      return [box(piece.x, piece.z, 0.45, 0.45)];
+      return [box(piece.x, piece.z, 0.38, 0.38)];
     case "beanbag":
-      return [box(piece.x, piece.z, 0.42 * s, 0.42 * s)];
+      return [box(piece.x, piece.z, 0.34 * s, 0.34 * s)];
     case "cushion":
       return []; // walkable / soft — no block
     case "low-table":
-      return [box(piece.x, piece.z, 0.7, 0.45)];
+      return [orientedBox(piece, 0.58, 0.38)];
     case "side-table":
-      return [box(piece.x, piece.z, 0.32, 0.32)];
+      return [box(piece.x, piece.z, 0.26, 0.26)];
     case "floor-lamp":
-      return [box(piece.x, piece.z, 0.18, 0.18)];
-    case "reading-lamp":
       return [box(piece.x, piece.z, 0.14, 0.14)];
+    case "reading-lamp":
+      return [box(piece.x, piece.z, 0.12, 0.12)];
     case "plant":
-      return [box(piece.x, piece.z, 0.22, 0.22)];
+      return [box(piece.x, piece.z, 0.18, 0.18)];
     case "fireplace":
-      return [box(piece.x, piece.z, 0.45, 0.9)];
+      return [orientedBox(piece, 0.4, 0.8)];
     case "cat":
       return [];
     case "rug":
@@ -300,14 +311,14 @@ function furnitureColliders(piece: FurniturePiece): Collider[] {
 
 function slotCollider(s: ShelfSlot): Collider {
   if (s.display === "low-shelf") {
-    return box(s.x, s.z, 0.32, 1.15);
+    return box(s.x, s.z, 0.28, 1.05);
   }
   if (s.display === "table") {
     // Table furniture already collides; books need no extra block.
-    return box(s.x, s.z, 0.15, 0.15);
+    return box(s.x, s.z, 0.1, 0.1);
   }
-  // Floor pile — slightly larger than the spread of books so paths stay clear.
-  return box(s.x, s.z, 0.55, 0.55);
+  // Floor pile — small footprint so you can stand beside and turn.
+  return box(s.x, s.z, 0.42, 0.42);
 }
 
 export function windowWorldPose(
@@ -361,70 +372,6 @@ export function placeShelves(plan: FloorPlan, shelves: ShelfGroup[]): PlacedShel
     ...slot,
     shelf: shelves[index] ?? null,
   }));
-}
-
-function overlaps(x: number, z: number, box: Collider, radius: number): boolean {
-  return (
-    x + radius > box.minX &&
-    x - radius < box.maxX &&
-    z + radius > box.minZ &&
-    z - radius < box.maxZ
-  );
-}
-
-function hitsAny(x: number, z: number, colliders: Collider[], radius = PLAYER_R): boolean {
-  for (const c of colliders) {
-    if (overlaps(x, z, c, radius)) return true;
-  }
-  return false;
-}
-
-function unstick(x: number, z: number, colliders: Collider[]): Vec2 {
-  if (!hitsAny(x, z, colliders)) return { x, z };
-  const steps = [
-    [0.3, 0],
-    [-0.3, 0],
-    [0, 0.3],
-    [0, -0.3],
-    [0.45, 0.45],
-    [-0.45, 0.45],
-    [0.45, -0.45],
-    [-0.45, -0.45],
-  ];
-  for (const [sx, sz] of steps) {
-    if (!hitsAny(x + sx, z + sz, colliders)) return { x: x + sx, z: z + sz };
-  }
-  return { x, z };
-}
-
-export function moveWithCollision(
-  x: number,
-  z: number,
-  dx: number,
-  dz: number,
-  colliders: Collider[],
-): Vec2 {
-  const start = unstick(x, z, colliders);
-  x = start.x;
-  z = start.z;
-
-  const tryX = x + dx;
-  const tryZ = z + dz;
-  if (!hitsAny(tryX, tryZ, colliders)) return { x: tryX, z: tryZ };
-
-  const freeX = !hitsAny(tryX, z, colliders);
-  const freeZ = !hitsAny(x, tryZ, colliders);
-  if (freeX && freeZ) {
-    return Math.abs(dx) >= Math.abs(dz) ? { x: tryX, z } : { x, z: tryZ };
-  }
-  if (freeX) return { x: tryX, z };
-  if (freeZ) return { x, z: tryZ };
-
-  const hx = dx * 0.5;
-  const hz = dz * 0.5;
-  if (!hitsAny(x + hx, z, colliders)) return { x: x + hx, z };
-  if (!hitsAny(x, z + hz, colliders)) return { x, z: z + hz };
-  return { x, z };
 }
 
 export function shelfFaceAmount(

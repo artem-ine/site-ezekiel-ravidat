@@ -43,10 +43,20 @@ export function CozyFurniturePiece({
 function RugMesh({ id }: { id: string }) {
   const rug = useRugTexture();
   const tint = hashUid(id) % 2 === 0 ? "#6b3a2a" : "#2f4a3c";
+  // Distinct height per rug + polygonOffset — kills floor z-fighting flicker.
+  const y = 0.04 + (hashUid(id) % 3) * 0.006;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-      <planeGeometry args={[3.6, 2.6]} />
-      <meshStandardMaterial map={rug} color={tint} roughness={1} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]} renderOrder={1}>
+      <planeGeometry args={[3.2, 2.3]} />
+      <meshStandardMaterial
+        map={rug}
+        color={tint}
+        roughness={1}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-1}
+        polygonOffsetUnits={-1}
+      />
     </mesh>
   );
 }

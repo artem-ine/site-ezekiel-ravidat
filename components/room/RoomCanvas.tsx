@@ -271,10 +271,20 @@ function RoomShell({
           <mesh
             key={aisle.id}
             rotation={[-Math.PI / 2, 0, -angle]}
-            position={[mx, 0.015, mz]}
+            position={[mx, 0.035, mz]}
+            renderOrder={1}
           >
             <planeGeometry args={[aisle.width * 0.85, len]} />
-            <meshStandardMaterial map={rug} roughness={1} metalness={0} color="#c4a078" />
+            <meshStandardMaterial
+              map={rug}
+              roughness={1}
+              metalness={0}
+              color="#c4a078"
+              depthWrite={false}
+              polygonOffset
+              polygonOffsetFactor={-1}
+              polygonOffsetUnits={-1}
+            />
           </mesh>
         );
       })}
@@ -985,8 +995,8 @@ function BookSpine3D({
     hoverAmt.current += (hoverTarget - hoverAmt.current) * Math.min(1, delta * 14);
     const t = progress.current;
     const h = hoverAmt.current;
-    const lift = loose ? h * 0.07 : h * 0.04;
-    const slide = loose ? h * 0.04 : h * 0.02;
+    const lift = loose ? h * 0.07 : h * 0.05;
+    const slide = loose ? h * 0.04 : h * 0.03;
 
     if (t < 0.001 && !selected) {
       group.current.position.set(rest.x + slide, rest.y + lift, rest.z);
@@ -1005,7 +1015,7 @@ function BookSpine3D({
     }
     if (coverRef.current) coverRef.current.rotation.y = -(Math.PI * 0.72) * t;
     if (bodyMat.current) {
-      bodyMat.current.emissiveIntensity = loose ? 0.08 + h * 0.45 : h * 0.25;
+      bodyMat.current.emissiveIntensity = loose ? 0.08 + h * 0.45 : h * 0.35;
     }
   });
 
@@ -1050,18 +1060,16 @@ function BookSpine3D({
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
-      {/* Soft outline so books don't merge; brightens on hover. */}
-      {loose && (
-        <mesh scale={[1.08, 1.12, 1.08]} raycast={noopRaycast}>
-          <boxGeometry args={[bodyW, bodyH, bodyD]} />
-          <meshBasicMaterial
-            color={hovered ? "#ffe7b0" : "#1a120c"}
-            transparent
-            opacity={hovered ? 0.55 : 0.35}
-            depthWrite={false}
-          />
-        </mesh>
-      )}
+      {/* Outline on piles and shelves — brightens on hover with the lift. */}
+      <mesh scale={[1.1, 1.12, 1.1]} raycast={noopRaycast}>
+        <boxGeometry args={[bodyW, bodyH, bodyD]} />
+        <meshBasicMaterial
+          color={hovered ? "#ffe7b0" : "#1a120c"}
+          transparent
+          opacity={hovered ? 0.55 : loose ? 0.32 : 0.2}
+          depthWrite={false}
+        />
+      </mesh>
 
       <mesh raycast={noopRaycast}>
         <boxGeometry args={[bodyW, bodyH, bodyD]} />
@@ -1069,7 +1077,7 @@ function BookSpine3D({
           ref={bodyMat}
           map={loose && pose === "flat" ? coverMap ?? clothMap : spineMap}
           color={bodyColor}
-          emissive={loose ? "#c9a227" : "#000000"}
+          emissive="#c9a227"
           emissiveIntensity={0}
           roughness={0.9}
         />
