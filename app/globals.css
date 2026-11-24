@@ -499,6 +499,77 @@
     border: 1px solid rgb(47 33 24 / 0.25);
   }
 
+  .room-junction-sign {
+    min-width: 7rem;
+    padding: 0.35rem 0.5rem;
+    background: rgb(232 217 181 / 0.92);
+    color: #2f2118;
+    border: 1px solid #a07b35;
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.04em;
+    line-height: 1.35;
+    text-align: center;
+  }
+
+  .room-junction-sign p {
+    margin: 0;
+  }
+
+  .room-minimap {
+    position: absolute;
+    left: max(0.75rem, env(safe-area-inset-left));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 5;
+    width: min(11.5rem, 42vw);
+    padding: 0.55rem 0.6rem 0.65rem;
+    background: linear-gradient(180deg, rgb(46 32 22 / 0.92), rgb(28 18 12 / 0.94));
+    border: 1px solid #a07b35;
+    color: #efe2c6;
+  }
+
+  .room-minimap svg {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    margin-top: 0.35rem;
+    background: #1e140e;
+  }
+
+  .room-minimap__aisle {
+    stroke: #c4a35a;
+    stroke-width: 1.8;
+    stroke-linecap: square;
+  }
+
+  .room-minimap__mark {
+    fill: #c9a227;
+  }
+
+  .room-minimap__you {
+    fill: #e8d9b5;
+  }
+
+  .room-minimap__jumps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.45rem;
+  }
+
+  .room-minimap__jumps button {
+    appearance: none;
+    border: 1px solid #a07b35;
+    background: #3a2818;
+    color: #efe2c6;
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.35rem;
+    cursor: pointer;
+  }
+
   .room-inspect {
     position: absolute;
     right: max(1rem, env(safe-area-inset-right));

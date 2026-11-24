@@ -20,15 +20,17 @@ import {
   type SortKey,
 } from "@/components/library/groupBooks";
 import { STATUS_LABEL } from "@/lib/spine-style";
+import { clampPitch, statusMark } from "@/components/room/roomConfig";
 import {
-  BAY_SPACING,
-  clampPitch,
-  clampYaw,
-  nearbyBooksFromShelves,
-  NEAR_RADIUS,
-  statusMark,
-  YAW_MAX,
-} from "@/components/room/roomConfig";
+  buildFloorPlan,
+  moveWithCollision,
+  nearbyBooks,
+  nearestLandmark,
+  placeShelves,
+  shelfFaceAmount,
+  wrapYaw,
+  type Landmark,
+} from "@/components/room/floorPlan";
 import { canCreateWebGL, RoomErrorBoundary } from "@/components/room/RoomErrorBoundary";
 
 const RoomCanvas = dynamic(
@@ -84,7 +86,7 @@ export function LibraryRoom({ books }: Props) {
   const calm = useCalmMode();
   const [webglOk, setWebglOk] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [sort, setSort] = useState<SortKey>("title");
+  const [sort, setSort] = useState<SortKey>("genre");
   const [filters, setFilters] = useState<Filters>({
     status: "all",
     genre: "all",
@@ -92,14 +94,16 @@ export function LibraryRoom({ books }: Props) {
     series: "all",
   });
   const [catalogueOpen, setCatalogueOpen] = useState(false);
-  const [depth, setDepth] = useState(0);
-  const [yaw, setYaw] = useState(0);
+  const plan = useMemo(() => buildFloorPlan(), []);
+  const [x, setX] = useState(plan.entrance.x);
+  const [z, setZ] = useState(plan.entrance.z);
+  const [yaw, setYaw] = useState(plan.entrance.yaw);
   const [pitch, setPitch] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const posRef = useRef({ x: plan.entrance.x, z: plan.entrance.z, yaw: plan.entrance.yaw });
   const dragRef = useRef<{
     x: number;
     y: number;
-    depth: number;
     yaw: number;
     pitch: number;
     active: boolean;
@@ -107,7 +111,6 @@ export function LibraryRoom({ books }: Props) {
   } | null>(null);
   const skipDragRef = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const facingWall = Math.abs(yaw) > YAW_MAX * 0.45;
 
   useEffect(() => {
     setWebglOk(canCreateWebGL());
@@ -121,6 +124,7 @@ export function LibraryRoom({ books }: Props) {
   const options = useMemo(() => collectFilterOptions(books), [books]);
   const filtered = useMemo(() => applyFilters(books, filters), [books, filters]);
   const shelves = useMemo(() => groupIntoShelves(filtered, sort), [filtered, sort]);
+  const placed = useMemo(() => placeShelves(plan, shelves), [plan, shelves]);
   const currentlyReading = useMemo(
     () => books.filter((book) => book.readStatus === "currently-reading"),
     [books],
@@ -129,34 +133,54 @@ export function LibraryRoom({ books }: Props) {
     () => (selectedUid ? books.find((book) => book.uid === selectedUid) ?? null : null),
     [books, selectedUid],
   );
+  const facing = shelfFaceAmount(x, z, yaw, placed);
+  const facingWall = facing.amount > 0.35;
+  const here = nearestLandmark(plan.landmarks, x, z);
 
-  const maxDepth = Math.max(0, shelves.length - 1);
-  const clampWalk = useCallback(
-    (next: number) => Math.min(maxDepth, Math.max(0, next)),
-    [maxDepth],
-  );
-  const walkBy = useCallback(
-    (delta: number) => {
+  const goTo = useCallback(
+    (landmark: Landmark) => {
       setSelectedUid(null);
       setPitch(0);
-      setDepth((current) => clampWalk(current + delta));
+      setX(landmark.x);
+      setZ(landmark.z);
+      setYaw(landmark.yaw);
+      posRef.current = { x: landmark.x, z: landmark.z, yaw: landmark.yaw };
     },
-    [clampWalk],
+    [],
   );
+
+  const walkBy = useCallback(
+    (distance: number) => {
+      setSelectedUid(null);
+      if (!facingWall) setPitch(0);
+      const { x: px, z: pz, yaw: py } = posRef.current;
+      const next = moveWithCollision(
+        px,
+        pz,
+        Math.sin(py) * distance,
+        -Math.cos(py) * distance,
+        plan.colliders,
+      );
+      posRef.current = { ...posRef.current, x: next.x, z: next.z };
+      setX(next.x);
+      setZ(next.z);
+    },
+    [plan.colliders, facingWall],
+  );
+
   const lookBy = useCallback((delta: number) => {
-    setYaw((current) => clampYaw(current + delta));
+    setYaw((current) => {
+      const next = wrapYaw(current + delta);
+      posRef.current = { ...posRef.current, yaw: next };
+      return next;
+    });
   }, []);
+
   const pitchBy = useCallback((delta: number) => {
     setPitch((current) => clampPitch(current + delta));
   }, []);
-  const faceAisle = useCallback(() => {
-    setYaw(0);
-    setPitch(0);
-  }, []);
 
-  useEffect(() => {
-    setDepth((current) => clampWalk(current));
-  }, [maxDepth, clampWalk]);
+  const goEntrance = useCallback(() => goTo(plan.entrance), [goTo, plan.entrance]);
 
   useEffect(() => {
     if (calm) return;
@@ -168,26 +192,21 @@ export function LibraryRoom({ books }: Props) {
       }
       if (event.key === "ArrowUp" || event.key === "w" || event.key === "W") {
         event.preventDefault();
-        if (facingWall) pitchBy(0.08);
-        else walkBy(-0.35);
+        if (facingWall && (event.key === "w" || event.key === "W")) pitchBy(0.08);
+        else walkBy(0.45);
       } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
-        if (facingWall) pitchBy(-0.08);
-        else walkBy(0.35);
+        if (facingWall && (event.key === "s" || event.key === "S")) pitchBy(-0.08);
+        else walkBy(-0.45);
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        lookBy(-0.18);
+        lookBy(-0.16);
       } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        lookBy(0.18);
+        lookBy(0.16);
       } else if (event.key === "Home") {
         event.preventDefault();
-        setDepth(0);
-        setSelectedUid(null);
-      } else if (event.key === "End") {
-        event.preventDefault();
-        setDepth(maxDepth);
-        setSelectedUid(null);
+        goEntrance();
       } else if (event.key === "Escape") {
         event.preventDefault();
         if (selectedUid) {
@@ -195,30 +214,27 @@ export function LibraryRoom({ books }: Props) {
           return;
         }
         setCatalogueOpen(false);
-        faceAisle();
+        setPitch(0);
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [calm, walkBy, lookBy, pitchBy, faceAisle, maxDepth, selectedUid, facingWall]);
+  }, [calm, walkBy, lookBy, pitchBy, goEntrance, selectedUid, facingWall]);
 
   useEffect(() => {
     if (calm) return;
     const node = viewportRef.current;
     if (!node) return;
-
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      walkBy(event.deltaY * 0.004);
+      walkBy(-event.deltaY * 0.004);
     };
-
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
   }, [calm, walkBy]);
 
   const selectBook = useCallback((uid: string | null) => {
-    // R3F fires on the canvas before this parent handler; skip the aisle drag for that gesture.
     skipDragRef.current = true;
     queueMicrotask(() => {
       skipDragRef.current = false;
@@ -228,7 +244,11 @@ export function LibraryRoom({ books }: Props) {
 
   const onPointerDown = (event: ReactPointerEvent) => {
     if (calm) return;
-    if ((event.target as HTMLElement).closest("a, button, select, label, summary, .room-book-card")) {
+    if (
+      (event.target as HTMLElement).closest(
+        "a, button, select, label, summary, .room-book-card, .room-minimap",
+      )
+    ) {
       return;
     }
     if (
@@ -240,7 +260,6 @@ export function LibraryRoom({ books }: Props) {
     dragRef.current = {
       x: event.clientX,
       y: event.clientY,
-      depth,
       yaw,
       pitch,
       active: false,
@@ -259,12 +278,14 @@ export function LibraryRoom({ books }: Props) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       setSelectedUid(null);
     }
-    setYaw(clampYaw(drag.yaw + dx / 220));
-    const facing = Math.abs(clampYaw(drag.yaw + dx / 220)) > YAW_MAX * 0.45;
-    if (facing) {
+    const nextYaw = wrapYaw(drag.yaw + dx / 200);
+    posRef.current = { ...posRef.current, yaw: nextYaw };
+    setYaw(nextYaw);
+    if (facingWall) {
       setPitch(clampPitch(drag.pitch + dy / 280));
     } else {
-      setDepth(clampWalk(drag.depth + dy / 180));
+      walkBy(dy / 140);
+      drag.y = event.clientY;
       setPitch(0);
     }
   };
@@ -307,21 +328,21 @@ export function LibraryRoom({ books }: Props) {
     return calmView;
   }
 
-  const active = shelves[Math.round(depth)];
-  const nearbyBooks = nearbyBooksFromShelves(shelves, depth);
+  const nearbyBookList = nearbyBooks(placed, x, z);
+  const sectionLabel = facing.slot?.shelf?.label ?? here?.label ?? "Library";
 
   return (
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Walkable pixel library aisle. Use scroll to walk the aisle. Use A and D or left and right
-          arrows to turn toward a shelf. While facing a wall, W and S or drag up and down look gently
-          up and down. Click a book to open it; Escape closes it or faces the aisle again.
+          Branching pixel library. Walk with W S or up and down arrows or scroll. Turn with A D or
+          left and right arrows or drag. While facing a shelf, W and S look up and down. Home or the
+          mini-map entrance returns to the door. Click a book to open it; Escape closes it.
         </p>
 
-        <nav className="room-sr-only" aria-label="Books near you in the aisle">
+        <nav className="room-sr-only" aria-label="Books near you">
           <ul>
-            {nearbyBooks.map((book) => {
+            {nearbyBookList.map((book) => {
               const authors = book.authors.join(", ") || "Unknown author";
               const status = book.readStatus ? STATUS_LABEL[book.readStatus] : "Status unknown";
               return (
@@ -344,11 +365,13 @@ export function LibraryRoom({ books }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           role="application"
-          aria-label="Walkable library aisle"
+          aria-label="Walkable library floor plan"
         >
           <RoomCanvas
-            shelves={shelves}
-            depth={depth}
+            plan={plan}
+            placed={placed}
+            x={x}
+            z={z}
             yaw={yaw}
             pitch={pitch}
             selectedUid={selectedUid}
@@ -363,12 +386,7 @@ export function LibraryRoom({ books }: Props) {
           </div>
         )}
 
-        <aside className="room-plate" aria-label="Library nameplate">
-          <p className="label">Library of</p>
-          <p className="room-plate__name">
-            Ezekiel <em>Ravidat</em>
-          </p>
-        </aside>
+        <MiniMap plan={plan} x={x} z={z} yaw={yaw} onJump={goTo} onEntrance={goEntrance} />
 
         <aside className="room-desk" aria-label="Currently reading">
           <p className="label">Reading desk</p>
@@ -395,18 +413,17 @@ export function LibraryRoom({ books }: Props) {
 
         <div className="room-hud">
           <p className="room-hud__bay label" aria-live="polite">
-            {active
-              ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}`
-              : "Aisle"}
+            {sectionLabel}
+            {facing.slot?.shelf ? ` · ${facing.slot.shelf.books.length} vols` : ""}
           </p>
           <p className="room-hud__hint label">
-            {facingWall ? "W/S look · ←→ turn · scroll walk · Esc" : "←→ look · scroll walk · click book · Esc"}
+            {facingWall
+              ? "W/S pitch · ←→ turn · scroll walk · Home door"
+              : "WASD walk/turn · scroll · map jump · Esc"}
           </p>
-          {Math.abs(yaw) > 0.2 && (
-            <button type="button" className="room-catalogue-pull" onClick={faceAisle}>
-              Face aisle
-            </button>
-          )}
+          <button type="button" className="room-catalogue-pull" onClick={goEntrance}>
+            Entrance
+          </button>
           <button
             type="button"
             className="room-catalogue-pull"
@@ -428,12 +445,70 @@ export function LibraryRoom({ books }: Props) {
           shown={filtered.length}
           total={books.length}
         />
-
-        <span className="room-sr-only">
-          Bay spacing {BAY_SPACING}m, near radius {NEAR_RADIUS}.
-        </span>
       </div>
     </RoomErrorBoundary>
+  );
+}
+
+function MiniMap({
+  plan,
+  x,
+  z,
+  yaw,
+  onJump,
+  onEntrance,
+}: {
+  plan: ReturnType<typeof buildFloorPlan>;
+  x: number;
+  z: number;
+  yaw: number;
+  onJump: (landmark: Landmark) => void;
+  onEntrance: () => void;
+}) {
+  const { minX, maxX, minZ, maxZ } = plan.floor;
+  const w = maxX - minX;
+  const h = maxZ - minZ;
+  const toX = (wx: number) => ((wx - minX) / w) * 100;
+  const toY = (wz: number) => ((maxZ - wz) / h) * 100;
+
+  return (
+    <aside className="room-minimap" aria-label="Floor plan">
+      <p className="label">Floor plan</p>
+      <svg viewBox="0 0 100 100" role="img" aria-label="Library map">
+        {plan.aisles.map((aisle) => (
+          <line
+            key={aisle.id}
+            x1={toX(aisle.from.x)}
+            y1={toY(aisle.from.z)}
+            x2={toX(aisle.to.x)}
+            y2={toY(aisle.to.z)}
+            className="room-minimap__aisle"
+          />
+        ))}
+        {plan.landmarks.map((mark) => (
+          <circle
+            key={mark.id}
+            cx={toX(mark.x)}
+            cy={toY(mark.z)}
+            r={mark.id === "entrance" ? 2.2 : 1.6}
+            className="room-minimap__mark"
+          />
+        ))}
+        <g transform={`translate(${toX(x)} ${toY(z)}) rotate(${(yaw * 180) / Math.PI})`}>
+          <polygon points="0,-3.2 2.2,2.4 -2.2,2.4" className="room-minimap__you" />
+        </g>
+      </svg>
+      <div className="room-minimap__jumps">
+        {plan.landmarks.map((mark) => (
+          <button key={mark.id} type="button" onClick={() => onJump(mark)}>
+            {mark.label}
+          </button>
+        ))}
+        <button type="button" onClick={onEntrance}>
+          Back to entrance
+        </button>
+      </div>
+    </aside>
   );
 }
 

@@ -5,7 +5,6 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { LibraryBook } from "@/lib/books";
-import type { ShelfGroup } from "@/components/library/groupBooks";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
 import {
   makeSpineTexture,
@@ -16,27 +15,31 @@ import {
 } from "@/components/room/woodTexture";
 import {
   BAY_MID_Y,
-  BAY_SPACING,
   coverTextureUrl,
   EYE_HEIGHT,
   FOV_AISLE,
   FOV_SHELF,
   hashUid,
   MAX_SPINES_PER_SIDE,
-  NEAR_RADIUS,
   PALETTE,
   PIXEL_SCALE,
-  SHELF_X,
+  RENDER_RADIUS,
   shelfViewDistance,
-  YAW_MAX,
 } from "@/components/room/roomConfig";
+import {
+  shelfFaceAmount,
+  type FloorPlan,
+  type PlacedShelf,
+} from "@/components/room/floorPlan";
 
 const ROW_YS = [0.42, 0.88, 1.34, 1.8, 2.26];
 const SHELF_DIST = shelfViewDistance(FOV_SHELF);
 
 type Props = {
-  shelves: ShelfGroup[];
-  depth: number;
+  plan: FloorPlan;
+  placed: PlacedShelf[];
+  x: number;
+  z: number;
   yaw: number;
   pitch: number;
   selectedUid: string | null;
@@ -45,8 +48,10 @@ type Props = {
 };
 
 export function RoomCanvas({
-  shelves,
-  depth,
+  plan,
+  placed,
+  x,
+  z,
   yaw,
   pitch,
   selectedUid,
@@ -54,11 +59,13 @@ export function RoomCanvas({
   preferReducedMotion,
 }: Props) {
   const nearby = useMemo(
-    () =>
-      shelves
-        .map((shelf, index) => ({ shelf, index }))
-        .filter(({ index }) => Math.abs(index - depth) <= NEAR_RADIUS),
-    [shelves, depth],
+    () => placed.filter((slot) => Math.hypot(slot.x - x, slot.z - z) <= RENDER_RADIUS),
+    [placed, x, z],
+  );
+
+  const nearbyJunctions = useMemo(
+    () => plan.junctions.filter((j) => Math.hypot(j.x - x, j.z - z) <= RENDER_RADIUS),
+    [plan.junctions, x, z],
   );
 
   return (
@@ -72,36 +79,48 @@ export function RoomCanvas({
         alpha: false,
         depth: true,
       }}
-      camera={{ fov: FOV_AISLE, near: 0.1, far: 80, position: [0, EYE_HEIGHT, 2] }}
+      camera={{ fov: FOV_AISLE, near: 0.1, far: 90, position: [0, EYE_HEIGHT, 4] }}
       onPointerMissed={() => onSelect(null)}
     >
       <PixelScale />
       <color attach="background" args={[PALETTE.fog]} />
-      <fog attach="fog" args={[PALETTE.fog, 8, 22]} />
+      <fog attach="fog" args={[PALETTE.fog, 10, 28]} />
       <hemisphereLight args={[PALETTE.paper, PALETTE.walnut, 0.55]} />
       <ambientLight intensity={0.42} color={PALETTE.paper} />
       <directionalLight position={[1.5, 4, 2]} intensity={0.28} color={PALETTE.lamp} />
 
-      <WalkCamera depth={depth} yaw={yaw} pitch={pitch} />
-      <RoomShell bayCount={Math.max(shelves.length, 1)} />
+      <WalkCamera
+        x={x}
+        z={z}
+        yaw={yaw}
+        pitch={pitch}
+        placed={nearby}
+      />
+      <RoomShell plan={plan} />
+      <EntrancePlate landmark={plan.entrance} />
+      <DeskAlcove />
 
-      {nearby.map(({ shelf, index }) => (
-        <ShelfBay
-          key={shelf.id}
-          shelf={shelf}
-          index={index}
-          yaw={yaw}
-          active={Math.round(depth) === index}
-          selectedUid={selectedUid}
-          onSelect={onSelect}
-          preferReducedMotion={preferReducedMotion}
-        />
+      {nearbyJunctions.map((junction) => (
+        <JunctionSign key={junction.id} junction={junction} />
       ))}
+
+      {nearby.map((slot) =>
+        slot.shelf ? (
+          <ShelfBay
+            key={slot.id}
+            slot={slot}
+            playerX={x}
+            playerZ={z}
+            selectedUid={selectedUid}
+            onSelect={onSelect}
+            preferReducedMotion={preferReducedMotion}
+          />
+        ) : null,
+      )}
     </Canvas>
   );
 }
 
-/** Render at ~1/3 resolution; CSS nearest-neighbour upscales the canvas. */
 function PixelScale() {
   const { gl, size, camera } = useThree();
 
@@ -124,18 +143,22 @@ function PixelScale() {
 }
 
 function WalkCamera({
-  depth,
+  x,
+  z,
   yaw,
   pitch,
+  placed,
 }: {
-  depth: number;
+  x: number;
+  z: number;
   yaw: number;
   pitch: number;
+  placed: PlacedShelf[];
 }) {
   const smoothed = useRef({
-    z: 1.8,
     x: 0,
     y: EYE_HEIGHT,
+    z: 4,
     yaw: 0,
     pitch: 0,
     fov: FOV_AISLE,
@@ -143,21 +166,27 @@ function WalkCamera({
 
   useFrame((state) => {
     const camera = state.camera as THREE.PerspectiveCamera;
-    const face = Math.min(1, Math.abs(yaw) / YAW_MAX);
-    const targetZ = 1.8 - depth * BAY_SPACING;
-    const side = yaw < 0 ? -1 : 1;
-    // Aisle: near centre. Facing a wall: stand back so the full bay fits in FOV_SHELF.
-    const aisleX = Math.sin(yaw) * 0.2;
-    const framedX = side * (SHELF_X - SHELF_DIST);
-    const targetX = THREE.MathUtils.lerp(aisleX, framedX, face);
-    const targetY = THREE.MathUtils.lerp(EYE_HEIGHT, BAY_MID_Y, face * 0.85);
-    const targetFov = THREE.MathUtils.lerp(FOV_AISLE, FOV_SHELF, face);
+    const face = shelfFaceAmount(x, z, yaw, placed);
+    const amount = face.amount;
 
+    let targetX = x;
+    let targetZ = z;
+    let targetY = EYE_HEIGHT;
+    if (face.slot && amount > 0.05) {
+      const fx = Math.sin(face.slot.facing);
+      const fz = -Math.cos(face.slot.facing);
+      // Stand back from the case so the full bay fits.
+      targetX = THREE.MathUtils.lerp(x, face.slot.x + fx * SHELF_DIST, amount * 0.85);
+      targetZ = THREE.MathUtils.lerp(z, face.slot.z + fz * SHELF_DIST, amount * 0.85);
+      targetY = THREE.MathUtils.lerp(EYE_HEIGHT, BAY_MID_Y, amount * 0.85);
+    }
+
+    const targetFov = THREE.MathUtils.lerp(FOV_AISLE, FOV_SHELF, amount);
     const s = smoothed.current;
-    s.z += (targetZ - s.z) * 0.14;
-    s.x += (targetX - s.x) * 0.12;
+    s.x += (targetX - s.x) * 0.14;
     s.y += (targetY - s.y) * 0.12;
-    s.yaw += (yaw - s.yaw) * 0.14;
+    s.z += (targetZ - s.z) * 0.14;
+    s.yaw += shortestAngle(s.yaw, yaw) * 0.16;
     s.pitch += (pitch - s.pitch) * 0.14;
     s.fov += (targetFov - s.fov) * 0.1;
 
@@ -165,177 +194,221 @@ function WalkCamera({
     camera.fov = s.fov;
     camera.updateProjectionMatrix();
 
-    const lookDist = THREE.MathUtils.lerp(6.2, Math.max(0.8, Math.abs(side * SHELF_X - s.x)), face);
+    const lookDist = THREE.MathUtils.lerp(5.5, Math.max(1.2, face.dist || SHELF_DIST), amount);
     const lookX = s.x + Math.sin(s.yaw) * lookDist;
     const lookZ = s.z - Math.cos(s.yaw) * lookDist;
-    const lookY = s.y + Math.sin(s.pitch) * 2.2 + (face > 0.5 ? 0 : -0.05);
+    const lookY = s.y + Math.sin(s.pitch) * 2.2;
     camera.lookAt(lookX, lookY, lookZ);
   });
 
   return null;
 }
 
-function RoomShell({ bayCount }: { bayCount: number }) {
+function shortestAngle(from: number, to: number): number {
+  let d = to - from;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+function RoomShell({ plan }: { plan: FloorPlan }) {
   const wood = useWoodTexture(3);
   const rug = useRugTexture();
-  const length = Math.max(bayCount, 4) * BAY_SPACING + 10;
-  wood.repeat.set(length / 2, 2);
-  rug.repeat.set(1, length / 3);
+  const { minX, maxX, minZ, maxZ } = plan.floor;
+  const width = maxX - minX;
+  const depth = maxZ - minZ;
+  const cx = (minX + maxX) / 2;
+  const cz = (minZ + maxZ) / 2;
+  wood.repeat.set(width / 2, depth / 2);
+  rug.repeat.set(2, depth / 4);
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -length / 2 + 4]}>
-        <planeGeometry args={[8, length]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0, cz]}>
+        <planeGeometry args={[width, depth]} />
         <meshStandardMaterial map={wood} roughness={1} metalness={0} color={PALETTE.honey} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, -length / 2 + 4]}>
-        <planeGeometry args={[1.6, length * 0.9]} />
-        <meshStandardMaterial map={rug} roughness={1} metalness={0} />
-      </mesh>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 3.05, -length / 2 + 4]}>
-        <planeGeometry args={[8, length]} />
+      {plan.aisles.map((aisle) => {
+        const mx = (aisle.from.x + aisle.to.x) / 2;
+        const mz = (aisle.from.z + aisle.to.z) / 2;
+        const len = Math.hypot(aisle.to.x - aisle.from.x, aisle.to.z - aisle.from.z) || 1;
+        const angle = Math.atan2(aisle.to.x - aisle.from.x, aisle.to.z - aisle.from.z);
+        return (
+          <mesh
+            key={aisle.id}
+            rotation={[-Math.PI / 2, 0, -angle]}
+            position={[mx, 0.015, mz]}
+          >
+            <planeGeometry args={[aisle.width * 0.85, len]} />
+            <meshStandardMaterial map={rug} roughness={1} metalness={0} />
+          </mesh>
+        );
+      })}
+      <mesh rotation={[Math.PI / 2, 0, 0]} position={[cx, 3.05, cz]}>
+        <planeGeometry args={[width, depth]} />
         <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <mesh position={[0, 1.5, -bayCount * BAY_SPACING - 2]}>
-        <boxGeometry args={[7.5, 3.1, 0.35]} />
+      {/* Outer wall shells */}
+      <mesh position={[cx, 1.5, maxZ + 0.2]}>
+        <boxGeometry args={[width + 1, 3.1, 0.4]} />
+        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+      </mesh>
+      <mesh position={[cx, 1.5, minZ - 0.2]}>
+        <boxGeometry args={[width + 1, 3.1, 0.4]} />
+        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+      </mesh>
+      <mesh position={[minX - 0.2, 1.5, cz]}>
+        <boxGeometry args={[0.4, 3.1, depth + 1]} />
+        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+      </mesh>
+      <mesh position={[maxX + 0.2, 1.5, cz]}>
+        <boxGeometry args={[0.4, 3.1, depth + 1]} />
         <meshStandardMaterial color={PALETTE.ink} roughness={1} />
       </mesh>
     </group>
   );
 }
 
-function ShelfBay({
-  shelf,
-  index,
-  yaw,
-  active,
-  selectedUid,
-  onSelect,
-  preferReducedMotion,
-}: {
-  shelf: ShelfGroup;
-  index: number;
-  yaw: number;
-  active: boolean;
-  selectedUid: string | null;
-  onSelect: (uid: string | null) => void;
-  preferReducedMotion: boolean;
-}) {
-  const z = -index * BAY_SPACING;
-  const lamp = useLampTexture();
-  const leftBooks = shelf.books.slice(0, MAX_SPINES_PER_SIDE);
-  const rightSlice = shelf.books.slice(MAX_SPINES_PER_SIDE, MAX_SPINES_PER_SIDE * 2);
-  const rightBooks =
-    rightSlice.length > 0
-      ? rightSlice
-      : [...leftBooks].reverse().slice(0, Math.min(MAX_SPINES_PER_SIDE, leftBooks.length));
-
+function EntrancePlate({ landmark }: { landmark: FloorPlan["entrance"] }) {
   return (
-    <group position={[0, 0, z]}>
-      <Bookcase
-        side="left"
-        books={leftBooks}
-        label={shelf.label}
-        count={shelf.books.length}
-        yaw={yaw}
-        showLabels={active}
-        selectedUid={selectedUid}
-        onSelect={onSelect}
-        preferReducedMotion={preferReducedMotion}
-      />
-      <Bookcase
-        side="right"
-        books={rightBooks}
-        label={shelf.label}
-        count={shelf.books.length}
-        yaw={yaw}
-        showLabels={active}
-        selectedUid={selectedUid}
-        onSelect={onSelect}
-        preferReducedMotion={preferReducedMotion}
-      />
-      <pointLight
-        position={[0, 2.45, 0.25]}
-        intensity={active ? 1.05 : 0.45}
-        distance={6.5}
-        color={PALETTE.lamp}
-      />
-      <mesh position={[0, 2.7, 0.2]}>
-        <boxGeometry args={[0.35, 0.12, 0.35]} />
-        <meshStandardMaterial
-          map={lamp}
-          emissive={PALETTE.lamp}
-          emissiveIntensity={active ? 0.85 : 0.35}
-          color={PALETTE.brass}
-        />
+    <group position={[landmark.x, 0, landmark.z]}>
+      <mesh position={[0, 1.1, 0.3]}>
+        <boxGeometry args={[1.4, 0.7, 0.08]} />
+        <meshStandardMaterial color={PALETTE.brass} roughness={0.7} metalness={0.25} />
       </mesh>
+      <Html position={[0, 1.1, 0.4]} center distanceFactor={4} style={{ pointerEvents: "none" }}>
+        <div className="room-sign-3d">
+          <span className="label">Library of</span>
+          <span className="room-sign-3d__count">Ezekiel Ravidat</span>
+        </div>
+      </Html>
     </group>
   );
 }
 
-function Bookcase({
-  side,
-  books,
-  label,
-  count,
-  yaw,
-  showLabels,
+function DeskAlcove() {
+  const wood = useWoodTexture(5);
+  return (
+    <group position={[-5.2, 0, 2]}>
+      <mesh position={[0, 0.55, 0]}>
+        <boxGeometry args={[1.6, 0.12, 0.9]} />
+        <meshStandardMaterial map={wood} color={PALETTE.walnut} roughness={1} />
+      </mesh>
+      <mesh position={[-0.6, 0.28, 0]}>
+        <boxGeometry args={[0.12, 0.55, 0.12]} />
+        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
+      </mesh>
+      <mesh position={[0.6, 0.28, 0]}>
+        <boxGeometry args={[0.12, 0.55, 0.12]} />
+        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
+      </mesh>
+      <Html position={[0, 1.1, 0]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
+        <div className="room-sign-3d">
+          <span className="label">Reading desk</span>
+        </div>
+      </Html>
+      <mesh position={[1.7, 0.7, 0.6]}>
+        <boxGeometry args={[0.9, 1.1, 0.45]} />
+        <meshStandardMaterial color={PALETTE.oxblood} roughness={1} />
+      </mesh>
+      <Html position={[1.7, 1.4, 0.6]} center distanceFactor={3.5} style={{ pointerEvents: "none" }}>
+        <div className="room-sign-3d">
+          <span className="label">Catalogue</span>
+        </div>
+      </Html>
+    </group>
+  );
+}
+
+function JunctionSign({
+  junction,
+}: {
+  junction: FloorPlan["junctions"][number];
+}) {
+  return (
+    <group position={[junction.x, 0, junction.z]}>
+      <mesh position={[0, 2.55, 0]}>
+        <boxGeometry args={[0.08, 0.5, 0.08]} />
+        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
+      </mesh>
+      <mesh position={[0, 2.85, 0]}>
+        <boxGeometry args={[1.5, 0.55, 0.06]} />
+        <meshStandardMaterial color={PALETTE.brass} roughness={0.75} metalness={0.2} />
+      </mesh>
+      <Html position={[0, 2.85, 0.08]} center distanceFactor={4} style={{ pointerEvents: "none" }}>
+        <div className="room-junction-sign">
+          {junction.lines.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </div>
+      </Html>
+      <pointLight position={[0, 2.4, 0]} intensity={0.7} distance={5} color={PALETTE.lamp} />
+    </group>
+  );
+}
+
+function ShelfBay({
+  slot,
+  playerX,
+  playerZ,
   selectedUid,
   onSelect,
   preferReducedMotion,
 }: {
-  side: "left" | "right";
-  books: LibraryBook[];
-  label: string;
-  count: number;
-  yaw: number;
-  showLabels: boolean;
+  slot: PlacedShelf;
+  playerX: number;
+  playerZ: number;
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
 }) {
-  const wood = useWoodTexture(side === "left" ? 1 : 2);
-  wood.repeat.set(1.2, 1.6);
-  const x = side === "left" ? -SHELF_X : SHELF_X;
-  const face = side === "left" ? 1 : -1;
-  const facing = showLabels && (side === "left" ? yaw < -0.45 : yaw > 0.45);
+  const shelf = slot.shelf!;
+  const wood = useWoodTexture(hashUid(slot.id) % 5);
+  const lamp = useLampTexture();
+  const dist = Math.hypot(slot.x - playerX, slot.z - playerZ);
+  const active = dist < 5.5;
+  const books = shelf.books.slice(0, MAX_SPINES_PER_SIDE);
 
   return (
-    <group position={[x, 0, 0]}>
+    <group position={[slot.x, 0, slot.z]} rotation={[0, slot.facing, 0]}>
       <mesh position={[0, 1.4, 0]}>
-        <boxGeometry args={[0.55, 2.85, 3.55]} />
+        <boxGeometry args={[0.55, 2.85, 3.4]} />
         <meshStandardMaterial map={wood} roughness={1} metalness={0} color={PALETTE.honey} />
       </mesh>
-
       {ROW_YS.map((y) => (
-        <mesh key={y} position={[face * 0.12, y - 0.18, 0]}>
-          <boxGeometry args={[0.42, 0.07, 3.35]} />
+        <mesh key={y} position={[0.12, y - 0.18, 0]}>
+          <boxGeometry args={[0.42, 0.07, 3.2]} />
           <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
         </mesh>
       ))}
-
-      {/* Chunked brass sign */}
-      <mesh position={[face * 0.4, 2.78, 0]}>
+      <mesh position={[0.4, 2.78, 0]}>
         <boxGeometry args={[0.06, 0.22, 1.05]} />
         <meshStandardMaterial color={PALETTE.brass} roughness={0.85} metalness={0.2} />
       </mesh>
-
-      <Html
-        position={[face * 0.42, 2.78, 0]}
-        center
-        distanceFactor={facing ? 3.1 : 4.4}
-        style={{ pointerEvents: "none" }}
-      >
+      <Html position={[0.42, 2.78, 0]} center distanceFactor={active ? 3.1 : 4.4} style={{ pointerEvents: "none" }}>
         <div className="room-sign-3d">
-          <span className="label">{label}</span>
-          <span className="room-sign-3d__count">{count}</span>
+          <span className="label">{shelf.label}</span>
+          <span className="room-sign-3d__count">{shelf.books.length}</span>
         </div>
       </Html>
-
+      <pointLight
+        position={[0.8, 2.4, 0]}
+        intensity={active ? 1.0 : 0.4}
+        distance={6}
+        color={PALETTE.lamp}
+      />
+      <mesh position={[0.7, 2.65, 0]}>
+        <boxGeometry args={[0.3, 0.1, 0.3]} />
+        <meshStandardMaterial
+          map={lamp}
+          emissive={PALETTE.lamp}
+          emissiveIntensity={active ? 0.8 : 0.3}
+          color={PALETTE.brass}
+        />
+      </mesh>
       <Spines
-        side={side}
         books={books}
-        facing={facing}
+        facing={active}
         selectedUid={selectedUid}
         onSelect={onSelect}
         preferReducedMotion={preferReducedMotion}
@@ -354,21 +427,18 @@ function bookPose(seed: number): Pose {
 }
 
 function Spines({
-  side,
   books,
   facing,
   selectedUid,
   onSelect,
   preferReducedMotion,
 }: {
-  side: "left" | "right";
   books: LibraryBook[];
   facing: boolean;
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
 }) {
-  const face = side === "left" ? 1 : -1;
   const perRow = Math.ceil(books.length / ROW_YS.length) || 1;
 
   return (
@@ -381,19 +451,18 @@ function Spines({
         const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.15);
         const height = 0.28 + (seed % 7) * 0.018;
         const depth = 0.11 + (seed % 3) * 0.01;
-        const z = -1.4 + col * (2.8 / Math.max(perRow - 1, 1));
+        const z = -1.35 + col * (2.7 / Math.max(perRow - 1, 1));
         const shelfY = ROW_YS[row];
         const rest =
           pose === "flat"
-            ? new THREE.Vector3(face * 0.28, shelfY + 0.04, z)
-            : new THREE.Vector3(face * 0.34, shelfY + height / 2 - 0.02, z);
+            ? new THREE.Vector3(0.28, shelfY + 0.04, z)
+            : new THREE.Vector3(0.34, shelfY + height / 2 - 0.02, z);
 
         return (
           <BookSpine3D
             key={book.uid}
             book={book}
             rest={rest}
-            face={face}
             thickness={thickness}
             height={height}
             depth={depth}
@@ -419,7 +488,6 @@ function useCoverMap(coverUrl: string | null) {
       setMap(null);
       return;
     }
-
     let cancelled = false;
     let texture: THREE.Texture | null = null;
     const image = new Image();
@@ -441,7 +509,6 @@ function useCoverMap(coverUrl: string | null) {
       if (!cancelled) setMap(null);
     };
     image.src = proxied;
-
     return () => {
       cancelled = true;
       texture?.dispose();
@@ -454,7 +521,6 @@ function useCoverMap(coverUrl: string | null) {
 function BookSpine3D({
   book,
   rest,
-  face,
   thickness,
   height,
   depth,
@@ -467,7 +533,6 @@ function BookSpine3D({
 }: {
   book: LibraryBook;
   rest: THREE.Vector3;
-  face: number;
   thickness: number;
   height: number;
   depth: number;
@@ -497,23 +562,17 @@ function BookSpine3D({
 
   useFrame((_, delta) => {
     const target = selected ? 1 : 0;
-    if (preferReducedMotion) {
-      progress.current = target;
-    } else {
-      progress.current += (target - progress.current) * Math.min(1, delta * 6);
-    }
+    if (preferReducedMotion) progress.current = target;
+    else progress.current += (target - progress.current) * Math.min(1, delta * 6);
     const t = progress.current;
     if (!group.current) return;
-
-    group.current.position.set(rest.x + face * t * 0.55, rest.y + t * 0.1, rest.z);
+    group.current.position.set(rest.x + t * 0.55, rest.y + t * 0.1, rest.z);
     if (pose === "flat" && t < 0.05) {
       group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);
     } else {
-      group.current.rotation.set(0, face * (Math.PI / 2) * t, lean * (1 - t));
+      group.current.rotation.set(0, (Math.PI / 2) * t, lean * (1 - t));
     }
-    if (coverRef.current) {
-      coverRef.current.rotation.y = -face * (Math.PI * 0.72) * t;
-    }
+    if (coverRef.current) coverRef.current.rotation.y = -(Math.PI * 0.72) * t;
   });
 
   const pick = (event: ThreeEvent<PointerEvent>) => {
@@ -524,7 +583,6 @@ function BookSpine3D({
   };
 
   const spineMap = coverMap ?? clothMap;
-  // Bevelled profile: main block + slightly smaller front plate.
   const bodyW = facing ? depth + 0.02 : depth;
   const bodyH = pose === "flat" ? thickness : height;
   const bodyD = pose === "flat" ? height : thickness;
@@ -551,13 +609,10 @@ function BookSpine3D({
           map={spineMap}
           color={coverMap ? "#ffffff" : cloth}
           roughness={0.92}
-          metalness={0}
         />
       </mesh>
-
-      {/* Bevel / rounded face plate */}
       {pose !== "flat" && (
-        <mesh position={[face * (bodyW * 0.35), 0, 0]} scale={[0.55, 0.96, 0.92]}>
+        <mesh position={[bodyW * 0.35, 0, 0]} scale={[0.55, 0.96, 0.92]}>
           <boxGeometry args={[bodyW, bodyH, bodyD]} />
           <meshStandardMaterial
             map={spineMap}
@@ -566,37 +621,29 @@ function BookSpine3D({
           />
         </mesh>
       )}
-
-      {/* Headband */}
       {pose !== "flat" && (
         <mesh position={[0, bodyH * 0.48, 0]}>
           <boxGeometry args={[bodyW * 1.02, 0.018, bodyD * 1.02]} />
-          <meshStandardMaterial color={seed % 2 === 0 ? PALETTE.brass : PALETTE.paper} roughness={0.8} />
+          <meshStandardMaterial color={seed % 2 === 0 ? PALETTE.brass : PALETTE.paper} />
         </mesh>
       )}
-      {/* Tail */}
       {pose !== "flat" && (
         <mesh position={[0, -bodyH * 0.48, 0]}>
           <boxGeometry args={[bodyW * 1.02, 0.016, bodyD * 1.02]} />
-          <meshStandardMaterial
-            color={seed % 3 === 0 ? PALETTE.deepGreen : PALETTE.brass}
-            roughness={0.85}
-          />
+          <meshStandardMaterial color={seed % 3 === 0 ? PALETTE.deepGreen : PALETTE.brass} />
         </mesh>
       )}
-
       {facing && !selected && (hovered || !coverMap) && pose !== "flat" && (
-        <Html position={[face * 0.12, 0, 0]} center distanceFactor={2.5} style={{ pointerEvents: "none" }}>
+        <Html position={[0.12, 0, 0]} center distanceFactor={2.5} style={{ pointerEvents: "none" }}>
           <div className={`room-spine-label ${hovered ? "is-hot" : ""}`}>
             <p className="room-spine-label__title">{shortTitle(book.title, 36)}</p>
             <p className="room-spine-label__author">{authors}</p>
           </div>
         </Html>
       )}
-
       <mesh
         ref={coverRef}
-        position={[face * 0.08, 0, bodyD * 0.45]}
+        position={[0.08, 0, bodyD * 0.45]}
         visible={selected || progress.current > 0.02}
       >
         <boxGeometry args={[0.03, bodyH * 1.05, bodyD * 1.7]} />
