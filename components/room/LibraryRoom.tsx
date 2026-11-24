@@ -100,7 +100,23 @@ export function LibraryRoom({ books }: Props) {
   const [yaw, setYaw] = useState(plan.entrance.yaw);
   const [pitch, setPitch] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
-  const posRef = useRef({ x: plan.entrance.x, z: plan.entrance.z, yaw: plan.entrance.yaw });
+  const posRef = useRef({
+    x: plan.entrance.x,
+    z: plan.entrance.z,
+    yaw: plan.entrance.yaw,
+    pitch: 0,
+    vx: 0,
+    vz: 0,
+    vyaw: 0,
+  });
+  const keysRef = useRef({
+    forward: false,
+    back: false,
+    left: false,
+    right: false,
+    pitchUp: false,
+    pitchDown: false,
+  });
   const dragRef = useRef<{
     x: number;
     y: number;
@@ -137,90 +153,130 @@ export function LibraryRoom({ books }: Props) {
   const facingWall = facing.amount > 0.35;
   const here = nearestLandmark(plan.landmarks, x, z);
 
-  const goTo = useCallback(
-    (landmark: Landmark) => {
-      setSelectedUid(null);
-      setPitch(0);
-      setX(landmark.x);
-      setZ(landmark.z);
-      setYaw(landmark.yaw);
-      posRef.current = { x: landmark.x, z: landmark.z, yaw: landmark.yaw };
-    },
-    [],
-  );
-
-  const walkBy = useCallback(
-    (distance: number) => {
-      setSelectedUid(null);
-      if (!facingWall) setPitch(0);
-      const { x: px, z: pz, yaw: py } = posRef.current;
-      const next = moveWithCollision(
-        px,
-        pz,
-        Math.sin(py) * distance,
-        -Math.cos(py) * distance,
-        plan.colliders,
-      );
-      posRef.current = { ...posRef.current, x: next.x, z: next.z };
-      setX(next.x);
-      setZ(next.z);
-    },
-    [plan.colliders, facingWall],
-  );
-
-  const lookBy = useCallback((delta: number) => {
-    setYaw((current) => {
-      const next = wrapYaw(current + delta);
-      posRef.current = { ...posRef.current, yaw: next };
-      return next;
-    });
-  }, []);
-
-  const pitchBy = useCallback((delta: number) => {
-    setPitch((current) => clampPitch(current + delta));
+  const goTo = useCallback((landmark: Landmark) => {
+    setSelectedUid(null);
+    setPitch(0);
+    setX(landmark.x);
+    setZ(landmark.z);
+    setYaw(landmark.yaw);
+    posRef.current = {
+      x: landmark.x,
+      z: landmark.z,
+      yaw: landmark.yaw,
+      pitch: 0,
+      vx: 0,
+      vz: 0,
+      vyaw: 0,
+    };
   }, []);
 
   const goEntrance = useCallback(() => goTo(plan.entrance), [goTo, plan.entrance]);
 
+  // Continuous walk / turn with inertia. Turning never checks collision.
+  useEffect(() => {
+    if (calm) return;
+    let frame = 0;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const keys = keysRef.current;
+      const body = posRef.current;
+
+      const wishYaw =
+        (keys.left ? 1 : 0) * -2.6 + (keys.right ? 1 : 0) * 2.6;
+      body.vyaw += (wishYaw - body.vyaw) * Math.min(1, dt * 10);
+      body.yaw = wrapYaw(body.yaw + body.vyaw * dt);
+
+      const wish =
+        (keys.forward ? 1 : 0) + (keys.back ? -1 : 0);
+      const speed = 3.4;
+      const wishX = Math.sin(body.yaw) * wish * speed;
+      const wishZ = -Math.cos(body.yaw) * wish * speed;
+      body.vx += (wishX - body.vx) * Math.min(1, dt * 8);
+      body.vz += (wishZ - body.vz) * Math.min(1, dt * 8);
+
+      if (Math.hypot(body.vx, body.vz) > 0.001) {
+        const next = moveWithCollision(
+          body.x,
+          body.z,
+          body.vx * dt,
+          body.vz * dt,
+          plan.colliders,
+        );
+        // If we slid, kill the blocked component of velocity.
+        if (Math.abs(next.x - body.x) < Math.abs(body.vx * dt) * 0.25) body.vx *= 0.2;
+        if (Math.abs(next.z - body.z) < Math.abs(body.vz * dt) * 0.25) body.vz *= 0.2;
+        body.x = next.x;
+        body.z = next.z;
+      }
+
+      if (keys.pitchUp) body.pitch = clampPitch(body.pitch + dt * 1.2);
+      if (keys.pitchDown) body.pitch = clampPitch(body.pitch - dt * 1.2);
+
+      setX(body.x);
+      setZ(body.z);
+      setYaw(body.yaw);
+      setPitch(body.pitch);
+      frame = requestAnimationFrame(tick);
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [calm, plan.colliders]);
+
   useEffect(() => {
     if (calm) return;
 
-    const onKey = (event: KeyboardEvent) => {
+    const setKey = (event: KeyboardEvent, down: boolean) => {
       if (event.target instanceof HTMLElement) {
         const tag = event.target.tagName;
         if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       }
+      const keys = keysRef.current;
       if (event.key === "ArrowUp" || event.key === "w" || event.key === "W") {
         event.preventDefault();
-        if (facingWall && (event.key === "w" || event.key === "W")) pitchBy(0.08);
-        else walkBy(0.45);
+        keys.forward = down;
       } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
-        if (facingWall && (event.key === "s" || event.key === "S")) pitchBy(-0.08);
-        else walkBy(-0.45);
+        keys.back = down;
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        lookBy(-0.16);
+        keys.left = down;
       } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        lookBy(0.16);
-      } else if (event.key === "Home") {
+        keys.right = down;
+      } else if (event.key === "q" || event.key === "Q" || event.key === "PageUp") {
+        event.preventDefault();
+        keys.pitchUp = down;
+      } else if (event.key === "e" || event.key === "E" || event.key === "PageDown") {
+        event.preventDefault();
+        keys.pitchDown = down;
+      } else if (down && event.key === "Home") {
         event.preventDefault();
         goEntrance();
-      } else if (event.key === "Escape") {
+      } else if (down && event.key === "Escape") {
         event.preventDefault();
         if (selectedUid) {
           setSelectedUid(null);
           return;
         }
         setCatalogueOpen(false);
+        posRef.current.pitch = 0;
         setPitch(0);
       }
     };
 
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [calm, walkBy, lookBy, pitchBy, goEntrance, selectedUid, facingWall]);
+    const onDown = (event: KeyboardEvent) => setKey(event, true);
+    const onUp = (event: KeyboardEvent) => setKey(event, false);
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+    };
+  }, [calm, goEntrance, selectedUid]);
 
   useEffect(() => {
     if (calm) return;
@@ -228,11 +284,23 @@ export function LibraryRoom({ books }: Props) {
     if (!node) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      walkBy(-event.deltaY * 0.004);
+      const body = posRef.current;
+      const distance = -event.deltaY * 0.004;
+      const next = moveWithCollision(
+        body.x,
+        body.z,
+        Math.sin(body.yaw) * distance,
+        -Math.cos(body.yaw) * distance,
+        plan.colliders,
+      );
+      body.x = next.x;
+      body.z = next.z;
+      body.vx *= 0.5;
+      body.vz *= 0.5;
     };
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, [calm, walkBy]);
+  }, [calm, plan.colliders]);
 
   const selectBook = useCallback((uid: string | null) => {
     skipDragRef.current = true;
@@ -278,14 +346,29 @@ export function LibraryRoom({ books }: Props) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       setSelectedUid(null);
     }
-    const nextYaw = wrapYaw(drag.yaw + dx / 200);
-    posRef.current = { ...posRef.current, yaw: nextYaw };
+    // Turning always works — never gated by collision.
+    const nextYaw = wrapYaw(drag.yaw + dx / 180);
+    posRef.current.yaw = nextYaw;
+    posRef.current.vyaw = 0;
     setYaw(nextYaw);
     if (facingWall) {
-      setPitch(clampPitch(drag.pitch + dy / 280));
+      const nextPitch = clampPitch(drag.pitch + dy / 260);
+      posRef.current.pitch = nextPitch;
+      setPitch(nextPitch);
     } else {
-      walkBy(dy / 140);
+      const distance = dy / 120;
+      const body = posRef.current;
+      const next = moveWithCollision(
+        body.x,
+        body.z,
+        Math.sin(body.yaw) * distance,
+        -Math.cos(body.yaw) * distance,
+        plan.colliders,
+      );
+      body.x = next.x;
+      body.z = next.z;
       drag.y = event.clientY;
+      posRef.current.pitch = 0;
       setPitch(0);
     }
   };
@@ -335,9 +418,9 @@ export function LibraryRoom({ books }: Props) {
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Branching pixel library. Walk with W S or up and down arrows or scroll. Turn with A D or
-          left and right arrows or drag. While facing a shelf, W and S look up and down. Home or the
-          mini-map entrance returns to the door. Click a book to open it; Escape closes it.
+          Branching pixel library. Hold W S or arrows to walk, A D to turn — turning always works.
+          Scroll also walks. Q E or vertical drag while facing a shelf looks up and down. Home or the
+          mini-map returns to the entrance. Click a book to open it; Escape closes it.
         </p>
 
         <nav className="room-sr-only" aria-label="Books near you">
@@ -418,8 +501,8 @@ export function LibraryRoom({ books }: Props) {
           </p>
           <p className="room-hud__hint label">
             {facingWall
-              ? "W/S pitch · ←→ turn · scroll walk · Home door"
-              : "WASD walk/turn · scroll · map jump · Esc"}
+              ? "WASD walk/turn · Q/E pitch · Home door"
+              : "WASD walk/turn · scroll · map · Esc"}
           </p>
           <button type="button" className="room-catalogue-pull" onClick={goEntrance}>
             Entrance

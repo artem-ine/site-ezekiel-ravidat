@@ -13,6 +13,7 @@ import {
   useRugTexture,
   useWoodTexture,
 } from "@/components/room/woodTexture";
+import { enqueueCover } from "@/components/room/coverQueue";
 import {
   BAY_MID_Y,
   coverTextureUrl,
@@ -84,19 +85,15 @@ export function RoomCanvas({
     >
       <PixelScale />
       <color attach="background" args={[PALETTE.fog]} />
-      <fog attach="fog" args={[PALETTE.fog, 10, 28]} />
-      <hemisphereLight args={[PALETTE.paper, PALETTE.walnut, 0.55]} />
-      <ambientLight intensity={0.42} color={PALETTE.paper} />
-      <directionalLight position={[1.5, 4, 2]} intensity={0.28} color={PALETTE.lamp} />
+      <fog attach="fog" args={[PALETTE.fog, 12, 30]} />
+      <hemisphereLight args={[PALETTE.paper, PALETTE.walnut, 0.48]} />
+      <ambientLight intensity={0.34} color={PALETTE.paper} />
+      {/* Daylight sun through the windows */}
+      <directionalLight position={[-8, 10, 4]} intensity={0.55} color="#ffe6b0" />
+      <directionalLight position={[6, 8, -2]} intensity={0.22} color="#ffd9a0" />
 
-      <WalkCamera
-        x={x}
-        z={z}
-        yaw={yaw}
-        pitch={pitch}
-        placed={nearby}
-      />
-      <RoomShell plan={plan} />
+      <WalkCamera x={x} z={z} yaw={yaw} pitch={pitch} placed={nearby} />
+      <RoomShell plan={plan} preferReducedMotion={preferReducedMotion} />
       <EntrancePlate landmark={plan.entrance} />
       <DeskAlcove />
 
@@ -211,7 +208,13 @@ function shortestAngle(from: number, to: number): number {
   return d;
 }
 
-function RoomShell({ plan }: { plan: FloorPlan }) {
+function RoomShell({
+  plan,
+  preferReducedMotion,
+}: {
+  plan: FloorPlan;
+  preferReducedMotion: boolean;
+}) {
   const wood = useWoodTexture(3);
   const rug = useRugTexture();
   const { minX, maxX, minZ, maxZ } = plan.floor;
@@ -248,7 +251,6 @@ function RoomShell({ plan }: { plan: FloorPlan }) {
         <planeGeometry args={[width, depth]} />
         <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      {/* Outer wall shells */}
       <mesh position={[cx, 1.5, maxZ + 0.2]}>
         <boxGeometry args={[width + 1, 3.1, 0.4]} />
         <meshStandardMaterial color={PALETTE.ink} roughness={1} />
@@ -265,6 +267,106 @@ function RoomShell({ plan }: { plan: FloorPlan }) {
         <boxGeometry args={[0.4, 3.1, depth + 1]} />
         <meshStandardMaterial color={PALETTE.ink} roughness={1} />
       </mesh>
+
+      {plan.windows.map((win, index) => (
+        <DayWindow
+          key={`win-${index}`}
+          window={win}
+          preferReducedMotion={preferReducedMotion}
+        />
+      ))}
+    </group>
+  );
+}
+
+function DayWindow({
+  window: win,
+  preferReducedMotion,
+}: {
+  window: FloorPlan["windows"][number];
+  preferReducedMotion: boolean;
+}) {
+  const shaftRef = useRef<THREE.Mesh>(null);
+  const moteRef = useRef<THREE.Points>(null);
+
+  useFrame(({ clock }) => {
+    if (preferReducedMotion) return;
+    const t = clock.elapsedTime;
+    if (shaftRef.current) {
+      const mat = shaftRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.1 + Math.sin(t * 0.4 + win.x) * 0.03;
+    }
+    if (moteRef.current) {
+      moteRef.current.rotation.y = t * 0.05;
+      moteRef.current.position.y = 1.2 + Math.sin(t * 0.3) * 0.05;
+    }
+  });
+
+  const motePositions = useMemo(() => {
+    const arr = new Float32Array(24);
+    for (let i = 0; i < 8; i += 1) {
+      arr[i * 3] = (i % 3) * 0.25 - 0.25;
+      arr[i * 3 + 1] = (i % 4) * 0.2;
+      arr[i * 3 + 2] = Math.floor(i / 3) * 0.35;
+    }
+    return arr;
+  }, []);
+
+  const inward = win.facing;
+  const beamLen = 4.2;
+
+  return (
+    <group position={[win.x, 1.55, win.z]} rotation={[0, inward, 0]}>
+      {/* Warm daylight pane */}
+      <mesh position={[0.05, 0, 0]}>
+        <planeGeometry args={[win.width, win.height]} />
+        <meshStandardMaterial
+          color="#fff1c2"
+          emissive="#ffe0a0"
+          emissiveIntensity={1.1}
+          roughness={1}
+          metalness={0}
+        />
+      </mesh>
+      {/* Brass frame chunks */}
+      <mesh position={[0, win.height / 2, 0.02]}>
+        <boxGeometry args={[win.width + 0.15, 0.1, 0.08]} />
+        <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
+      </mesh>
+      <mesh position={[0, -win.height / 2, 0.02]}>
+        <boxGeometry args={[win.width + 0.15, 0.1, 0.08]} />
+        <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
+      </mesh>
+      {/* Soft light shaft onto the floor */}
+      <mesh
+        ref={shaftRef}
+        position={[beamLen * 0.45, -0.6, 0]}
+        rotation={[0, 0, -0.55]}
+      >
+        <planeGeometry args={[beamLen, win.width * 0.7]} />
+        <meshBasicMaterial
+          color="#ffe6b8"
+          transparent
+          opacity={0.12}
+          depthWrite={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+      {!preferReducedMotion && (
+        <points ref={moteRef} position={[1.2, 1.0, 0]}>
+          <bufferGeometry>
+            <bufferAttribute attach="attributes-position" args={[motePositions, 3]} />
+          </bufferGeometry>
+          <pointsMaterial
+            color="#fff6d8"
+            size={0.04}
+            sizeAttenuation
+            transparent
+            opacity={0.55}
+            depthWrite={false}
+          />
+        </points>
+      )}
     </group>
   );
 }
@@ -342,7 +444,6 @@ function JunctionSign({
           ))}
         </div>
       </Html>
-      <pointLight position={[0, 2.4, 0]} intensity={0.7} distance={5} color={PALETTE.lamp} />
     </group>
   );
 }
@@ -391,24 +492,27 @@ function ShelfBay({
           <span className="room-sign-3d__count">{shelf.books.length}</span>
         </div>
       </Html>
-      <pointLight
-        position={[0.8, 2.4, 0]}
-        intensity={active ? 1.0 : 0.4}
-        distance={6}
-        color={PALETTE.lamp}
-      />
+      {active && (
+        <pointLight
+          position={[0.8, 2.4, 0]}
+          intensity={0.75}
+          distance={5.5}
+          color={PALETTE.lamp}
+        />
+      )}
       <mesh position={[0.7, 2.65, 0]}>
         <boxGeometry args={[0.3, 0.1, 0.3]} />
         <meshStandardMaterial
           map={lamp}
           emissive={PALETTE.lamp}
-          emissiveIntensity={active ? 0.8 : 0.3}
+          emissiveIntensity={active ? 0.8 : 0.25}
           color={PALETTE.brass}
         />
       </mesh>
       <Spines
         books={books}
         facing={active}
+        loadCovers={dist < 7}
         selectedUid={selectedUid}
         onSelect={onSelect}
         preferReducedMotion={preferReducedMotion}
@@ -429,12 +533,14 @@ function bookPose(seed: number): Pose {
 function Spines({
   books,
   facing,
+  loadCovers,
   selectedUid,
   onSelect,
   preferReducedMotion,
 }: {
   books: LibraryBook[];
   facing: boolean;
+  loadCovers: boolean;
   selectedUid: string | null;
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
@@ -469,6 +575,7 @@ function Spines({
             pose={pose}
             seed={seed}
             facing={facing}
+            loadCover={loadCovers}
             selected={selectedUid === book.uid}
             onSelect={onSelect}
             preferReducedMotion={preferReducedMotion}
@@ -479,10 +586,11 @@ function Spines({
   );
 }
 
-function useCoverMap(coverUrl: string | null) {
+function useCoverMap(coverUrl: string | null, enabled: boolean) {
   const [map, setMap] = useState<THREE.Texture | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     const proxied = coverTextureUrl(coverUrl);
     if (!proxied) {
       setMap(null);
@@ -490,30 +598,24 @@ function useCoverMap(coverUrl: string | null) {
     }
     let cancelled = false;
     let texture: THREE.Texture | null = null;
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.decoding = "async";
-    image.onload = () => {
-      if (cancelled) return;
-      texture = pixelateImage(image, 20, 32);
+    const cancel = enqueueCover(proxied, (image) => {
+      if (cancelled || !image) {
+        if (!cancelled && !image) setMap(null);
+        return;
+      }
+      texture = pixelateImage(image, 16, 24);
       texture.wrapS = THREE.ClampToEdgeWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
       texture.repeat.set(0.28, 1);
       texture.offset.set(0.36, 0);
       setMap(texture);
-    };
-    image.onerror = () => {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[room] cover texture failed:", coverUrl, "→", proxied);
-      }
-      if (!cancelled) setMap(null);
-    };
-    image.src = proxied;
+    });
     return () => {
       cancelled = true;
+      cancel();
       texture?.dispose();
     };
-  }, [coverUrl]);
+  }, [coverUrl, enabled]);
 
   return map;
 }
@@ -527,6 +629,7 @@ function BookSpine3D({
   pose,
   seed,
   facing,
+  loadCover,
   selected,
   onSelect,
   preferReducedMotion,
@@ -539,6 +642,7 @@ function BookSpine3D({
   pose: Pose;
   seed: number;
   facing: boolean;
+  loadCover: boolean;
   selected: boolean;
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
@@ -546,7 +650,7 @@ function BookSpine3D({
   const group = useRef<THREE.Group>(null);
   const coverRef = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
-  const coverMap = useCoverMap(book.coverUrl);
+  const coverMap = useCoverMap(book.coverUrl, loadCover || selected);
   const cloth = spineCloth(book);
   const clothMap = useMemo(() => makeSpineTexture(cloth, seed), [cloth, seed]);
   const authors = book.authors.join(", ") || "Unknown author";
@@ -561,11 +665,23 @@ function BookSpine3D({
   );
 
   useFrame((_, delta) => {
+    if (!selected && progress.current < 0.001 && !group.current) return;
     const target = selected ? 1 : 0;
     if (preferReducedMotion) progress.current = target;
-    else progress.current += (target - progress.current) * Math.min(1, delta * 6);
+    else {
+      if (Math.abs(target - progress.current) < 0.001) {
+        progress.current = target;
+      } else {
+        progress.current += (target - progress.current) * Math.min(1, delta * 6);
+      }
+    }
     const t = progress.current;
     if (!group.current) return;
+    if (t < 0.001 && !selected) {
+      group.current.position.copy(rest);
+      group.current.rotation.set(pose === "flat" ? Math.PI / 2 : 0, 0, pose === "flat" ? lean * 0.3 : lean);
+      return;
+    }
     group.current.position.set(rest.x + t * 0.55, rest.y + t * 0.1, rest.z);
     if (pose === "flat" && t < 0.05) {
       group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);

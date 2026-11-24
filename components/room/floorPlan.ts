@@ -17,10 +17,8 @@ export type AisleId =
 export type ShelfSlot = {
   id: string;
   aisleId: AisleId;
-  /** World centre of the bookcase. */
   x: number;
   z: number;
-  /** 0 = faces +X (aisle to the right of case), π = faces −X, etc. */
   facing: number;
   labelHint: string;
 };
@@ -53,53 +51,50 @@ export type FloorPlan = {
   junctions: Junction[];
   landmarks: Landmark[];
   colliders: Collider[];
+  windows: { x: number; z: number; facing: number; width: number; height: number }[];
   floor: { minX: number; maxX: number; minZ: number; maxZ: number };
   entrance: Landmark;
 };
 
-const PLAYER_R = 0.35;
+/** Small radius so corners and junctions stay passable. */
+export const PLAYER_R = 0.22;
 
-/** Branching library: main hall, side wings, north loop, desk alcove. */
+/** Branching library with wide aisles and clear junction pads. */
 export function buildFloorPlan(): FloorPlan {
   const aisles: FloorPlan["aisles"] = [
-    { id: "main", from: { x: 0, z: 5 }, to: { x: 0, z: -14 }, width: 2.4 },
-    { id: "west", from: { x: 0, z: -2 }, to: { x: -10, z: -2 }, width: 2.2 },
-    { id: "east", from: { x: 0, z: -2 }, to: { x: 10, z: -2 }, width: 2.2 },
-    { id: "north", from: { x: 0, z: -8 }, to: { x: 0, z: -14 }, width: 2.2 },
-    { id: "loop-w", from: { x: -10, z: -2 }, to: { x: -10, z: -12 }, width: 2.0 },
-    { id: "loop-e", from: { x: 10, z: -2 }, to: { x: 10, z: -12 }, width: 2.0 },
-    { id: "back", from: { x: -10, z: -12 }, to: { x: 10, z: -12 }, width: 2.0 },
-    { id: "desk", from: { x: 0, z: 2 }, to: { x: -6, z: 2 }, width: 2.0 },
+    { id: "main", from: { x: 0, z: 5 }, to: { x: 0, z: -14 }, width: 3.2 },
+    { id: "west", from: { x: 0, z: -2 }, to: { x: -11, z: -2 }, width: 3.0 },
+    { id: "east", from: { x: 0, z: -2 }, to: { x: 11, z: -2 }, width: 3.0 },
+    { id: "north", from: { x: 0, z: -8 }, to: { x: 0, z: -14 }, width: 3.0 },
+    { id: "loop-w", from: { x: -11, z: -2 }, to: { x: -11, z: -12 }, width: 2.8 },
+    { id: "loop-e", from: { x: 11, z: -2 }, to: { x: 11, z: -12 }, width: 2.8 },
+    { id: "back", from: { x: -11, z: -12 }, to: { x: 11, z: -12 }, width: 2.8 },
+    { id: "desk", from: { x: 0, z: 2.5 }, to: { x: -6, z: 2.5 }, width: 2.6 },
   ];
 
+  // Cases sit farther from the aisle centre so walking clearance is generous.
   const slots: ShelfSlot[] = [
-    // Main hall — books on both sides
-    ...bayPair("main", 0, -0.5, "Hall"),
-    ...bayPair("main", 0, -4.5, "Hall"),
-    ...bayPair("main", 0, -9.5, "Hall"),
-    // West wing
-    ...bayPairAlongZ("west", -4, -2, Math.PI / 2, "West"),
-    ...bayPairAlongZ("west", -8, -2, Math.PI / 2, "West"),
-    // East wing
-    ...bayPairAlongZ("east", 4, -2, Math.PI / 2, "East"),
-    ...bayPairAlongZ("east", 8, -2, Math.PI / 2, "East"),
-    // Loop corridors
-    ...bayPair("loop-w", -10, -5, "Loop"),
-    ...bayPair("loop-w", -10, -9, "Loop"),
-    ...bayPair("loop-e", 10, -5, "Loop"),
-    ...bayPair("loop-e", 10, -9, "Loop"),
-    // Back corridor
-    ...bayPairAlongZ("back", -5, -12, Math.PI / 2, "Back"),
-    ...bayPairAlongZ("back", 5, -12, Math.PI / 2, "Back"),
-    // North end
-    ...bayPair("north", 0, -13, "North"),
+    ...bayPair("main", 0, 0.5, "Hall"),
+    ...bayPair("main", 0, -5, "Hall"),
+    ...bayPair("main", 0, -10.5, "Hall"),
+    ...bayPairAlong("west", -5, -2, "West"),
+    ...bayPairAlong("west", -9, -2, "West"),
+    ...bayPairAlong("east", 5, -2, "East"),
+    ...bayPairAlong("east", 9, -2, "East"),
+    ...bayPair("loop-w", -11, -6, "Loop"),
+    ...bayPair("loop-w", -11, -9.5, "Loop"),
+    ...bayPair("loop-e", 11, -6, "Loop"),
+    ...bayPair("loop-e", 11, -9.5, "Loop"),
+    ...bayPairAlong("back", -5.5, -12, "Back"),
+    ...bayPairAlong("back", 5.5, -12, "Back"),
+    ...bayPair("north", 0, -13.2, "North"),
   ];
 
   const junctions: Junction[] = [
     {
       id: "j-entry",
       x: 0,
-      z: 2,
+      z: 2.2,
       lines: ["Main hall ahead", "Desk & catalogue ←", "Entrance behind"],
     },
     {
@@ -132,21 +127,29 @@ export function buildFloorPlan(): FloorPlan {
 
   const landmarks: Landmark[] = [
     entrance,
-    { id: "desk", label: "Reading desk", x: -4.2, z: 3.4, yaw: -Math.PI / 2 },
-    { id: "catalogue", label: "Card catalogue", x: -2.6, z: 3.2, yaw: -0.5 },
-    { id: "north", label: "North stacks", x: 0, z: -12.5, yaw: 0 },
+    { id: "desk", label: "Reading desk", x: -4.2, z: 3.5, yaw: -Math.PI / 2 },
+    { id: "catalogue", label: "Card catalogue", x: -2.6, z: 3.3, yaw: -0.5 },
+    { id: "north", label: "North stacks", x: 0, z: -12.6, yaw: 0 },
+  ];
+
+  const windows = [
+    { x: -13.1, z: 1, facing: 0, width: 2.2, height: 1.8 },
+    { x: -13.1, z: -5, facing: 0, width: 2.2, height: 1.8 },
+    { x: -13.1, z: -11, facing: 0, width: 2.2, height: 1.8 },
+    { x: 13.1, z: 1, facing: Math.PI, width: 2.2, height: 1.8 },
+    { x: 13.1, z: -5, facing: Math.PI, width: 2.2, height: 1.8 },
+    { x: 13.1, z: -11, facing: Math.PI, width: 2.2, height: 1.8 },
+    { x: -4, z: 6.9, facing: Math.PI / 2, width: 2.4, height: 1.6 },
+    { x: 4, z: 6.9, facing: Math.PI / 2, width: 2.4, height: 1.6 },
   ];
 
   const colliders: Collider[] = [
-    // Outer walls
-    { minX: -13, maxX: 13, minZ: 6.2, maxZ: 7.2 },
-    { minX: -13, maxX: 13, minZ: -16, maxZ: -15 },
-    { minX: -13.5, maxX: -12.5, minZ: -16, maxZ: 7 },
-    { minX: 12.5, maxX: 13.5, minZ: -16, maxZ: 7 },
-    // Bookcase bodies (approx) — keep player in aisles
+    { minX: -14, maxX: 14, minZ: 7.0, maxZ: 7.8 },
+    { minX: -14, maxX: 14, minZ: -16.5, maxZ: -15.6 },
+    { minX: -14.2, maxX: -13.3, minZ: -16.5, maxZ: 7.5 },
+    { minX: 13.3, maxX: 14.2, minZ: -16.5, maxZ: 7.5 },
     ...slots.map((slot) => caseCollider(slot)),
-    // Desk furniture (leave standing room on the +Z side)
-    { minX: -6.1, maxX: -4.3, minZ: 1.4, maxZ: 2.5 },
+    { minX: -6.0, maxX: -4.4, minZ: 1.5, maxZ: 2.4 },
   ];
 
   return {
@@ -155,63 +158,46 @@ export function buildFloorPlan(): FloorPlan {
     junctions,
     landmarks,
     colliders,
-    floor: { minX: -13, maxX: 13, minZ: -16, maxZ: 7 },
+    windows,
+    floor: { minX: -14, maxX: 14, minZ: -16.5, maxZ: 7.5 },
     entrance,
   };
 }
 
 function bayPair(aisleId: AisleId, x: number, z: number, hint: string): ShelfSlot[] {
+  const offset = 2.05;
   return [
-    {
-      id: `${aisleId}-L-${z}`,
-      aisleId,
-      x: x - 1.55,
-      z,
-      facing: 0, // faces +X (into aisle)
-      labelHint: hint,
-    },
-    {
-      id: `${aisleId}-R-${z}`,
-      aisleId,
-      x: x + 1.55,
-      z,
-      facing: Math.PI, // faces −X
-      labelHint: hint,
-    },
+    { id: `${aisleId}-L-${z}`, aisleId, x: x - offset, z, facing: 0, labelHint: hint },
+    { id: `${aisleId}-R-${z}`, aisleId, x: x + offset, z, facing: Math.PI, labelHint: hint },
   ];
 }
 
-/** Cases on the north/south sides of an east–west aisle. */
-function bayPairAlongZ(
-  aisleId: AisleId,
-  x: number,
-  z: number,
-  _unused: number,
-  hint: string,
-): ShelfSlot[] {
+function bayPairAlong(aisleId: AisleId, x: number, z: number, hint: string): ShelfSlot[] {
+  const offset = 2.05;
   return [
     {
       id: `${aisleId}-N-${x}`,
       aisleId,
       x,
-      z: z - 1.55,
-      facing: Math.PI / 2, // faces +Z
+      z: z - offset,
+      facing: Math.PI / 2,
       labelHint: hint,
     },
     {
       id: `${aisleId}-S-${x}`,
       aisleId,
       x,
-      z: z + 1.55,
-      facing: -Math.PI / 2, // faces −Z
+      z: z + offset,
+      facing: -Math.PI / 2,
       labelHint: hint,
     },
   ];
 }
 
 function caseCollider(slot: ShelfSlot): Collider {
-  const hw = 0.35;
-  const hd = 1.7;
+  // Tight box on the case body only — leaves junction pads open.
+  const hw = 0.28;
+  const hd = 1.35;
   const alongX = Math.abs(Math.cos(slot.facing)) > 0.5;
   if (alongX) {
     return {
@@ -233,7 +219,6 @@ export type PlacedShelf = ShelfSlot & {
   shelf: ShelfGroup | null;
 };
 
-/** Map current shelf groups onto floor slots (fill in order, leave extras empty). */
 export function placeShelves(plan: FloorPlan, shelves: ShelfGroup[]): PlacedShelf[] {
   return plan.slots.map((slot, index) => ({
     ...slot,
@@ -241,6 +226,44 @@ export function placeShelves(plan: FloorPlan, shelves: ShelfGroup[]): PlacedShel
   }));
 }
 
+function overlaps(x: number, z: number, box: Collider, radius: number): boolean {
+  return (
+    x + radius > box.minX &&
+    x - radius < box.maxX &&
+    z + radius > box.minZ &&
+    z - radius < box.maxZ
+  );
+}
+
+function hitsAny(x: number, z: number, colliders: Collider[], radius = PLAYER_R): boolean {
+  for (const box of colliders) {
+    if (overlaps(x, z, box, radius)) return true;
+  }
+  return false;
+}
+
+/** Push out if the player somehow ends up inside a collider. */
+function unstick(x: number, z: number, colliders: Collider[]): Vec2 {
+  if (!hitsAny(x, z, colliders)) return { x, z };
+  const steps = [
+    [0.35, 0],
+    [-0.35, 0],
+    [0, 0.35],
+    [0, -0.35],
+    [0.5, 0.5],
+    [-0.5, 0.5],
+    [0.5, -0.5],
+    [-0.5, -0.5],
+  ];
+  for (const [sx, sz] of steps) {
+    if (!hitsAny(x + sx, z + sz, colliders)) return { x: x + sx, z: z + sz };
+  }
+  return { x, z };
+}
+
+/**
+ * Move with axis slide. Turning is never gated by this — only translation is.
+ */
 export function moveWithCollision(
   x: number,
   z: number,
@@ -248,32 +271,32 @@ export function moveWithCollision(
   dz: number,
   colliders: Collider[],
 ): Vec2 {
-  let nx = x + dx;
-  let nz = z + dz;
-  if (!hitsAny(nx, z, colliders)) {
-    x = nx;
+  const start = unstick(x, z, colliders);
+  x = start.x;
+  z = start.z;
+
+  const tryX = x + dx;
+  const tryZ = z + dz;
+  if (!hitsAny(tryX, tryZ, colliders)) return { x: tryX, z: tryZ };
+
+  // Prefer the freer axis so you glide along shelves instead of sticking.
+  const freeX = !hitsAny(tryX, z, colliders);
+  const freeZ = !hitsAny(x, tryZ, colliders);
+  if (freeX && freeZ) {
+    // Both free alone but not together (rare corner) — pick longer delta.
+    return Math.abs(dx) >= Math.abs(dz) ? { x: tryX, z } : { x, z: tryZ };
   }
-  if (!hitsAny(x, nz, colliders)) {
-    z = nz;
-  }
+  if (freeX) return { x: tryX, z };
+  if (freeZ) return { x, z: tryZ };
+
+  // Nudge along the wall with a shorter step.
+  const hx = dx * 0.5;
+  const hz = dz * 0.5;
+  if (!hitsAny(x + hx, z, colliders)) return { x: x + hx, z };
+  if (!hitsAny(x, z + hz, colliders)) return { x, z: z + hz };
   return { x, z };
 }
 
-function hitsAny(x: number, z: number, colliders: Collider[]): boolean {
-  for (const box of colliders) {
-    if (
-      x + PLAYER_R > box.minX &&
-      x - PLAYER_R < box.maxX &&
-      z + PLAYER_R > box.minZ &&
-      z - PLAYER_R < box.maxZ
-    ) {
-      return true;
-    }
-  }
-  return false;
-}
-
-/** How strongly the camera is square-on to a nearby shelf face (0–1). */
 export function shelfFaceAmount(
   x: number,
   z: number,
@@ -289,20 +312,19 @@ export function shelfFaceAmount(
     const toX = slot.x - x;
     const toZ = slot.z - z;
     const dist = Math.hypot(toX, toZ);
-    if (dist > 5.5 || dist < 0.4) continue;
+    if (dist > 5.5 || dist < 0.5) continue;
 
     const faceX = Math.sin(slot.facing);
     const faceZ = -Math.cos(slot.facing);
-    // Player should be in front of the case (along its facing).
     const along = (x - slot.x) * faceX + (z - slot.z) * faceZ;
-    if (along < 0.6 || along > 4.8) continue;
+    if (along < 0.8 || along > 5.0) continue;
 
     const lookX = Math.sin(yaw);
     const lookZ = -Math.cos(yaw);
     const towardX = toX / dist;
     const towardZ = toZ / dist;
     const align = lookX * towardX + lookZ * towardZ;
-    if (align < 0.55) continue;
+    if (align < 0.6) continue;
 
     const score = align * (1 - dist / 6);
     if (score > bestScore) {
@@ -313,7 +335,7 @@ export function shelfFaceAmount(
   }
 
   return {
-    amount: Math.min(1, Math.max(0, (bestScore - 0.2) / 0.55)),
+    amount: Math.min(1, Math.max(0, (bestScore - 0.25) / 0.5)),
     slot: best,
     dist: bestDist,
   };
