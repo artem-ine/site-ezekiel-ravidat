@@ -22,11 +22,10 @@ import {
 import { STATUS_LABEL } from "@/lib/spine-style";
 import {
   BAY_SPACING,
-  clampBay,
+  clampYaw,
   nearbyBooksFromShelves,
   NEAR_RADIUS,
   statusMark,
-  type ShelfSide,
 } from "@/components/room/roomConfig";
 import { canCreateWebGL, RoomErrorBoundary } from "@/components/room/RoomErrorBoundary";
 
@@ -91,11 +90,18 @@ export function LibraryRoom({ books }: Props) {
     series: "all",
   });
   const [catalogueOpen, setCatalogueOpen] = useState(false);
-  const [bay, setBay] = useState(0);
-  const [side, setSide] = useState<ShelfSide>("left");
+  const [depth, setDepth] = useState(0);
+  const [yaw, setYaw] = useState(0);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
-  const dragRef = useRef<{ x: number; y: number; bay: number; side: ShelfSide } | null>(null);
-  const wheelAcc = useRef(0);
+  const dragRef = useRef<{
+    x: number;
+    y: number;
+    depth: number;
+    yaw: number;
+    active: boolean;
+    pointerId: number;
+  } | null>(null);
+  const skipDragRef = useRef(false);
   const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -114,23 +120,31 @@ export function LibraryRoom({ books }: Props) {
     () => books.filter((book) => book.readStatus === "currently-reading"),
     [books],
   );
+  const selectedBook = useMemo(
+    () => (selectedUid ? books.find((book) => book.uid === selectedUid) ?? null : null),
+    [books, selectedUid],
+  );
 
-  const maxBay = Math.max(0, shelves.length - 1);
-  const goBay = useCallback(
+  const maxDepth = Math.max(0, shelves.length - 1);
+  const clampWalk = useCallback(
+    (next: number) => Math.min(maxDepth, Math.max(0, next)),
+    [maxDepth],
+  );
+  const walkBy = useCallback(
     (delta: number) => {
       setSelectedUid(null);
-      setBay((current) => clampBay(current + delta, maxBay));
+      setDepth((current) => clampWalk(current + delta));
     },
-    [maxBay],
+    [clampWalk],
   );
-  const flipSide = useCallback((next: ShelfSide) => {
-    setSelectedUid(null);
-    setSide(next);
+  const lookBy = useCallback((delta: number) => {
+    setYaw((current) => clampYaw(current + delta));
   }, []);
+  const faceAisle = useCallback(() => setYaw(0), []);
 
   useEffect(() => {
-    setBay((current) => clampBay(current, maxBay));
-  }, [maxBay]);
+    setDepth((current) => clampWalk(current));
+  }, [maxDepth, clampWalk]);
 
   useEffect(() => {
     if (calm) return;
@@ -142,34 +156,38 @@ export function LibraryRoom({ books }: Props) {
       }
       if (event.key === "ArrowUp" || event.key === "w" || event.key === "W") {
         event.preventDefault();
-        goBay(-1);
+        walkBy(-0.35);
       } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
-        goBay(1);
+        walkBy(0.35);
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        flipSide("left");
+        lookBy(-0.18);
       } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        flipSide("right");
+        lookBy(0.18);
       } else if (event.key === "Home") {
         event.preventDefault();
-        setBay(0);
+        setDepth(0);
         setSelectedUid(null);
       } else if (event.key === "End") {
         event.preventDefault();
-        setBay(maxBay);
+        setDepth(maxDepth);
         setSelectedUid(null);
       } else if (event.key === "Escape") {
         event.preventDefault();
+        if (selectedUid) {
+          setSelectedUid(null);
+          return;
+        }
         setCatalogueOpen(false);
-        setSelectedUid(null);
+        faceAisle();
       }
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [calm, goBay, flipSide, maxBay]);
+  }, [calm, walkBy, lookBy, faceAisle, maxDepth, selectedUid]);
 
   useEffect(() => {
     if (calm) return;
@@ -178,38 +196,68 @@ export function LibraryRoom({ books }: Props) {
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      wheelAcc.current += event.deltaY;
-      if (Math.abs(wheelAcc.current) < 60) return;
-      goBay(wheelAcc.current > 0 ? 1 : -1);
-      wheelAcc.current = 0;
+      walkBy(event.deltaY * 0.004);
     };
 
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, [calm, goBay]);
+  }, [calm, walkBy]);
+
+  const selectBook = useCallback((uid: string | null) => {
+    // R3F fires on the canvas before this parent handler; skip the aisle drag for that gesture.
+    skipDragRef.current = true;
+    queueMicrotask(() => {
+      skipDragRef.current = false;
+    });
+    setSelectedUid(uid);
+  }, []);
 
   const onPointerDown = (event: ReactPointerEvent) => {
     if (calm) return;
-    if ((event.target as HTMLElement).closest("a, button, select, label, summary")) return;
-    dragRef.current = { x: event.clientX, y: event.clientY, bay, side };
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    if ((event.target as HTMLElement).closest("a, button, select, label, summary, .room-book-card")) {
+      return;
+    }
+    if (
+      skipDragRef.current ||
+      (event.nativeEvent as PointerEvent & { __roomBookPick?: boolean }).__roomBookPick
+    ) {
+      return;
+    }
+    dragRef.current = {
+      x: event.clientX,
+      y: event.clientY,
+      depth,
+      yaw,
+      active: false,
+      pointerId: event.pointerId,
+    };
   };
 
-  const onPointerMove = (_event: ReactPointerEvent) => {
-    // Navigation commits on pointer up so a swipe does not skip several bays.
+  const onPointerMove = (event: ReactPointerEvent) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.x;
+    const dy = drag.y - event.clientY;
+    if (!drag.active) {
+      if (Math.hypot(dx, dy) < 10) return;
+      drag.active = true;
+      (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+      setSelectedUid(null);
+    }
+    setDepth(clampWalk(drag.depth + dy / 180));
+    setYaw(clampYaw(drag.yaw + dx / 220));
   };
 
   const onPointerUp = (event: ReactPointerEvent) => {
-    const start = dragRef.current;
-    dragRef.current = null;
-    if (!start || event.type === "pointercancel") return;
-    const dy = start.y - event.clientY;
-    const dx = event.clientX - start.x;
-    if (Math.abs(dy) >= Math.abs(dx) && Math.abs(dy) > 55) {
-      goBay(dy > 0 ? -1 : 1);
-    } else if (Math.abs(dx) > 55) {
-      flipSide(dx > 0 ? "right" : "left");
+    const drag = dragRef.current;
+    if (drag?.active) {
+      try {
+        (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
+      } catch {
+        /* already released */
+      }
     }
+    dragRef.current = null;
   };
 
   if (books.length === 0) {
@@ -238,28 +286,29 @@ export function LibraryRoom({ books }: Props) {
     return calmView;
   }
 
-  const active = shelves[bay];
-  const nearbyBooks = nearbyBooksFromShelves(shelves, bay, side);
+  const active = shelves[Math.round(depth)];
+  const nearbyBooks = nearbyBooksFromShelves(shelves, depth);
 
   return (
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Library shelf stations. Use up and down arrows or scroll to move between bays. Use left and
-          right arrows to face the left or right wall square-on. Click a book to open it; Escape
-          closes it. Card catalogue filters the shelves. Books at this station are listed below.
+          Walkable library aisle. Use W and S or up and down arrows or scroll to walk. Use A and D or
+          left and right arrows to turn toward a shelf. Click a nearby book to open it; Escape closes
+          it or faces the aisle again. Card catalogue filters the shelves.
         </p>
 
-        <nav className="room-sr-only" aria-label="Books at this shelf station">
+        <nav className="room-sr-only" aria-label="Books near you in the aisle">
           <ul>
             {nearbyBooks.map((book) => {
               const authors = book.authors.join(", ") || "Unknown author";
               const status = book.readStatus ? STATUS_LABEL[book.readStatus] : "Status unknown";
               return (
                 <li key={book.uid}>
-                  <Link href={`/books/${book.uid}`}>
-                    {book.title}, by {authors}. {status}. Mark {statusMark(book)}.
-                  </Link>
+                  <button type="button" onClick={() => selectBook(book.uid)}>
+                    Open {book.title}, by {authors}. {status}. Mark {statusMark(book)}.
+                  </button>
+                  <Link href={`/books/${book.uid}`}>Full page for {book.title}</Link>
                 </li>
               );
             })}
@@ -274,17 +323,23 @@ export function LibraryRoom({ books }: Props) {
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
           role="application"
-          aria-label="Shelf stations"
+          aria-label="Walkable library aisle"
         >
           <RoomCanvas
             shelves={shelves}
-            bay={bay}
-            side={side}
+            depth={depth}
+            yaw={yaw}
             selectedUid={selectedUid}
-            onSelect={setSelectedUid}
+            onSelect={selectBook}
             preferReducedMotion={reducedMotion}
           />
         </div>
+
+        {selectedBook && (
+          <div className="room-inspect" role="dialog" aria-label={selectedBook.title}>
+            <InspectPanel book={selectedBook} onClose={() => setSelectedUid(null)} />
+          </div>
+        )}
 
         <aside className="room-plate" aria-label="Library nameplate">
           <p className="label">Library of</p>
@@ -319,10 +374,15 @@ export function LibraryRoom({ books }: Props) {
         <div className="room-hud">
           <p className="room-hud__bay label" aria-live="polite">
             {active
-              ? `${active.label} · ${side} · ${bay + 1}/${shelves.length}`
-              : "Station"}
+              ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}`
+              : "Aisle"}
           </p>
-          <p className="room-hud__hint label">↑↓ bay · ←→ wall · click book · Esc</p>
+          <p className="room-hud__hint label">←→ look · scroll walk · click book · Esc</p>
+          {Math.abs(yaw) > 0.2 && (
+            <button type="button" className="room-catalogue-pull" onClick={faceAisle}>
+              Face aisle
+            </button>
+          )}
           <button
             type="button"
             className="room-catalogue-pull"
@@ -350,6 +410,66 @@ export function LibraryRoom({ books }: Props) {
         </span>
       </div>
     </RoomErrorBoundary>
+  );
+}
+
+function InspectPanel({ book, onClose }: { book: LibraryBook; onClose: () => void }) {
+  const authors = book.authors.join(", ") || "Unknown author";
+
+  return (
+    <div className="room-book-card room-book-card--dock">
+      <button type="button" className="room-book-card__close" onClick={onClose}>
+        Close
+      </button>
+      <h2>{book.title}</h2>
+      {book.subtitle && <p className="room-book-card__sub">{book.subtitle}</p>}
+      <p className="room-book-card__by">{authors}</p>
+      <dl>
+        {book.readStatus && (
+          <>
+            <dt>Status</dt>
+            <dd>{STATUS_LABEL[book.readStatus]}</dd>
+          </>
+        )}
+        {book.genres.length > 0 && (
+          <>
+            <dt>Genre</dt>
+            <dd>{book.genres.map((genre) => genre.name).join(", ")}</dd>
+          </>
+        )}
+        {book.series && (
+          <>
+            <dt>Series</dt>
+            <dd>
+              {book.series}
+              {book.seriesPosition != null ? ` · ${book.seriesPosition}` : ""}
+            </dd>
+          </>
+        )}
+        {book.pageCount != null && (
+          <>
+            <dt>Pages</dt>
+            <dd>{book.pageCount}</dd>
+          </>
+        )}
+        {book.yearRead != null && (
+          <>
+            <dt>Year read</dt>
+            <dd>{book.yearRead}</dd>
+          </>
+        )}
+        {book.publishYear != null && (
+          <>
+            <dt>Published</dt>
+            <dd>{book.publishYear}</dd>
+          </>
+        )}
+      </dl>
+      {book.description && <p className="room-book-card__blurb">{book.description}</p>}
+      <Link className="room-book-card__link" href={`/books/${book.uid}`}>
+        Full page
+      </Link>
+    </div>
   );
 }
 

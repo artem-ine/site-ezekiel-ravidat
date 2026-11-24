@@ -493,6 +493,19 @@
     border: 1px solid rgb(47 33 24 / 0.25);
   }
 
+  .room-inspect {
+    position: absolute;
+    right: max(1rem, env(safe-area-inset-right));
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 6;
+    pointer-events: none;
+  }
+
+  .room-inspect .room-book-card {
+    pointer-events: auto;
+  }
+
   .room-book-card {
     width: min(18rem, 70vw);
     max-height: 70vh;
@@ -503,6 +516,10 @@
     border: 1px solid #a07b35;
     box-shadow: 0 14px 36px rgb(0 0 0 / 0.4);
     font-family: var(--font-serif);
+  }
+
+  .room-book-card--dock {
+    width: min(20rem, 78vw);
   }
 
   .room-book-card h2 {
