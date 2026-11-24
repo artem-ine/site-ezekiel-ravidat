@@ -1,5 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -8,7 +10,6 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import Link from "next/link";
 import type { LibraryBook, ReadStatus } from "@/lib/books";
 import { BookSpine } from "@/components/library/BookSpine";
 import {
@@ -19,14 +20,25 @@ import {
   type SortKey,
 } from "@/components/library/groupBooks";
 import { STATUS_LABEL } from "@/lib/spine-style";
+import {
+  BAY_SPACING,
+  nearbyBooksFromShelves,
+  NEAR_RADIUS,
+  statusMark,
+} from "@/components/room/roomConfig";
+import { canCreateWebGL, RoomErrorBoundary } from "@/components/room/RoomErrorBoundary";
+
+const RoomCanvas = dynamic(
+  () => import("@/components/room/RoomCanvas").then((mod) => mod.RoomCanvas),
+  {
+    ssr: false,
+    loading: () => <div className="room-loading">Lighting the lamps…</div>,
+  },
+);
 
 type Props = {
   books: LibraryBook[];
 };
-
-const BAY_DEPTH = 380;
-const NEAR_RADIUS = 2;
-const MAX_SPINES_PER_WALL = 28;
 
 const STATUS_OPTIONS: Array<ReadStatus | "all"> = [
   "all",
@@ -66,6 +78,7 @@ function useCalmMode() {
 
 export function LibraryRoom({ books }: Props) {
   const calm = useCalmMode();
+  const [webglOk, setWebglOk] = useState(true);
   const [sort, setSort] = useState<SortKey>("title");
   const [filters, setFilters] = useState<Filters>({
     status: "all",
@@ -76,6 +89,11 @@ export function LibraryRoom({ books }: Props) {
   const [catalogueOpen, setCatalogueOpen] = useState(false);
   const [depth, setDepth] = useState(0);
   const dragRef = useRef<{ y: number; depth: number } | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setWebglOk(canCreateWebGL());
+  }, []);
 
   const options = useMemo(() => collectFilterOptions(books), [books]);
   const filtered = useMemo(() => applyFilters(books, filters), [books, filters]);
@@ -86,24 +104,18 @@ export function LibraryRoom({ books }: Props) {
   );
 
   const maxDepth = Math.max(0, shelves.length - 1);
-
   const clampWalk = useCallback(
     (next: number) => Math.min(maxDepth, Math.max(0, next)),
     [maxDepth],
   );
-
   const walkBy = useCallback(
-    (delta: number) => {
-      setDepth((current) => clampWalk(current + delta));
-    },
+    (delta: number) => setDepth((current) => clampWalk(current + delta)),
     [clampWalk],
   );
 
   useEffect(() => {
     setDepth((current) => clampWalk(current));
   }, [maxDepth, clampWalk]);
-
-  const viewportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (calm) return;
@@ -173,164 +185,128 @@ export function LibraryRoom({ books }: Props) {
     );
   }
 
-  if (calm) {
-    return (
-      <CalmRoom
-        books={filtered}
-        total={books.length}
-        shelves={shelves}
-        currentlyReading={currentlyReading}
-        sort={sort}
-        setSort={setSort}
-        filters={filters}
-        setFilters={setFilters}
-        options={options}
-      />
-    );
+  const calmView = (
+    <CalmRoom
+      books={filtered}
+      total={books.length}
+      shelves={shelves}
+      currentlyReading={currentlyReading}
+      sort={sort}
+      setSort={setSort}
+      filters={filters}
+      setFilters={setFilters}
+      options={options}
+    />
+  );
+
+  if (calm || !webglOk) {
+    return calmView;
   }
 
-  const cameraZ = depth * BAY_DEPTH;
-  const nearby = shelves
-    .map((shelf, index) => ({ shelf, index }))
-    .filter(({ index }) => Math.abs(index - depth) <= NEAR_RADIUS);
-
   const active = shelves[Math.round(depth)];
+  const nearbyBooks = nearbyBooksFromShelves(shelves, depth);
 
   return (
-    <div className="room" aria-label="Library room">
-      <p className="room-sr-only">
-        Use W and S or the arrow keys to walk the aisle. Open the card catalogue for filters. Spines
-        are links to each book.
-      </p>
-
-      <div
-        ref={viewportRef}
-        className="room-viewport"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <div className="room-dust" aria-hidden="true" />
-        <div
-          className="room-world"
-          style={{ transform: `translate3d(0, 0, ${cameraZ}px)` }}
-        >
-          <div className="room-floor" aria-hidden="true" />
-          <div className="room-ceiling" aria-hidden="true" />
-          <div className="room-far" aria-hidden="true" />
-
-          {nearby.map(({ shelf, index }) => {
-            const z = -index * BAY_DEPTH;
-            const leftBooks = shelf.books.slice(0, MAX_SPINES_PER_WALL);
-            const rightBooks = shelf.books.slice(
-              MAX_SPINES_PER_WALL,
-              MAX_SPINES_PER_WALL * 2,
-            );
-            const rightFallback =
-              rightBooks.length > 0
-                ? rightBooks
-                : shelf.books.slice(0, Math.min(MAX_SPINES_PER_WALL, shelf.books.length)).reverse();
-
-            return (
-              <section
-                key={shelf.id}
-                className="room-bay"
-                style={{ transform: `translate3d(0, 0, ${z}px)` }}
-                aria-label={`${shelf.label}, ${shelf.books.length} books`}
-              >
-                <div className="room-sign room-sign--left">
-                  <span className="label">{shelf.label}</span>
-                  <span className="room-sign__count">{shelf.books.length}</span>
-                </div>
-                <div className="room-sign room-sign--right" aria-hidden="true">
-                  <span className="label">{shelf.label}</span>
-                </div>
-                <div className="room-lamp room-lamp--left" aria-hidden="true" />
-                <div className="room-lamp room-lamp--right" aria-hidden="true" />
-
-                <div className="room-wall room-wall--left">
-                  <div className="room-wall__wood" aria-hidden="true" />
-                  <div className="room-wall__spines">
-                    {leftBooks.map((book) => (
-                      <BookSpine key={`L-${book.uid}`} book={book} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="room-wall room-wall--right">
-                  <div className="room-wall__wood" aria-hidden="true" />
-                  <div className="room-wall__spines">
-                    {rightFallback.map((book) => (
-                      <BookSpine key={`R-${book.uid}`} book={book} />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="room-bay-floor" aria-hidden="true" />
-              </section>
-            );
-          })}
-        </div>
-      </div>
-
-      <aside className="room-plate" aria-label="Library nameplate">
-        <p className="label">Library of</p>
-        <p className="room-plate__name">
-          Ezekiel <em>Ravidat</em>
+    <RoomErrorBoundary fallback={calmView}>
+      <div className="room" aria-label="Library room">
+        <p className="room-sr-only">
+          Three-dimensional library aisle. Use W and S or the arrow keys to walk. Open the card
+          catalogue for filters. Nearby books are listed as links below for screen readers.
         </p>
-      </aside>
 
-      <aside className="room-desk" aria-label="Currently reading">
-        <p className="label">Reading desk</p>
-        {currentlyReading.length === 0 ? (
-          <p className="room-desk__empty">Nothing open on the desk.</p>
-        ) : (
-          <ul className="room-desk__list">
-            {currentlyReading.map((book) => (
-              <li key={book.uid}>
-                <Link href={`/books/${book.uid}`} className="room-desk__card">
-                  {book.coverUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={book.coverUrl} alt="" />
-                  ) : (
-                    <span className="room-desk__blank" aria-hidden="true" />
-                  )}
-                  <span>{book.title}</span>
-                </Link>
-              </li>
-            ))}
+        <nav className="room-sr-only" aria-label="Books near you in the aisle">
+          <ul>
+            {nearbyBooks.map((book) => {
+              const authors = book.authors.join(", ") || "Unknown author";
+              const status = book.readStatus ? STATUS_LABEL[book.readStatus] : "Status unknown";
+              return (
+                <li key={book.uid}>
+                  <Link href={`/books/${book.uid}`}>
+                    {book.title}, by {authors}. {status}. Mark {statusMark(book)}.
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
-        )}
-      </aside>
+        </nav>
 
-      <div className="room-hud">
-        <p className="room-hud__bay label" aria-live="polite">
-          {active ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}` : "Aisle"}
-        </p>
-        <p className="room-hud__hint label">Scroll · drag · W/S</p>
-        <button
-          type="button"
-          className="room-catalogue-pull"
-          aria-expanded={catalogueOpen}
-          onClick={() => setCatalogueOpen((open) => !open)}
+        <div
+          ref={viewportRef}
+          className="room-viewport room-viewport--webgl"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          role="application"
+          aria-label="Walkable library aisle"
         >
-          Card catalogue
-        </button>
-      </div>
+          <RoomCanvas shelves={shelves} depth={depth} />
+        </div>
 
-      <CatalogueDrawer
-        open={catalogueOpen}
-        onClose={() => setCatalogueOpen(false)}
-        sort={sort}
-        setSort={setSort}
-        filters={filters}
-        setFilters={setFilters}
-        options={options}
-        shown={filtered.length}
-        total={books.length}
-      />
-    </div>
+        <aside className="room-plate" aria-label="Library nameplate">
+          <p className="label">Library of</p>
+          <p className="room-plate__name">
+            Ezekiel <em>Ravidat</em>
+          </p>
+        </aside>
+
+        <aside className="room-desk" aria-label="Currently reading">
+          <p className="label">Reading desk</p>
+          {currentlyReading.length === 0 ? (
+            <p className="room-desk__empty">Nothing open on the desk.</p>
+          ) : (
+            <ul className="room-desk__list">
+              {currentlyReading.map((book) => (
+                <li key={book.uid}>
+                  <Link href={`/books/${book.uid}`} className="room-desk__card">
+                    {book.coverUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={book.coverUrl} alt="" />
+                    ) : (
+                      <span className="room-desk__blank" aria-hidden="true" />
+                    )}
+                    <span>{book.title}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+
+        <div className="room-hud">
+          <p className="room-hud__bay label" aria-live="polite">
+            {active
+              ? `${active.label} · ${Math.round(depth) + 1}/${shelves.length}`
+              : "Aisle"}
+          </p>
+          <p className="room-hud__hint label">Scroll · drag · W/S</p>
+          <button
+            type="button"
+            className="room-catalogue-pull"
+            aria-expanded={catalogueOpen}
+            onClick={() => setCatalogueOpen((open) => !open)}
+          >
+            Card catalogue
+          </button>
+        </div>
+
+        <CatalogueDrawer
+          open={catalogueOpen}
+          onClose={() => setCatalogueOpen(false)}
+          sort={sort}
+          setSort={setSort}
+          filters={filters}
+          setFilters={setFilters}
+          options={options}
+          shown={filtered.length}
+          total={books.length}
+        />
+
+        <span className="room-sr-only">
+          Bay spacing {BAY_SPACING}m, near radius {NEAR_RADIUS}.
+        </span>
+      </div>
+    </RoomErrorBoundary>
   );
 }
 
@@ -509,7 +485,7 @@ function CalmRoom({
           Ezekiel <span className="text-oxblood italic">Ravidat</span>
         </h1>
         <p className="text-ink-soft">
-          A quieter view for small screens and reduced motion. The full aisle is on a wider display.
+          A quieter view for small screens and reduced motion. The aisle is on a wider display.
         </p>
       </header>
 

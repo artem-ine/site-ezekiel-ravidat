@@ -410,14 +410,49 @@
   .room-viewport {
     position: absolute;
     inset: 0;
-    perspective: 900px;
-    perspective-origin: 50% 42%;
     overflow: hidden;
     cursor: grab;
   }
 
+  .room-viewport--webgl {
+    touch-action: none;
+  }
+
   .room-viewport:active {
     cursor: grabbing;
+  }
+
+  .room-canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .room-loading {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: #1a110c;
+    color: #e7d9bd;
+    font-family: var(--font-serif);
+  }
+
+  .room-sign-3d {
+    min-width: 7rem;
+    padding: 0.35rem 0.55rem;
+    background: linear-gradient(180deg, #efe2c6, #d8c39a);
+    color: #2f2118;
+    border: 1px solid #a07b35;
+    text-align: center;
+    box-shadow: 0 6px 14px rgb(0 0 0 / 0.35);
+  }
+
+  .room-sign-3d__count {
+    display: block;
+    margin-top: 0.15rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
   }
 
   .room-world {

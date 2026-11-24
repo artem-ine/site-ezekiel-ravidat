@@ -17,11 +17,14 @@
     "@prismicio/client": "^7.23.1",
     "@prismicio/next": "^3.0.0",
     "@prismicio/react": "^3.5.1",
+    "@react-three/drei": "^10.7.9",
+    "@react-three/fiber": "^9.8.2",
     "csv-parse": "^7.0.3",
     "dotenv": "^18.0.10",
     "next": "16.4.6",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "three": "^0.187.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
