@@ -58,7 +58,8 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 ];
 
 function useCalmMode() {
-  const [calm, setCalm] = useState(false);
+  // Start calm until we measure the viewport — avoids a WebGL flash on phones.
+  const [calm, setCalm] = useState(true);
 
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -78,7 +79,7 @@ function useCalmMode() {
 
 export function LibraryRoom({ books }: Props) {
   const calm = useCalmMode();
-  const [webglOk, setWebglOk] = useState(true);
+  const [webglOk, setWebglOk] = useState(false);
   const [sort, setSort] = useState<SortKey>("title");
   const [filters, setFilters] = useState<Filters>({
     status: "all",
