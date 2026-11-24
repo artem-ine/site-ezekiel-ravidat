@@ -9,7 +9,7 @@ Personal library site for Ezekiel Ravidat. Next.js (App Router, TypeScript) with
 
 ## Setup
 
-Requires Node 20.9+ (developed on Node 22) and npm.
+Requires Node 20.19 or newer (developed on Node 22) and npm. Older Node versions fail `npm run dev` with a `require() of ES Module` error from Tailwind. With nvm, run `nvm use` (the repo has an `.nvmrc`).
 
 ```sh
 npm install
