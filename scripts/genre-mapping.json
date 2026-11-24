@@ -1,0 +1,668 @@
+{
+  "genres": [
+    {
+      "uid": "science-fiction",
+      "name": "Science Fiction",
+      "accent": "#3B6E8C",
+      "description": "Speculative fiction grounded in science, technology, space, or future societies.",
+      "excludeSubjects": [
+        "authorship",
+        "technique",
+        "history and criticism"
+      ],
+      "patterns": [
+        "science fiction",
+        "sci-fi",
+        "space opera",
+        "cyberpunk",
+        "dystopia",
+        "dystopian",
+        "time travel",
+        "artificial intelligence",
+        "androids",
+        "robots",
+        "extraterrestrial",
+        "life on other planets",
+        "interplanetary",
+        "space warfare",
+        "space flight",
+        "afrofuturism",
+        "cli-fi",
+        "post-apocalyptic",
+        "apocalyptic",
+        "utopias",
+        "speculative fiction"
+      ]
+    },
+    {
+      "uid": "fantasy",
+      "name": "Fantasy",
+      "accent": "#7A5488",
+      "description": "Magic, mythic worlds, folklore, and contemporary or epic fantasy.",
+      "excludeSubjects": [
+        "authorship",
+        "technique",
+        "history and criticism"
+      ],
+      "patterns": [
+        "fantasy",
+        "magic",
+        "wizards",
+        "witches",
+        "witchcraft",
+        "dragons",
+        "fairies",
+        "folklore",
+        "mythology",
+        "urban fantasy",
+        "epic fantasy",
+        "dark fantasy",
+        "paranormal fiction",
+        "paranormal",
+        "fairy tales",
+        "gods",
+        "supernatural",
+        "necromancy",
+        "vampires",
+        "werewolves"
+      ]
+    },
+    {
+      "uid": "horror",
+      "name": "Horror",
+      "accent": "#7D2E35",
+      "description": "Gothic, weird, psychological, and supernatural horror.",
+      "excludeSubjects": [
+        "authorship",
+        "technique",
+        "history and criticism"
+      ],
+      "patterns": [
+        "horror",
+        "ghost stories",
+        "ghosts",
+        "haunted",
+        "gothic",
+        "macabre",
+        "occult",
+        "demonology",
+        "monsters",
+        "psychological horror",
+        "body horror",
+        "cuentos de terror"
+      ]
+    },
+    {
+      "uid": "mystery-thriller",
+      "name": "Mystery & Thriller",
+      "accent": "#475569",
+      "description": "Detective fiction, crime, espionage, suspense, and psychological thrillers.",
+      "excludeSubjects": [
+        "authorship",
+        "history and criticism"
+      ],
+      "patterns": [
+        "mystery",
+        "mysteries",
+        "detective",
+        "thriller",
+        "thrillers",
+        "suspense",
+        "crime fiction",
+        "fiction, crime",
+        "fiction / crime",
+        {
+          "pattern": "murder",
+          "not": [
+            "true crime",
+            "history",
+            "investigation"
+          ]
+        },
+        "espionage",
+        "spy stories",
+        "noir",
+        "criminal investigation"
+      ]
+    },
+    {
+      "uid": "historical-fiction",
+      "name": "Historical Fiction",
+      "accent": "#8C6239",
+      "description": "Fiction rooted in past eras and historical events.",
+      "patterns": [
+        "historical fiction",
+        "fiction, historical",
+        "fiction / historical",
+        "historical romance",
+        "historical fantasy",
+        "historical mystery",
+        "war fiction",
+        "war stories"
+      ],
+      "excludeSubjects": [
+        "biography",
+        "autobiography",
+        "nonfiction",
+        "history and criticism"
+      ]
+    },
+    {
+      "uid": "literary-fiction",
+      "name": "Literary Fiction",
+      "accent": "#5A6B5C",
+      "description": "Character-driven contemporary, psychological, and international literary fiction.",
+      "patterns": [
+        "literary fiction",
+        "fiction / literary",
+        "fiction, literary",
+        "literary",
+        "contemporary fiction",
+        "psychological fiction",
+        "fiction, psychological",
+        "domestic fiction",
+        "fiction, family life",
+        "bildungsroman",
+        "coming of age",
+        "coming-of-age",
+        "experimental fiction",
+        "translated fiction"
+      ]
+    },
+    {
+      "uid": "romance",
+      "name": "Romance",
+      "accent": "#B35C74",
+      "description": "Love stories and relationship-centered fiction.",
+      "patterns": [
+        "romance",
+        "love stories",
+        "romantic fiction",
+        "courtship",
+        "romantasy"
+      ]
+    },
+    {
+      "uid": "action-adventure",
+      "name": "Action & Adventure",
+      "accent": "#B86B35",
+      "description": "High-stakes journeys, expeditions, and adventure fiction.",
+      "patterns": [
+        "action & adventure",
+        "adventure fiction",
+        "adventure stories",
+        "adventure and adventurers",
+        "sea stories"
+      ]
+    },
+    {
+      "uid": "short-stories",
+      "name": "Short Stories",
+      "accent": "#6E7F80",
+      "description": "Short fiction collections, novellas, and anthologies.",
+      "patterns": [
+        "short stories",
+        "anthologies",
+        "novellas",
+        "form:novella",
+        "short fiction"
+      ]
+    },
+    {
+      "uid": "humor-satire",
+      "name": "Humor & Satire",
+      "accent": "#C28B2E",
+      "description": "Comedy, satire, wit, and humorous storytelling.",
+      "patterns": [
+        "humor",
+        "humour",
+        "humorous stories",
+        "humorous fiction",
+        "satire",
+        "comedy",
+        "parody"
+      ]
+    },
+    {
+      "uid": "graphic-novels",
+      "name": "Graphic Novels & Comics",
+      "accent": "#C96A3A",
+      "description": "Comics, manga, graphic novels, and graphic memoirs.",
+      "patterns": [
+        "graphic novels",
+        "comics",
+        "comic books",
+        "manga",
+        "cartoons and comics",
+        "sequential art"
+      ]
+    },
+    {
+      "uid": "poetry",
+      "name": "Poetry",
+      "accent": "#8A6D8D",
+      "description": "Collections of poetry and verse.",
+      "excludeSubjects": [
+        "history and criticism",
+        "criticism and interpretation",
+        "fiction"
+      ],
+      "patterns": [
+        "poetry",
+        "poems",
+        "verse"
+      ]
+    },
+    {
+      "uid": "classics",
+      "name": "Classics",
+      "accent": "#6B4E3D",
+      "description": "Canonical and enduring works of literature.",
+      "patterns": [
+        "classics",
+        "classic literature",
+        "world literature"
+      ]
+    },
+    {
+      "uid": "young-adult",
+      "name": "Young Adult",
+      "accent": "#4F8A8B",
+      "description": "Young adult fiction and coming-of-age stories for teens.",
+      "patterns": [
+        "young adult",
+        "teen",
+        "adolescence",
+        "teenagers"
+      ]
+    },
+    {
+      "uid": "childrens-middle-grade",
+      "name": "Children's & Middle Grade",
+      "accent": "#5A9A78",
+      "description": "Middle-grade adventures and children's fiction.",
+      "patterns": [
+        "children's fiction",
+        "children's stories",
+        "juvenile fiction",
+        "middle grade",
+        "romans, nouvelles, etc. pour la jeunesse",
+        "juvenile literature"
+      ]
+    },
+    {
+      "uid": "history",
+      "name": "History",
+      "accent": "#8B5A2B",
+      "description": "Historical narrative, social history, and regional histories.",
+      "excludeSubjects": [
+        "history and criticism",
+        "stage history",
+        "natural history",
+        "art history",
+        "literary history",
+        "historical fiction",
+        "fiction, historical",
+        "fiction / historical"
+      ],
+      "patterns": [
+        {
+          "pattern": "history",
+          "not": [
+            "fiction",
+            "novels"
+          ]
+        },
+        {
+          "pattern": "histoire",
+          "not": [
+            "fiction"
+          ]
+        },
+        "social history",
+        "military history",
+        "labor history",
+        "labor movement",
+        "civil rights",
+        {
+          "pattern": "slavery",
+          "not": [
+            "fiction"
+          ]
+        },
+        "palestine",
+        "israel",
+        "true crime",
+        "holocaust",
+        "cold war"
+      ]
+    },
+    {
+      "uid": "politics-society",
+      "name": "Politics & Society",
+      "accent": "#A3483B",
+      "description": "Political theory, activism, abolition, economics, and social justice.",
+      "excludeSubjects": ["fiction"],
+      "patterns": [
+        "politics",
+        "political science",
+        "social sciences",
+        "social science",
+        "sociology",
+        "activism",
+        "prisons",
+        "abolition",
+        "capitalism",
+        "socialism",
+        "anarchism",
+        "marxism",
+        "communism",
+        "democracy",
+        "public policy",
+        "public health",
+        "social justice",
+        "human rights",
+        "economics",
+        "labor",
+        "urbanism",
+        "disability",
+        "fascism",
+        "imperialism",
+        "colonialism",
+        "camorra",
+        "intimate partner violence"
+      ]
+    },
+    {
+      "uid": "queer-studies",
+      "name": "Queer & LGBTQ+",
+      "accent": "#9C5B8B",
+      "description": "Queer fiction, memoir, history, and LGBTQ+ studies.",
+      "patterns": [
+        "lgbtq",
+        "lgbtiq",
+        "lgbt",
+        "queer",
+        "gay",
+        "lesbian",
+        "lesbians",
+        "transgender",
+        "bisexual",
+        "homosexuality",
+        "nonbinary",
+        "gender identity",
+        "sexual minorities"
+      ]
+    },
+    {
+      "uid": "feminism-gender",
+      "name": "Feminism & Gender",
+      "accent": "#B05A68",
+      "description": "Feminist thought, gender studies, and women's lives.",
+      "patterns": [
+        "feminism",
+        "feminist",
+        "women's studies",
+        "gender studies",
+        "misogyny",
+        "patriarchy",
+        "women authors",
+        "reproductive"
+      ]
+    },
+    {
+      "uid": "race-postcolonial",
+      "name": "Race & Postcolonialism",
+      "accent": "#946B3E",
+      "description": "Anti-racism, diaspora, Black studies, and postcolonial thought.",
+      "patterns": [
+        "racism",
+        "race relations",
+        "anti-racism",
+        "postcolonial",
+        "decolonization",
+        "black studies",
+        "african americans",
+        "immigrants",
+        "diaspora",
+        "ethnic studies"
+      ]
+    },
+    {
+      "uid": "biography-memoir",
+      "name": "Biography & Memoir",
+      "accent": "#6D7B57",
+      "description": "Memoirs, autobiographies, diaries, letters, and biographies.",
+      "patterns": [
+        "biography",
+        "biographies",
+        "biografía",
+        "autobiography",
+        "memoir",
+        "memoirs",
+        "personal narratives",
+        "diaries",
+        "letters",
+        "correspondence"
+      ]
+    },
+    {
+      "uid": "essays-criticism",
+      "name": "Essays & Criticism",
+      "accent": "#5E6B7A",
+      "description": "Essays, literary criticism, journalism, and cultural commentary.",
+      "patterns": [
+        "essays",
+        "literary criticism",
+        "journalism",
+        "writing",
+        "authorship",
+        "books and reading",
+        "books about books",
+        "cultural commentary"
+      ]
+    },
+    {
+      "uid": "science-nature",
+      "name": "Science & Nature",
+      "accent": "#3E7A62",
+      "description": "Natural history, biology, physics, astronomy, climate, and medicine.",
+      "excludeSubjects": ["fiction"],
+      "patterns": [
+        {
+          "pattern": "science",
+          "not": [
+            "science fiction",
+            "social science",
+            "social sciences",
+            "political science",
+            "computer science",
+            "library science",
+            "domestic science",
+            "christian science"
+          ]
+        },
+        "popular science",
+        "natural history",
+        "nature",
+        "ecology",
+        "environment",
+        "climate",
+        "biology",
+        "marine biology",
+        "astronomy",
+        "physics",
+        "mathematics",
+        "medicine",
+        "epidemiology",
+        "neuroscience",
+        { "pattern": "psychology", "not": ["identity (psychology)"] },
+        "psychiatry",
+        "mental health",
+        "animals",
+        "botany",
+        "ocean",
+        "earth sciences",
+        "earth (planet)",
+        "planet earth"
+      ]
+    },
+    {
+      "uid": "philosophy",
+      "name": "Philosophy",
+      "accent": "#5A5475",
+      "description": "Ethics, epistemology, phenomenology, and philosophical works.",
+      "excludeSubjects": [
+        "fiction"
+      ],
+      "patterns": [
+        "philosophy",
+        "philosophie",
+        "ethics",
+        "existentialism",
+        "aesthetics",
+        "logic",
+        "metaphysics",
+        "religion",
+        "theology"
+      ]
+    },
+    {
+      "uid": "arts-culture",
+      "name": "Arts & Culture",
+      "accent": "#A66E4E",
+      "description": "Drama, film, music, visual arts, sports, food, and cultural studies.",
+      "patterns": [
+        "art",
+        "music",
+        "film",
+        "cinema",
+        "architecture",
+        "photography",
+        "theater",
+        "theatre",
+        "drama",
+        "cooking",
+        "food",
+        "popular culture",
+        "design",
+        "media studies",
+        "recreation",
+        "sports",
+        "football"
+      ]
+    }
+  ],
+  "ignoreExact": [
+    "fiction",
+    "ficción",
+    "novela",
+    "novels",
+    "nonfiction",
+    "non-fiction",
+    "general",
+    "fiction, general",
+    "fiction / general",
+    "literature",
+    "adult",
+    "contemporary",
+    "reading",
+    "readers",
+    "books",
+    "ebook",
+    "ebooks",
+    "audiobook",
+    "audiobooks",
+    "large type books",
+    "large print books",
+    "accessible book",
+    "protected daisy",
+    "open library staff picks",
+    "internet archive wishlist",
+    "new york times bestseller",
+    "new york times reviewed",
+    "bestsellers",
+    "best sellers",
+    "translations",
+    "translations into english",
+    "translations into french",
+    "romans, nouvelles",
+    "roman",
+    "english literature",
+    "american literature",
+    "french literature",
+    "british literature",
+    "english fiction",
+    "american fiction",
+    "british fiction",
+    "french fiction",
+    "italian literature",
+    "european fiction",
+    "hugo award winner",
+    "nebula award winner",
+    "locus award winner",
+    "bram stoker award winner",
+    "pulitzer prize winner",
+    "booker prize",
+    "national book award",
+    "stonewall book awards",
+    "in library",
+    "lending library",
+    "overdrive",
+    "juvenile",
+    "miscellanea",
+    "long now manual for civilization",
+    "open_syllabus_project",
+    "great_books_of_the_western_world",
+    "specimens",
+    "bibliography",
+    "adaptations",
+    "amerikanisches englisch",
+    "man-woman relationships",
+    "man-woman relationships, fiction",
+    "interpersonal relations",
+    "social life and customs",
+    "social conditions",
+    "social classes",
+    "good and evil",
+    "family",
+    "families",
+    "women",
+    "young women",
+    "friendship",
+    "friendship, fiction",
+    "female friendship",
+    "children",
+    "mothers and daughters",
+    "brothers and sisters",
+    "brothers and sisters, fiction",
+    "orphans",
+    "orphans, fiction",
+    "revenge",
+    "death",
+    "kings and rulers",
+    "missing persons",
+    "new york (n.y.), fiction",
+    "england, fiction",
+    "italy, fiction",
+    "violet baudelaire (fictitious character)",
+    "klaus baudelaire (fictitious character)",
+    "sunny baudelaire (fictitious character)",
+    "crime",
+    "criminals"
+  ],
+  "ignorePrefixes": [
+    "nyt:",
+    "award:",
+    "collection:",
+    "series:",
+    "franchise:",
+    "form:",
+    "genre:",
+    "reading level",
+    "lexile",
+    "accelerated reader",
+    "dewey",
+    "lcsh"
+  ]
+}

@@ -165,11 +165,10 @@
         "config": {
           "label": "Read status",
           "options": [
-            "to-read",
+            "not-read",
             "currently-reading",
             "read",
-            "did-not-finish",
-            "paused"
+            "did-not-finish"
           ]
         },
         "type": "Select"
