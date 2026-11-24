@@ -6,6 +6,13 @@ export const BAY_SPACING = 4.6;
 export const NEAR_RADIUS = 2;
 export const MAX_SPINES_PER_SIDE = 22;
 
+/** Radians — enough to face a wall, not enough to spin into it. */
+export const YAW_MAX = 1.15;
+
+export function clampYaw(yaw: number): number {
+  return Math.min(YAW_MAX, Math.max(-YAW_MAX, yaw));
+}
+
 export function nearbyBooksFromShelves(shelves: ShelfGroup[], depth: number): LibraryBook[] {
   const seen = new Set<string>();
   const list: LibraryBook[] = [];
