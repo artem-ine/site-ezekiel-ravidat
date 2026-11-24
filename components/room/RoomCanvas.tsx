@@ -86,11 +86,11 @@ export function RoomCanvas({
       <PixelScale />
       <color attach="background" args={[PALETTE.fog]} />
       <fog attach="fog" args={[PALETTE.fog, 12, 30]} />
-      <hemisphereLight args={[PALETTE.paper, PALETTE.walnut, 0.48]} />
-      <ambientLight intensity={0.34} color={PALETTE.paper} />
-      {/* Daylight sun through the windows */}
-      <directionalLight position={[-8, 10, 4]} intensity={0.55} color="#ffe6b0" />
-      <directionalLight position={[6, 8, -2]} intensity={0.22} color="#ffd9a0" />
+      <hemisphereLight args={["#e8eef6", PALETTE.walnut, 0.5]} />
+      <ambientLight intensity={0.32} color="#e4eaf2" />
+      {/* Cool daylight through the windows — lamps on bays stay warm separately */}
+      <directionalLight position={[-9, 11, 3]} intensity={0.62} color="#e7eef8" />
+      <directionalLight position={[7, 9, -3]} intensity={0.28} color="#d9e4f2" />
 
       <WalkCamera x={x} z={z} yaw={yaw} pitch={pitch} placed={nearby} />
       <RoomShell plan={plan} preferReducedMotion={preferReducedMotion} />
@@ -294,75 +294,69 @@ function DayWindow({
     const t = clock.elapsedTime;
     if (shaftRef.current) {
       const mat = shaftRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.1 + Math.sin(t * 0.4 + win.x) * 0.03;
+      mat.opacity = 0.11 + Math.sin(t * 0.35 + win.z) * 0.025;
     }
     if (moteRef.current) {
-      moteRef.current.rotation.y = t * 0.05;
-      moteRef.current.position.y = 1.2 + Math.sin(t * 0.3) * 0.05;
+      moteRef.current.position.y = 1.15 + Math.sin(t * 0.28) * 0.04;
     }
   });
 
   const motePositions = useMemo(() => {
     const arr = new Float32Array(24);
     for (let i = 0; i < 8; i += 1) {
-      arr[i * 3] = (i % 3) * 0.25 - 0.25;
-      arr[i * 3 + 1] = (i % 4) * 0.2;
-      arr[i * 3 + 2] = Math.floor(i / 3) * 0.35;
+      arr[i * 3] = 0.8 + (i % 3) * 0.35;
+      arr[i * 3 + 1] = (i % 4) * 0.18;
+      arr[i * 3 + 2] = ((i % 5) - 2) * 0.12;
     }
     return arr;
   }, []);
 
-  const inward = win.facing;
-  const beamLen = 4.2;
-
   return (
-    <group position={[win.x, 1.55, win.z]} rotation={[0, inward, 0]}>
-      {/* Warm daylight pane */}
-      <mesh position={[0.05, 0, 0]}>
+    <group position={[win.x, 1.55, win.z]} rotation={[0, win.facing, 0]}>
+      {/* Cool daylight pane set into the wall */}
+      <mesh position={[0.02, 0, 0]}>
         <planeGeometry args={[win.width, win.height]} />
         <meshStandardMaterial
-          color="#fff1c2"
-          emissive="#ffe0a0"
-          emissiveIntensity={1.1}
+          color="#e8eef6"
+          emissive="#b9cce0"
+          emissiveIntensity={0.95}
           roughness={1}
           metalness={0}
         />
       </mesh>
-      {/* Brass frame chunks */}
       <mesh position={[0, win.height / 2, 0.02]}>
-        <boxGeometry args={[win.width + 0.15, 0.1, 0.08]} />
+        <boxGeometry args={[win.width + 0.14, 0.09, 0.08]} />
         <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
       </mesh>
       <mesh position={[0, -win.height / 2, 0.02]}>
-        <boxGeometry args={[win.width + 0.15, 0.1, 0.08]} />
+        <boxGeometry args={[win.width + 0.14, 0.09, 0.08]} />
         <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
       </mesh>
-      {/* Soft light shaft onto the floor */}
+      {/* Shaft falls inward from the wall (local +X), not as a floor plaque */}
       <mesh
         ref={shaftRef}
-        position={[beamLen * 0.45, -0.6, 0]}
-        rotation={[0, 0, -0.55]}
+        position={[2.1, -0.55, 0]}
+        rotation={[0, 0, -0.42]}
       >
-        <planeGeometry args={[beamLen, win.width * 0.7]} />
+        <boxGeometry args={[3.2, 0.015, win.width * 0.4]} />
         <meshBasicMaterial
-          color="#ffe6b8"
+          color="#d2e0f0"
           transparent
-          opacity={0.12}
+          opacity={0.13}
           depthWrite={false}
-          side={THREE.DoubleSide}
         />
       </mesh>
       {!preferReducedMotion && (
-        <points ref={moteRef} position={[1.2, 1.0, 0]}>
+        <points ref={moteRef} position={[1.4, 1.0, 0]}>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[motePositions, 3]} />
           </bufferGeometry>
           <pointsMaterial
-            color="#fff6d8"
-            size={0.04}
+            color="#e8f0fa"
+            size={0.035}
             sizeAttenuation
             transparent
-            opacity={0.55}
+            opacity={0.5}
             depthWrite={false}
           />
         </points>
@@ -702,13 +696,21 @@ function BookSpine3D({
   const bodyW = facing ? depth + 0.02 : depth;
   const bodyH = pose === "flat" ? thickness : height;
   const bodyD = pose === "flat" ? height : thickness;
+  // Generous hit volume covering bevel, lean, and headband/tail.
+  const hitW = Math.max(bodyW, 0.14) + 0.1;
+  const hitH = bodyH + 0.08;
+  const hitD = bodyD + 0.1;
 
   return (
     <group ref={group} position={rest.toArray()}>
+      {/* Invisible pick target — visuals do not raycast so bevels cannot steal clicks */}
       <mesh
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           pick(event);
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
         }}
         onPointerOver={(event) => {
           event.stopPropagation();
@@ -720,6 +722,11 @@ function BookSpine3D({
           document.body.style.cursor = "grab";
         }}
       >
+        <boxGeometry args={[hitW, hitH, hitD]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
+      <mesh raycast={noopRaycast}>
         <boxGeometry args={[bodyW, bodyH, bodyD]} />
         <meshStandardMaterial
           map={spineMap}
@@ -728,7 +735,7 @@ function BookSpine3D({
         />
       </mesh>
       {pose !== "flat" && (
-        <mesh position={[bodyW * 0.35, 0, 0]} scale={[0.55, 0.96, 0.92]}>
+        <mesh position={[bodyW * 0.35, 0, 0]} scale={[0.55, 0.96, 0.92]} raycast={noopRaycast}>
           <boxGeometry args={[bodyW, bodyH, bodyD]} />
           <meshStandardMaterial
             map={spineMap}
@@ -738,13 +745,13 @@ function BookSpine3D({
         </mesh>
       )}
       {pose !== "flat" && (
-        <mesh position={[0, bodyH * 0.48, 0]}>
+        <mesh position={[0, bodyH * 0.48, 0]} raycast={noopRaycast}>
           <boxGeometry args={[bodyW * 1.02, 0.018, bodyD * 1.02]} />
           <meshStandardMaterial color={seed % 2 === 0 ? PALETTE.brass : PALETTE.paper} />
         </mesh>
       )}
       {pose !== "flat" && (
-        <mesh position={[0, -bodyH * 0.48, 0]}>
+        <mesh position={[0, -bodyH * 0.48, 0]} raycast={noopRaycast}>
           <boxGeometry args={[bodyW * 1.02, 0.016, bodyD * 1.02]} />
           <meshStandardMaterial color={seed % 3 === 0 ? PALETTE.deepGreen : PALETTE.brass} />
         </mesh>
@@ -761,6 +768,7 @@ function BookSpine3D({
         ref={coverRef}
         position={[0.08, 0, bodyD * 0.45]}
         visible={selected || progress.current > 0.02}
+        raycast={noopRaycast}
       >
         <boxGeometry args={[0.03, bodyH * 1.05, bodyD * 1.7]} />
         <meshStandardMaterial
@@ -771,4 +779,8 @@ function BookSpine3D({
       </mesh>
     </group>
   );
+}
+
+function noopRaycast() {
+  /* decorative meshes must not steal spine picks */
 }

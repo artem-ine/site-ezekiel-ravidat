@@ -132,15 +132,19 @@ export function buildFloorPlan(): FloorPlan {
     { id: "north", label: "North stacks", x: 0, z: -12.6, yaw: 0 },
   ];
 
+  // Flush with outer walls only. facing = yaw that points local +X into the room.
+  // Keep clear of shelf lines at x≈±11 and aisle centres.
   const windows = [
-    { x: -13.1, z: 1, facing: 0, width: 2.2, height: 1.8 },
-    { x: -13.1, z: -5, facing: 0, width: 2.2, height: 1.8 },
-    { x: -13.1, z: -11, facing: 0, width: 2.2, height: 1.8 },
-    { x: 13.1, z: 1, facing: Math.PI, width: 2.2, height: 1.8 },
-    { x: 13.1, z: -5, facing: Math.PI, width: 2.2, height: 1.8 },
-    { x: 13.1, z: -11, facing: Math.PI, width: 2.2, height: 1.8 },
-    { x: -4, z: 6.9, facing: Math.PI / 2, width: 2.4, height: 1.6 },
-    { x: 4, z: 6.9, facing: Math.PI / 2, width: 2.4, height: 1.6 },
+    { x: -13.95, z: 2.5, facing: 0, width: 2.0, height: 1.7 },
+    { x: -13.95, z: -4.0, facing: 0, width: 2.0, height: 1.7 },
+    { x: -13.95, z: -10.0, facing: 0, width: 2.0, height: 1.7 },
+    { x: 13.95, z: 2.5, facing: Math.PI, width: 2.0, height: 1.7 },
+    { x: 13.95, z: -4.0, facing: Math.PI, width: 2.0, height: 1.7 },
+    { x: 13.95, z: -10.0, facing: Math.PI, width: 2.0, height: 1.7 },
+    { x: -5.5, z: 7.35, facing: -Math.PI / 2, width: 2.2, height: 1.5 },
+    { x: 5.5, z: 7.35, facing: -Math.PI / 2, width: 2.2, height: 1.5 },
+    { x: -5.5, z: -16.35, facing: Math.PI / 2, width: 2.2, height: 1.5 },
+    { x: 5.5, z: -16.35, facing: Math.PI / 2, width: 2.2, height: 1.5 },
   ];
 
   const colliders: Collider[] = [
