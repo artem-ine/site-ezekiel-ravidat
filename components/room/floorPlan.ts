@@ -23,11 +23,26 @@ export type ShelfSlot = {
   labelHint: string;
 };
 
-export type Junction = {
+export type WallSide = "west" | "east" | "north" | "south";
+
+/** Pane lies in the wall; `wall` decides which plane (never across an aisle). */
+export type WallWindow = {
+  id: string;
+  wall: WallSide;
+  /** Centre along the wall (z for west/east, x for north/south). */
+  along: number;
+  width: number;
+  height: number;
+};
+
+export type AisleSign = {
   id: string;
   x: number;
   z: number;
-  lines: string[];
+  y: number;
+  /** Yaw the board faces (readable when looking roughly this way). */
+  facing: number;
+  text: string;
 };
 
 export type Landmark = {
@@ -48,10 +63,9 @@ export type Collider = {
 export type FloorPlan = {
   aisles: { id: AisleId; from: Vec2; to: Vec2; width: number }[];
   slots: ShelfSlot[];
-  junctions: Junction[];
   landmarks: Landmark[];
   colliders: Collider[];
-  windows: { x: number; z: number; facing: number; width: number; height: number }[];
+  windows: WallWindow[];
   floor: { minX: number; maxX: number; minZ: number; maxZ: number };
   entrance: Landmark;
 };
@@ -90,33 +104,6 @@ export function buildFloorPlan(): FloorPlan {
     ...bayPair("north", 0, -13.2, "North"),
   ];
 
-  const junctions: Junction[] = [
-    {
-      id: "j-entry",
-      x: 0,
-      z: 2.2,
-      lines: ["Main hall ahead", "Desk & catalogue ←", "Entrance behind"],
-    },
-    {
-      id: "j-cross",
-      x: 0,
-      z: -2,
-      lines: ["← West wing", "East wing →", "Main hall ↕"],
-    },
-    {
-      id: "j-north",
-      x: 0,
-      z: -8,
-      lines: ["← Loop west", "Loop east →", "North stacks ↓"],
-    },
-    {
-      id: "j-back",
-      x: 0,
-      z: -12,
-      lines: ["Back corridor", "Loops ↑", "Entrance via main"],
-    },
-  ];
-
   const entrance: Landmark = {
     id: "entrance",
     label: "Entrance",
@@ -132,19 +119,18 @@ export function buildFloorPlan(): FloorPlan {
     { id: "north", label: "North stacks", x: 0, z: -12.6, yaw: 0 },
   ];
 
-  // Flush with outer walls only. facing = yaw that points local +X into the room.
-  // Keep clear of shelf lines at x≈±11 and aisle centres.
-  const windows = [
-    { x: -13.95, z: 2.5, facing: 0, width: 2.0, height: 1.7 },
-    { x: -13.95, z: -4.0, facing: 0, width: 2.0, height: 1.7 },
-    { x: -13.95, z: -10.0, facing: 0, width: 2.0, height: 1.7 },
-    { x: 13.95, z: 2.5, facing: Math.PI, width: 2.0, height: 1.7 },
-    { x: 13.95, z: -4.0, facing: Math.PI, width: 2.0, height: 1.7 },
-    { x: 13.95, z: -10.0, facing: Math.PI, width: 2.0, height: 1.7 },
-    { x: -5.5, z: 7.35, facing: -Math.PI / 2, width: 2.2, height: 1.5 },
-    { x: 5.5, z: 7.35, facing: -Math.PI / 2, width: 2.2, height: 1.5 },
-    { x: -5.5, z: -16.35, facing: Math.PI / 2, width: 2.2, height: 1.5 },
-    { x: 5.5, z: -16.35, facing: Math.PI / 2, width: 2.2, height: 1.5 },
+  // Wide mullioned windows set into outer walls, parallel to those walls (never across an aisle).
+  const windows: WallWindow[] = [
+    { id: "w-w1", wall: "west", along: 2.5, width: 3.6, height: 1.85 },
+    { id: "w-w2", wall: "west", along: -4.0, width: 3.6, height: 1.85 },
+    { id: "w-w3", wall: "west", along: -10.0, width: 3.6, height: 1.85 },
+    { id: "w-e1", wall: "east", along: 2.5, width: 3.6, height: 1.85 },
+    { id: "w-e2", wall: "east", along: -4.0, width: 3.6, height: 1.85 },
+    { id: "w-e3", wall: "east", along: -10.0, width: 3.6, height: 1.85 },
+    { id: "w-n1", wall: "north", along: -5.5, width: 3.4, height: 1.7 },
+    { id: "w-n2", wall: "north", along: 5.5, width: 3.4, height: 1.7 },
+    { id: "w-s1", wall: "south", along: -5.5, width: 3.4, height: 1.7 },
+    { id: "w-s2", wall: "south", along: 5.5, width: 3.4, height: 1.7 },
   ];
 
   const colliders: Collider[] = [
@@ -159,13 +145,94 @@ export function buildFloorPlan(): FloorPlan {
   return {
     aisles,
     slots,
-    junctions,
     landmarks,
     colliders,
     windows,
     floor: { minX: -14, maxX: 14, minZ: -16.5, maxZ: 7.5 },
     entrance,
   };
+}
+
+/** World pose for a wall window: pane lies in the wall plane. */
+export function windowWorldPose(
+  win: WallWindow,
+  floor: FloorPlan["floor"],
+): { x: number; y: number; z: number; yaw: number; inwardX: number; inwardZ: number } {
+  const y = 1.55;
+  if (win.wall === "west") {
+    return {
+      x: floor.minX + 0.08,
+      y,
+      z: win.along,
+      yaw: Math.PI / 2,
+      inwardX: 1,
+      inwardZ: 0,
+    };
+  }
+  if (win.wall === "east") {
+    return {
+      x: floor.maxX - 0.08,
+      y,
+      z: win.along,
+      yaw: -Math.PI / 2,
+      inwardX: -1,
+      inwardZ: 0,
+    };
+  }
+  if (win.wall === "north") {
+    // Far end of the room (min Z): pane in XZ wall plane, normal +Z into the stacks.
+    return {
+      x: win.along,
+      y,
+      z: floor.minZ + 0.08,
+      yaw: 0,
+      inwardX: 0,
+      inwardZ: 1,
+    };
+  }
+  // South / entrance wall (max Z): normal −Z into the room.
+  return {
+    x: win.along,
+    y,
+    z: floor.maxZ - 0.08,
+    yaw: Math.PI,
+    inwardX: 0,
+    inwardZ: -1,
+  };
+}
+
+/** Small POV-height signs at shelf ends in the aisle, naming that section. */
+export function buildAisleSigns(placed: PlacedShelf[]): AisleSign[] {
+  const signs: AisleSign[] = [];
+  for (const slot of placed) {
+    if (!slot.shelf) continue;
+    const fx = Math.sin(slot.facing);
+    const fz = -Math.cos(slot.facing);
+    // Sideways along the shelf face (perpendicular to facing).
+    const endX = -fz;
+    const endZ = fx;
+    const into = 0.62;
+    const along = 1.55;
+    const label = slot.shelf.label;
+    // Two ends of the bay: arrows point toward the shelf mid from the aisle approach.
+    signs.push({
+      id: `sign-${slot.id}-a`,
+      x: slot.x + fx * into + endX * along,
+      z: slot.z + fz * into + endZ * along,
+      y: 1.38,
+      facing: slot.facing,
+      text: `${label} →`,
+    });
+    signs.push({
+      id: `sign-${slot.id}-b`,
+      x: slot.x + fx * into - endX * along,
+      z: slot.z + fz * into - endZ * along,
+      y: 1.38,
+      facing: slot.facing,
+      text: `← ${label}`,
+    });
+  }
+  return signs;
 }
 
 function bayPair(aisleId: AisleId, x: number, z: number, hint: string): ShelfSlot[] {

@@ -150,7 +150,6 @@ export function LibraryRoom({ books }: Props) {
     [books, selectedUid],
   );
   const facing = shelfFaceAmount(x, z, yaw, placed);
-  const facingWall = facing.amount > 0.35;
   const here = nearestLandmark(plan.landmarks, x, z);
 
   const goTo = useCallback((landmark: Landmark) => {
@@ -247,10 +246,22 @@ export function LibraryRoom({ books }: Props) {
       } else if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
         keys.right = down;
-      } else if (event.key === "q" || event.key === "Q" || event.key === "PageUp") {
+      } else if (
+        event.key === "r" ||
+        event.key === "R" ||
+        event.key === "q" ||
+        event.key === "Q" ||
+        event.key === "PageUp"
+      ) {
         event.preventDefault();
         keys.pitchUp = down;
-      } else if (event.key === "e" || event.key === "E" || event.key === "PageDown") {
+      } else if (
+        event.key === "f" ||
+        event.key === "F" ||
+        event.key === "e" ||
+        event.key === "E" ||
+        event.key === "PageDown"
+      ) {
         event.preventDefault();
         keys.pitchDown = down;
       } else if (down && event.key === "Home") {
@@ -346,31 +357,14 @@ export function LibraryRoom({ books }: Props) {
       (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
       setSelectedUid(null);
     }
-    // Turning always works — never gated by collision.
+    // Turn on X, pitch on Y — neither is blocked by collision.
     const nextYaw = wrapYaw(drag.yaw + dx / 180);
+    const nextPitch = clampPitch(drag.pitch + dy / 240);
     posRef.current.yaw = nextYaw;
     posRef.current.vyaw = 0;
+    posRef.current.pitch = nextPitch;
     setYaw(nextYaw);
-    if (facingWall) {
-      const nextPitch = clampPitch(drag.pitch + dy / 260);
-      posRef.current.pitch = nextPitch;
-      setPitch(nextPitch);
-    } else {
-      const distance = dy / 120;
-      const body = posRef.current;
-      const next = moveWithCollision(
-        body.x,
-        body.z,
-        Math.sin(body.yaw) * distance,
-        -Math.cos(body.yaw) * distance,
-        plan.colliders,
-      );
-      body.x = next.x;
-      body.z = next.z;
-      drag.y = event.clientY;
-      posRef.current.pitch = 0;
-      setPitch(0);
-    }
+    setPitch(nextPitch);
   };
 
   const onPointerUp = (event: ReactPointerEvent) => {
@@ -418,9 +412,9 @@ export function LibraryRoom({ books }: Props) {
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
         <p className="room-sr-only">
-          Branching pixel library. Hold W S or arrows to walk, A D to turn — turning always works.
-          Scroll also walks. Q E or vertical drag while facing a shelf looks up and down. Home or the
-          mini-map returns to the entrance. Click a book to open it; Escape closes it.
+          Branching pixel library. Hold W S or arrows to walk, A D to turn. Scroll also walks. Drag
+          vertically or hold R and F to look up and down. Home or the mini-map returns to the
+          entrance. Click a book to open it; Escape closes it.
         </p>
 
         <nav className="room-sr-only" aria-label="Books near you">
@@ -499,11 +493,7 @@ export function LibraryRoom({ books }: Props) {
             {sectionLabel}
             {facing.slot?.shelf ? ` · ${facing.slot.shelf.books.length} vols` : ""}
           </p>
-          <p className="room-hud__hint label">
-            {facingWall
-              ? "WASD walk/turn · Q/E pitch · Home door"
-              : "WASD walk/turn · scroll · map · Esc"}
-          </p>
+          <p className="room-hud__hint label">WASD walk/turn · R/F or drag pitch · scroll · map</p>
           <button type="button" className="room-catalogue-pull" onClick={goEntrance}>
             Entrance
           </button>

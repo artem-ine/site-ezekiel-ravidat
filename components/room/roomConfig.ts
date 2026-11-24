@@ -3,8 +3,8 @@ import type { LibraryBook } from "@/lib/books";
 
 export const MAX_SPINES_PER_SIDE = 22;
 
-/** Gentle look up / down while facing a shelf. */
-export const PITCH_MAX = 0.38;
+/** Look up / down enough to see top and bottom shelf rows. */
+export const PITCH_MAX = 0.48;
 
 export const FOV_AISLE = 52;
 export const FOV_SHELF = 40;

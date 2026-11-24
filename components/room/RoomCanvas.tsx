@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber"
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { LibraryBook } from "@/lib/books";
-import { shortTitle, spineCloth } from "@/lib/spine-style";
+import { spineCloth } from "@/lib/spine-style";
 import {
   makeSpineTexture,
   pixelateImage,
@@ -28,9 +28,13 @@ import {
   shelfViewDistance,
 } from "@/components/room/roomConfig";
 import {
+  buildAisleSigns,
   shelfFaceAmount,
+  windowWorldPose,
+  type AisleSign,
   type FloorPlan,
   type PlacedShelf,
+  type WallWindow,
 } from "@/components/room/floorPlan";
 
 const ROW_YS = [0.42, 0.88, 1.34, 1.8, 2.26];
@@ -64,9 +68,10 @@ export function RoomCanvas({
     [placed, x, z],
   );
 
-  const nearbyJunctions = useMemo(
-    () => plan.junctions.filter((j) => Math.hypot(j.x - x, j.z - z) <= RENDER_RADIUS),
-    [plan.junctions, x, z],
+  const signs = useMemo(() => buildAisleSigns(placed), [placed]);
+  const nearbySigns = useMemo(
+    () => signs.filter((sign) => Math.hypot(sign.x - x, sign.z - z) <= 5.5),
+    [signs, x, z],
   );
 
   return (
@@ -97,8 +102,14 @@ export function RoomCanvas({
       <EntrancePlate landmark={plan.entrance} />
       <DeskAlcove />
 
-      {nearbyJunctions.map((junction) => (
-        <JunctionSign key={junction.id} junction={junction} />
+      {nearbySigns.map((sign) => (
+        <AisleDirectionalSign
+          key={sign.id}
+          sign={sign}
+          playerX={x}
+          playerZ={z}
+          playerYaw={yaw}
+        />
       ))}
 
       {nearby.map((slot) =>
@@ -268,10 +279,11 @@ function RoomShell({
         <meshStandardMaterial color={PALETTE.ink} roughness={1} />
       </mesh>
 
-      {plan.windows.map((win, index) => (
+      {plan.windows.map((win) => (
         <DayWindow
-          key={`win-${index}`}
+          key={win.id}
           window={win}
+          floor={plan.floor}
           preferReducedMotion={preferReducedMotion}
         />
       ))}
@@ -281,73 +293,111 @@ function RoomShell({
 
 function DayWindow({
   window: win,
+  floor,
   preferReducedMotion,
 }: {
-  window: FloorPlan["windows"][number];
+  window: WallWindow;
+  floor: FloorPlan["floor"];
   preferReducedMotion: boolean;
 }) {
+  const pose = windowWorldPose(win, floor);
   const shaftRef = useRef<THREE.Mesh>(null);
   const moteRef = useRef<THREE.Points>(null);
+  // Default plane faces +Z; yaw turns that normal into the room.
+  const yaw = pose.yaw;
 
   useFrame(({ clock }) => {
     if (preferReducedMotion) return;
     const t = clock.elapsedTime;
     if (shaftRef.current) {
       const mat = shaftRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.11 + Math.sin(t * 0.35 + win.z) * 0.025;
+      mat.opacity = 0.1 + Math.sin(t * 0.35 + pose.x) * 0.02;
     }
     if (moteRef.current) {
-      moteRef.current.position.y = 1.15 + Math.sin(t * 0.28) * 0.04;
+      moteRef.current.position.y = 1.1 + Math.sin(t * 0.28) * 0.04;
     }
   });
 
   const motePositions = useMemo(() => {
     const arr = new Float32Array(24);
     for (let i = 0; i < 8; i += 1) {
-      arr[i * 3] = 0.8 + (i % 3) * 0.35;
-      arr[i * 3 + 1] = (i % 4) * 0.18;
-      arr[i * 3 + 2] = ((i % 5) - 2) * 0.12;
+      arr[i * 3] = ((i % 5) - 2) * 0.15;
+      arr[i * 3 + 1] = (i % 4) * 0.16;
+      arr[i * 3 + 2] = 0.9 + (i % 3) * 0.35;
     }
     return arr;
   }, []);
 
+  const cols = 4;
+  const rows = 3;
+  const paneW = win.width / cols;
+  const paneH = win.height / rows;
+
   return (
-    <group position={[win.x, 1.55, win.z]} rotation={[0, win.facing, 0]}>
-      {/* Cool daylight pane set into the wall */}
-      <mesh position={[0.02, 0, 0]}>
-        <planeGeometry args={[win.width, win.height]} />
-        <meshStandardMaterial
-          color="#e8eef6"
-          emissive="#b9cce0"
-          emissiveIntensity={0.95}
-          roughness={1}
-          metalness={0}
-        />
+    <group position={[pose.x, pose.y, pose.z]} rotation={[0, yaw, 0]}>
+      {/* Stone/wood surround in the wall plane (XY after yaw) */}
+      <mesh position={[0, 0, -0.04]}>
+        <boxGeometry args={[win.width + 0.35, win.height + 0.45, 0.14]} />
+        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <mesh position={[0, win.height / 2, 0.02]}>
-        <boxGeometry args={[win.width + 0.14, 0.09, 0.08]} />
-        <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
+      {/* Sill */}
+      <mesh position={[0, -win.height / 2 - 0.08, 0.06]}>
+        <boxGeometry args={[win.width + 0.4, 0.1, 0.22]} />
+        <meshStandardMaterial color={PALETTE.honey} roughness={0.95} />
       </mesh>
-      <mesh position={[0, -win.height / 2, 0.02]}>
-        <boxGeometry args={[win.width + 0.14, 0.09, 0.08]} />
-        <meshStandardMaterial color={PALETTE.brass} roughness={0.8} />
+      {/* Cool daylight glass with leaded grid */}
+      {Array.from({ length: rows }, (_, row) =>
+        Array.from({ length: cols }, (_, col) => {
+          const px = -win.width / 2 + paneW * (col + 0.5);
+          const py = -win.height / 2 + paneH * (row + 0.5);
+          return (
+            <mesh key={`${row}-${col}`} position={[px, py, 0.02]}>
+              <planeGeometry args={[paneW * 0.92, paneH * 0.9]} />
+              <meshStandardMaterial
+                color="#e8eef6"
+                emissive="#a8bdd4"
+                emissiveIntensity={0.9}
+                roughness={1}
+              />
+            </mesh>
+          );
+        }),
+      )}
+      {/* Mullions */}
+      {Array.from({ length: cols + 1 }, (_, i) => (
+        <mesh
+          key={`vm-${i}`}
+          position={[-win.width / 2 + (win.width * i) / cols, 0, 0.04]}
+        >
+          <boxGeometry args={[0.045, win.height, 0.05]} />
+          <meshStandardMaterial color="#3a2a1c" roughness={1} />
+        </mesh>
+      ))}
+      {Array.from({ length: rows + 1 }, (_, i) => (
+        <mesh
+          key={`hm-${i}`}
+          position={[0, -win.height / 2 + (win.height * i) / rows, 0.04]}
+        >
+          <boxGeometry args={[win.width, 0.045, 0.05]} />
+          <meshStandardMaterial color="#3a2a1c" roughness={1} />
+        </mesh>
+      ))}
+      {/* Simple arched top bar */}
+      <mesh position={[0, win.height / 2 + 0.12, 0.05]}>
+        <boxGeometry args={[win.width * 0.7, 0.12, 0.08]} />
+        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      {/* Shaft falls inward from the wall (local +X), not as a floor plaque */}
+      {/* Shaft falls inward along +Z in local space (= into the room) */}
       <mesh
         ref={shaftRef}
-        position={[2.1, -0.55, 0]}
-        rotation={[0, 0, -0.42]}
+        position={[0, -0.7, 2.0]}
+        rotation={[-0.45, 0, 0]}
       >
-        <boxGeometry args={[3.2, 0.015, win.width * 0.4]} />
-        <meshBasicMaterial
-          color="#d2e0f0"
-          transparent
-          opacity={0.13}
-          depthWrite={false}
-        />
+        <boxGeometry args={[win.width * 0.45, 0.015, 3.4]} />
+        <meshBasicMaterial color="#d2e0f0" transparent opacity={0.12} depthWrite={false} />
       </mesh>
       {!preferReducedMotion && (
-        <points ref={moteRef} position={[1.4, 1.0, 0]}>
+        <points ref={moteRef} position={[0, 0.9, 1.3]}>
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[motePositions, 3]} />
           </bufferGeometry>
@@ -356,7 +406,7 @@ function DayWindow({
             size={0.035}
             sizeAttenuation
             transparent
-            opacity={0.5}
+            opacity={0.45}
             depthWrite={false}
           />
         </points>
@@ -416,28 +466,42 @@ function DeskAlcove() {
   );
 }
 
-function JunctionSign({
-  junction,
+function AisleDirectionalSign({
+  sign,
+  playerX,
+  playerZ,
+  playerYaw,
 }: {
-  junction: FloorPlan["junctions"][number];
+  sign: AisleSign;
+  playerX: number;
+  playerZ: number;
+  playerYaw: number;
 }) {
+  const dx = sign.x - playerX;
+  const dz = sign.z - playerZ;
+  const dist = Math.hypot(dx, dz);
+  const lookX = Math.sin(playerYaw);
+  const lookZ = -Math.cos(playerYaw);
+  const towardX = dist > 0.01 ? dx / dist : 0;
+  const towardZ = dist > 0.01 ? dz / dist : 0;
+  const align = lookX * towardX + lookZ * towardZ;
+  const readable = dist < 4.2 && align > 0.45;
+
   return (
-    <group position={[junction.x, 0, junction.z]}>
-      <mesh position={[0, 2.55, 0]}>
-        <boxGeometry args={[0.08, 0.5, 0.08]} />
+    <group position={[sign.x, sign.y, sign.z]} rotation={[0, sign.facing, 0]}>
+      <mesh position={[0, -0.35, 0]}>
+        <boxGeometry args={[0.05, 0.7, 0.05]} />
         <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
       </mesh>
-      <mesh position={[0, 2.85, 0]}>
-        <boxGeometry args={[1.5, 0.55, 0.06]} />
-        <meshStandardMaterial color={PALETTE.brass} roughness={0.75} metalness={0.2} />
+      <mesh position={[0, 0.05, 0.02]}>
+        <boxGeometry args={[0.55, 0.22, 0.04]} />
+        <meshStandardMaterial color={PALETTE.honey} roughness={0.9} />
       </mesh>
-      <Html position={[0, 2.85, 0.08]} center distanceFactor={4} style={{ pointerEvents: "none" }}>
-        <div className="room-junction-sign">
-          {junction.lines.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-        </div>
-      </Html>
+      {readable && (
+        <Html position={[0, 0.05, 0.06]} center distanceFactor={2.8} style={{ pointerEvents: "none" }}>
+          <div className="room-aisle-sign">{sign.text}</div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -480,12 +544,6 @@ function ShelfBay({
         <boxGeometry args={[0.06, 0.22, 1.05]} />
         <meshStandardMaterial color={PALETTE.brass} roughness={0.85} metalness={0.2} />
       </mesh>
-      <Html position={[0.42, 2.78, 0]} center distanceFactor={active ? 3.1 : 4.4} style={{ pointerEvents: "none" }}>
-        <div className="room-sign-3d">
-          <span className="label">{shelf.label}</span>
-          <span className="room-sign-3d__count">{shelf.books.length}</span>
-        </div>
-      </Html>
       {active && (
         <pointLight
           position={[0.8, 2.4, 0]}
@@ -647,7 +705,6 @@ function BookSpine3D({
   const coverMap = useCoverMap(book.coverUrl, loadCover || selected);
   const cloth = spineCloth(book);
   const clothMap = useMemo(() => makeSpineTexture(cloth, seed), [cloth, seed]);
-  const authors = book.authors.join(", ") || "Unknown author";
   const progress = useRef(preferReducedMotion && selected ? 1 : 0);
   const lean = pose === "lean" ? ((seed % 2 === 0 ? 1 : -1) * (0.12 + (seed % 5) * 0.02)) : 0;
 
@@ -755,14 +812,6 @@ function BookSpine3D({
           <boxGeometry args={[bodyW * 1.02, 0.016, bodyD * 1.02]} />
           <meshStandardMaterial color={seed % 3 === 0 ? PALETTE.deepGreen : PALETTE.brass} />
         </mesh>
-      )}
-      {facing && !selected && (hovered || !coverMap) && pose !== "flat" && (
-        <Html position={[0.12, 0, 0]} center distanceFactor={2.5} style={{ pointerEvents: "none" }}>
-          <div className={`room-spine-label ${hovered ? "is-hot" : ""}`}>
-            <p className="room-spine-label__title">{shortTitle(book.title, 36)}</p>
-            <p className="room-spine-label__author">{authors}</p>
-          </div>
-        </Html>
       )}
       <mesh
         ref={coverRef}
