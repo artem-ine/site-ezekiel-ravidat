@@ -101,13 +101,14 @@ export function RoomCanvas({
       onPointerMissed={() => onSelect(null)}
     >
       <PixelScale />
-      <color attach="background" args={[PALETTE.fog]} />
-      <fog attach="fog" args={[PALETTE.fog, 11, 26]} />
-      <hemisphereLight args={["#e8eef6", PALETTE.walnut, 0.48]} />
-      <ambientLight intensity={0.3} color="#e4eaf2" />
-      {/* Cool daylight through the windows — furniture lamps add warm pools. */}
-      <directionalLight position={[-9, 11, 3]} intensity={0.58} color="#e7eef8" />
-      <directionalLight position={[7, 9, -3]} intensity={0.26} color="#d9e4f2" />
+      <color attach="background" args={["#4a3426"]} />
+      <fog attach="fog" args={["#4a3426", 16, 34]} />
+      <hemisphereLight args={["#f2f5fa", "#8a6a4a", 0.72]} />
+      <ambientLight intensity={0.55} color="#f0ebe3" />
+      {/* Bright daylight fill — warm lamps stay for mood pools, not the only light. */}
+      <directionalLight position={[-9, 11, 3]} intensity={0.85} color="#eef3fa" />
+      <directionalLight position={[7, 9, -3]} intensity={0.42} color="#e4ecf6" />
+      <directionalLight position={[0, 8, 6]} intensity={0.28} color="#fff6e8" />
 
       <WalkCamera x={x} z={z} yaw={yaw} pitch={pitch} placed={nearby} />
       <RoomShell plan={plan} preferReducedMotion={preferReducedMotion} />
@@ -259,7 +260,7 @@ function RoomShell({
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, 0, cz]}>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial map={wood} roughness={1} metalness={0} color={PALETTE.honey} />
+        <meshStandardMaterial map={wood} roughness={1} metalness={0} color="#e8d4a0" />
       </mesh>
       {plan.aisles.map((aisle) => {
         const mx = (aisle.from.x + aisle.to.x) / 2;
@@ -273,29 +274,29 @@ function RoomShell({
             position={[mx, 0.015, mz]}
           >
             <planeGeometry args={[aisle.width * 0.85, len]} />
-            <meshStandardMaterial map={rug} roughness={1} metalness={0} />
+            <meshStandardMaterial map={rug} roughness={1} metalness={0} color="#c4a078" />
           </mesh>
         );
       })}
       <mesh rotation={[Math.PI / 2, 0, 0]} position={[cx, 3.05, cz]}>
         <planeGeometry args={[width, depth]} />
-        <meshStandardMaterial color={PALETTE.walnut} roughness={1} />
+        <meshStandardMaterial color="#7a5640" roughness={1} />
       </mesh>
       <mesh position={[cx, 1.5, maxZ + 0.2]}>
         <boxGeometry args={[width + 1, 3.1, 0.4]} />
-        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+        <meshStandardMaterial color="#5c4030" roughness={1} />
       </mesh>
       <mesh position={[cx, 1.5, minZ - 0.2]}>
         <boxGeometry args={[width + 1, 3.1, 0.4]} />
-        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+        <meshStandardMaterial color="#5c4030" roughness={1} />
       </mesh>
       <mesh position={[minX - 0.2, 1.5, cz]}>
         <boxGeometry args={[0.4, 3.1, depth + 1]} />
-        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+        <meshStandardMaterial color="#5c4030" roughness={1} />
       </mesh>
       <mesh position={[maxX + 0.2, 1.5, cz]}>
         <boxGeometry args={[0.4, 3.1, depth + 1]} />
-        <meshStandardMaterial color={PALETTE.ink} roughness={1} />
+        <meshStandardMaterial color="#5c4030" roughness={1} />
       </mesh>
 
       {plan.windows.map((win) => (
@@ -765,6 +766,7 @@ function Spines({
   );
 }
 
+/** Floor piles: wider footprint, visible gaps, mostly flat covers with a few upright spines. */
 function PileSpines({
   books,
   facing,
@@ -780,23 +782,27 @@ function PileSpines({
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
 }) {
+  const cols = 4;
+  const colGap = 0.42;
+  const stackGap = 0.03;
+
   return (
     <group>
       {books.map((book, i) => {
         const seed = hashUid(book.uid);
-        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.15);
-        const height = 0.26 + (seed % 7) * 0.016;
-        const depth = 0.12 + (seed % 3) * 0.01;
-        const pillar = i % 3;
-        const level = Math.floor(i / 3);
-        const isUpright = seed % 5 === 0;
-        const pose: Pose = isUpright ? (seed % 2 === 0 ? "lean" : "upright") : "flat";
-        const baseX = (pillar - 1) * 0.22 + ((seed % 5) - 2) * 0.01;
-        const baseZ = ((seed % 7) - 3) * 0.04;
+        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1100, 0.08, 0.16);
+        const height = 0.3 + (seed % 7) * 0.02;
+        const depth = 0.15 + (seed % 4) * 0.012;
+        const col = i % cols;
+        const level = Math.floor(i / cols);
+        // One upright leaner per column so stacks read as books, not bricks.
+        const pose: Pose = level === 0 && seed % 4 === 0 ? "lean" : "flat";
+        const baseX = (col - (cols - 1) / 2) * colGap;
+        const baseZ = ((seed % 5) - 2) * 0.06;
         const rest =
           pose === "flat"
-            ? new THREE.Vector3(baseX, 0.04 + level * (thickness + 0.01), baseZ)
-            : new THREE.Vector3(baseX + 0.2, height / 2 + 0.02, baseZ + pillar * 0.05);
+            ? new THREE.Vector3(baseX, 0.05 + level * (thickness + stackGap), baseZ)
+            : new THREE.Vector3(baseX + 0.28, height / 2 + 0.04, baseZ);
 
         return (
           <BookSpine3D
@@ -813,6 +819,7 @@ function PileSpines({
             selected={selectedUid === book.uid}
             onSelect={onSelect}
             preferReducedMotion={preferReducedMotion}
+            loose
           />
         );
       })}
@@ -820,6 +827,7 @@ function PileSpines({
   );
 }
 
+/** Table stacks: two clear columns with gaps so each cover is pickable. */
 function TableSpines({
   books,
   tableY,
@@ -837,25 +845,26 @@ function TableSpines({
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
 }) {
+  const stackGap = 0.028;
+
   return (
     <group>
       {books.map((book, i) => {
         const seed = hashUid(book.uid);
-        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1300, 0.06, 0.14);
-        const height = 0.26 + (seed % 5) * 0.014;
-        const depth = 0.12 + (seed % 3) * 0.01;
+        const thickness = THREE.MathUtils.clamp((book.pageCount ?? 280) / 1100, 0.08, 0.15);
+        const height = 0.28 + (seed % 5) * 0.018;
+        const depth = 0.14 + (seed % 3) * 0.012;
         const stack = i % 2;
         const level = Math.floor(i / 2);
-        const leanUpright = seed % 6 === 0;
-        const pose: Pose = leanUpright ? "lean" : "flat";
+        const pose: Pose = level === 0 && seed % 5 === 0 ? "lean" : "flat";
         const rest =
           pose === "flat"
             ? new THREE.Vector3(
-                (stack - 0.5) * 0.35 + ((seed % 3) - 1) * 0.02,
-                tableY + 0.04 + level * (thickness + 0.008),
-                ((seed % 5) - 2) * 0.05,
+                (stack - 0.5) * 0.48,
+                tableY + 0.05 + level * (thickness + stackGap),
+                ((seed % 5) - 2) * 0.04,
               )
-            : new THREE.Vector3(0.35, tableY + height / 2, (stack - 0.5) * 0.2);
+            : new THREE.Vector3(0.42, tableY + height / 2, (stack - 0.5) * 0.22);
 
         return (
           <BookSpine3D
@@ -872,6 +881,7 @@ function TableSpines({
             selected={selectedUid === book.uid}
             onSelect={onSelect}
             preferReducedMotion={preferReducedMotion}
+            loose
           />
         );
       })}
@@ -926,6 +936,7 @@ function BookSpine3D({
   selected,
   onSelect,
   preferReducedMotion,
+  loose = false,
 }: {
   book: LibraryBook;
   rest: THREE.Vector3;
@@ -939,15 +950,22 @@ function BookSpine3D({
   selected: boolean;
   onSelect: (uid: string | null) => void;
   preferReducedMotion: boolean;
+  /** Floor/table piles: clearer edges, hover lift, distinct cloth colour. */
+  loose?: boolean;
 }) {
   const group = useRef<THREE.Group>(null);
   const coverRef = useRef<THREE.Mesh>(null);
+  const bodyMat = useRef<THREE.MeshStandardMaterial>(null);
   const [hovered, setHovered] = useState(false);
   const coverMap = useCoverMap(book.coverUrl, loadCover || selected);
   const cloth = spineCloth(book);
   const clothMap = useMemo(() => makeSpineTexture(cloth, seed), [cloth, seed]);
   const progress = useRef(preferReducedMotion && selected ? 1 : 0);
+  const hoverAmt = useRef(0);
   const lean = pose === "lean" ? ((seed % 2 === 0 ? 1 : -1) * (0.12 + (seed % 5) * 0.02)) : 0;
+  // Always tint with cloth so neighbouring pile books don't merge into one colour.
+  const bodyColor = loose ? cloth : coverMap ? "#ffffff" : cloth;
+  const pageEdge = "#f3ead8";
 
   useEffect(
     () => () => {
@@ -957,30 +975,38 @@ function BookSpine3D({
   );
 
   useFrame((_, delta) => {
-    if (!selected && progress.current < 0.001 && !group.current) return;
+    if (!group.current) return;
     const target = selected ? 1 : 0;
     if (preferReducedMotion) progress.current = target;
     else {
-      if (Math.abs(target - progress.current) < 0.001) {
-        progress.current = target;
+      progress.current += (target - progress.current) * Math.min(1, delta * 6);
+    }
+    const hoverTarget = hovered && !selected ? 1 : 0;
+    hoverAmt.current += (hoverTarget - hoverAmt.current) * Math.min(1, delta * 14);
+    const t = progress.current;
+    const h = hoverAmt.current;
+    const lift = loose ? h * 0.07 : h * 0.04;
+    const slide = loose ? h * 0.04 : h * 0.02;
+
+    if (t < 0.001 && !selected) {
+      group.current.position.set(rest.x + slide, rest.y + lift, rest.z);
+      group.current.rotation.set(
+        pose === "flat" ? Math.PI / 2 : 0,
+        0,
+        pose === "flat" ? lean * 0.3 : lean,
+      );
+    } else {
+      group.current.position.set(rest.x + t * 0.55 + slide, rest.y + t * 0.1 + lift, rest.z);
+      if (pose === "flat" && t < 0.05) {
+        group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);
       } else {
-        progress.current += (target - progress.current) * Math.min(1, delta * 6);
+        group.current.rotation.set(0, (Math.PI / 2) * t, lean * (1 - t));
       }
     }
-    const t = progress.current;
-    if (!group.current) return;
-    if (t < 0.001 && !selected) {
-      group.current.position.copy(rest);
-      group.current.rotation.set(pose === "flat" ? Math.PI / 2 : 0, 0, pose === "flat" ? lean * 0.3 : lean);
-      return;
-    }
-    group.current.position.set(rest.x + t * 0.55, rest.y + t * 0.1, rest.z);
-    if (pose === "flat" && t < 0.05) {
-      group.current.rotation.set(Math.PI / 2, 0, lean * 0.3);
-    } else {
-      group.current.rotation.set(0, (Math.PI / 2) * t, lean * (1 - t));
-    }
     if (coverRef.current) coverRef.current.rotation.y = -(Math.PI * 0.72) * t;
+    if (bodyMat.current) {
+      bodyMat.current.emissiveIntensity = loose ? 0.08 + h * 0.45 : h * 0.25;
+    }
   });
 
   const pick = (event: ThreeEvent<PointerEvent>) => {
@@ -991,17 +1017,17 @@ function BookSpine3D({
   };
 
   const spineMap = coverMap ?? clothMap;
-  const bodyW = facing ? depth + 0.02 : depth;
+  const bodyW = facing || loose ? depth + (loose ? 0.04 : 0.02) : depth;
   const bodyH = pose === "flat" ? thickness : height;
   const bodyD = pose === "flat" ? height : thickness;
-  // Generous hit volume covering bevel, lean, and headband/tail.
-  const hitW = Math.max(bodyW, 0.14) + 0.1;
-  const hitH = bodyH + 0.08;
-  const hitD = bodyD + 0.1;
+  // Hit volume sized to this book — loose piles are already spaced so overlaps stay rare.
+  const hitPad = loose ? 0.035 : 0.1;
+  const hitW = Math.max(bodyW, loose ? 0.16 : 0.14) + hitPad;
+  const hitH = bodyH + (loose ? 0.04 : 0.08);
+  const hitD = bodyD + (loose ? 0.04 : 0.1);
 
   return (
     <group ref={group} position={rest.toArray()}>
-      {/* Invisible pick target — visuals do not raycast so bevels cannot steal clicks */}
       <mesh
         onPointerDown={(event) => {
           if (event.button !== 0) return;
@@ -1024,20 +1050,56 @@ function BookSpine3D({
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
 
+      {/* Soft outline so books don't merge; brightens on hover. */}
+      {loose && (
+        <mesh scale={[1.08, 1.12, 1.08]} raycast={noopRaycast}>
+          <boxGeometry args={[bodyW, bodyH, bodyD]} />
+          <meshBasicMaterial
+            color={hovered ? "#ffe7b0" : "#1a120c"}
+            transparent
+            opacity={hovered ? 0.55 : 0.35}
+            depthWrite={false}
+          />
+        </mesh>
+      )}
+
       <mesh raycast={noopRaycast}>
         <boxGeometry args={[bodyW, bodyH, bodyD]} />
         <meshStandardMaterial
-          map={spineMap}
-          color={coverMap ? "#ffffff" : cloth}
-          roughness={0.92}
+          ref={bodyMat}
+          map={loose && pose === "flat" ? coverMap ?? clothMap : spineMap}
+          color={bodyColor}
+          emissive={loose ? "#c9a227" : "#000000"}
+          emissiveIntensity={0}
+          roughness={0.9}
         />
       </mesh>
+
+      {/* Light page edge — reads as a book even in a dense pile. */}
+      <mesh
+        position={
+          pose === "flat"
+            ? [0, bodyH * 0.52, 0]
+            : [bodyW * 0.52, 0, 0]
+        }
+        raycast={noopRaycast}
+      >
+        <boxGeometry
+          args={
+            pose === "flat"
+              ? [bodyW * 0.92, 0.012, bodyD * 0.92]
+              : [0.014, bodyH * 0.92, bodyD * 0.92]
+          }
+        />
+        <meshStandardMaterial color={pageEdge} roughness={0.95} />
+      </mesh>
+
       {pose !== "flat" && (
         <mesh position={[bodyW * 0.35, 0, 0]} scale={[0.55, 0.96, 0.92]} raycast={noopRaycast}>
           <boxGeometry args={[bodyW, bodyH, bodyD]} />
           <meshStandardMaterial
             map={spineMap}
-            color={coverMap ? "#f5efe0" : cloth}
+            color={loose ? cloth : coverMap ? "#f5efe0" : cloth}
             roughness={0.9}
           />
         </mesh>

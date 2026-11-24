@@ -306,8 +306,8 @@ function slotCollider(s: ShelfSlot): Collider {
     // Table furniture already collides; books need no extra block.
     return box(s.x, s.z, 0.15, 0.15);
   }
-  // Floor pile — small footprint so you can stand beside it.
-  return box(s.x, s.z, 0.38, 0.38);
+  // Floor pile — slightly larger than the spread of books so paths stay clear.
+  return box(s.x, s.z, 0.55, 0.55);
 }
 
 export function windowWorldPose(
