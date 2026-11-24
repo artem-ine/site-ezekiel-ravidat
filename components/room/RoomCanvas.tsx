@@ -96,15 +96,16 @@ function StationCamera({ bay, side }: { bay: number; side: ShelfSide }) {
     smoothed.current.y += (EYE_HEIGHT - smoothed.current.y) * 0.1;
     smoothed.current.z += (targetZ - smoothed.current.z) * 0.1;
 
-    state.camera.position.set(
+    const camera = state.camera as THREE.PerspectiveCamera;
+    camera.position.set(
       smoothed.current.x,
       smoothed.current.y,
       smoothed.current.z,
     );
-    state.camera.fov = FOV;
-    state.camera.updateProjectionMatrix();
+    camera.fov = FOV;
+    camera.updateProjectionMatrix();
     // Square-on: look straight at the shelf face, same height.
-    state.camera.lookAt(shelfX, EYE_HEIGHT, targetZ);
+    camera.lookAt(shelfX, EYE_HEIGHT, targetZ);
   });
 
   return null;
