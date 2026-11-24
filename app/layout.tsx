@@ -17,10 +17,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${garamond.variable} ${courier.variable}`}>
       <body className="bg-paper font-serif text-ink antialiased">
-        <div className="mx-auto flex min-h-screen max-w-page flex-col px-gutter">
-          <header className="pt-12 pb-8">
+        <div className="mx-auto flex min-h-screen w-full max-w-library flex-col px-gutter">
+          <header className="pt-10 pb-6 sm:pt-14 sm:pb-8">
             <p className="label">A personal library</p>
-            <Link href="/" className="mt-2 block text-5xl leading-none font-medium tracking-tight sm:text-6xl">
+            <Link
+              href="/"
+              className="mt-2 block text-5xl leading-none font-medium tracking-tight sm:text-6xl md:text-7xl"
+            >
               Ezekiel <span className="text-oxblood italic">Ravidat</span>
             </Link>
             <div className="draw-rule mt-8 border-y border-brass py-0.5">
