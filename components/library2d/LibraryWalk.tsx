@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  memo,
   useEffect,
   useMemo,
   useRef,
@@ -18,13 +19,17 @@ import {
   type WalkBay,
 } from "@/components/library2d/floorLayout";
 import type { DecorKit, SectionTheme } from "@/components/library2d/sectionTheme";
+import {
+  WALK_MAX_SPEED,
+  WALK_STEP,
+  WALK_STOP_EPS,
+  seedTapImpulse,
+  stepWalk,
+} from "@/components/library2d/walkPhysics";
 
 type Props = {
   books: LibraryBook[];
 };
-
-/** Comfortable arrow / A-D pace (px per tap). */
-const WALK_STEP = 72;
 
 /**
  * Duplex cross-section library: both levels visible in one viewport.
@@ -32,6 +37,7 @@ const WALK_STEP = 72;
  */
 export function LibraryWalk({ books }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const youMarkerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
   const lastScrollRef = useRef(0);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,6 +45,18 @@ export function LibraryWalk({ books }: Props) {
   const swipeYRef = useRef<number | null>(null);
   const levelRef = useRef<FloorLevel>(0);
   const activeSlotRef = useRef(0);
+  const tintIdRef = useRef<string | null>(null);
+  const facingRef = useRef<"right" | "left">("right");
+  const preferReducedMotionRef = useRef(false);
+  const keysHeldRef = useRef({ left: false, right: false });
+  /** Most recent walk intent — used when both left and right are down. */
+  const lastDirRef = useRef<-1 | 0 | 1>(0);
+  const velocityRef = useRef(0);
+  const isWalkingRef = useRef(false);
+  const walkRafRef = useRef<number | null>(null);
+  const walkLastTsRef = useRef<number | null>(null);
+  const syncRafRef = useRef<number | null>(null);
+  const columnNodesRef = useRef<HTMLElement[]>([]);
 
   const [level, setLevel] = useState<FloorLevel>(0);
   const [activeSlot, setActiveSlot] = useState(0);
@@ -46,7 +64,6 @@ export function LibraryWalk({ books }: Props) {
   const [facing, setFacing] = useState<"right" | "left">("right");
   const [isWalking, setIsWalking] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
-  const [progress, setProgress] = useState({ left: 0, width: 1 });
   const [tint, setTint] = useState<SectionTheme | null>(null);
 
   const plan = useMemo(() => buildFloorPlan(books), [books]);
@@ -68,28 +85,52 @@ export function LibraryWalk({ books }: Props) {
   }, [activeSlot]);
 
   useEffect(() => {
+    preferReducedMotionRef.current = preferReducedMotion;
+  }, [preferReducedMotion]);
+
+  useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setPreferReducedMotion(mq.matches);
+    const sync = () => {
+      preferReducedMotionRef.current = mq.matches;
+      setPreferReducedMotion(mq.matches);
+    };
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);
   }, []);
 
+  function refreshColumnCache() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    columnNodesRef.current = Array.from(
+      el.querySelectorAll<HTMLElement>("[data-column-slot]"),
+    );
+  }
+
   function syncActive() {
     const el = scrollerRef.current;
     if (!el) return;
     const x = el.scrollLeft;
-    if (!preferReducedMotion) el.style.setProperty("--walk-scroll", `${x}px`);
+    const width = Math.max(1, el.scrollWidth);
+    const view = el.clientWidth;
 
-    setProgress({
-      left: x / Math.max(1, el.scrollWidth),
-      width: el.clientWidth / Math.max(1, el.scrollWidth),
-    });
+    if (!preferReducedMotionRef.current) {
+      el.style.setProperty("--walk-scroll", `${x}px`);
+    }
 
-    const mid = x + el.clientWidth / 2;
+    // Mini-map viewport marker — DOM only, no React re-render per frame.
+    const marker = youMarkerRef.current;
+    if (marker) {
+      marker.style.left = `${(x / width) * 100}%`;
+      marker.style.width = `${Math.max((view / width) * 100, 6)}%`;
+    }
+
+    const mid = x + view / 2;
     let nearestSlot = 0;
     let best = Infinity;
-    for (const node of el.querySelectorAll<HTMLElement>("[data-column-slot]")) {
+    const nodes = columnNodesRef.current;
+    if (nodes.length === 0) refreshColumnCache();
+    for (const node of columnNodesRef.current) {
       const center = node.offsetLeft + node.offsetWidth / 2;
       const d = Math.abs(center - mid);
       if (d < best) {
@@ -97,16 +138,173 @@ export function LibraryWalk({ books }: Props) {
         nearestSlot = Number(node.dataset.columnSlot ?? 0);
       }
     }
-    setActiveSlot(nearestSlot);
+
+    if (nearestSlot !== activeSlotRef.current) {
+      activeSlotRef.current = nearestSlot;
+      setActiveSlot(nearestSlot);
+    }
+
     const col = columnsRef.current.find((c) => c.slot === nearestSlot);
     const bay = levelRef.current === 0 ? col?.ground : col?.upper;
-    if (bay) setTint(bay.theme);
+    if (bay && bay.theme.id !== tintIdRef.current) {
+      tintIdRef.current = bay.theme.id;
+      setTint(bay.theme);
+    }
+  }
+
+  function scheduleSync() {
+    if (syncRafRef.current != null) return;
+    syncRafRef.current = requestAnimationFrame(() => {
+      syncRafRef.current = null;
+      syncActive();
+    });
+  }
+
+  function setFacingDir(dir: "left" | "right") {
+    if (facingRef.current === dir) return;
+    facingRef.current = dir;
+    setFacing(dir);
+  }
+
+  function setWalkingAnim(active: boolean) {
+    if (preferReducedMotionRef.current) {
+      if (isWalkingRef.current) {
+        isWalkingRef.current = false;
+        setIsWalking(false);
+      }
+      return;
+    }
+    if (isWalkingRef.current === active) return;
+    isWalkingRef.current = active;
+    setIsWalking(active);
+  }
+
+  /** Mark walker facing/anim from pointer or wheel scroll deltas. */
+  function markWalking(dir: "left" | "right") {
+    setFacingDir(dir);
+    setWalkingAnim(true);
+    if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
+    walkTimerRef.current = setTimeout(() => setWalkingAnim(false), 180);
+  }
+
+  function stopWalkLoop() {
+    if (walkRafRef.current != null) {
+      cancelAnimationFrame(walkRafRef.current);
+      walkRafRef.current = null;
+    }
+    walkLastTsRef.current = null;
+  }
+
+  function walkFrame(ts: number) {
+    const el = scrollerRef.current;
+    if (!el) {
+      stopWalkLoop();
+      return;
+    }
+
+    const last = walkLastTsRef.current ?? ts;
+    const dt = (ts - last) / 1000;
+    walkLastTsRef.current = ts;
+
+    const stepped = stepWalk({
+      velocity: velocityRef.current,
+      keys: keysHeldRef.current,
+      lastDir: lastDirRef.current,
+      dt,
+      reducedMotion: preferReducedMotionRef.current,
+    });
+
+    velocityRef.current = stepped.velocity;
+    el.scrollLeft += stepped.dx;
+
+    if (Math.abs(stepped.velocity) > WALK_STOP_EPS || stepped.heldDir !== 0) {
+      if (stepped.heldDir !== 0) {
+        setFacingDir(stepped.heldDir > 0 ? "right" : "left");
+      } else if (Math.abs(stepped.velocity) > WALK_STOP_EPS) {
+        setFacingDir(stepped.velocity > 0 ? "right" : "left");
+      }
+      setWalkingAnim(stepped.heldDir !== 0 || Math.abs(stepped.velocity) > WALK_STOP_EPS);
+      scheduleSync();
+    }
+
+    if (!stepped.keepGoing) {
+      velocityRef.current = 0;
+      setWalkingAnim(false);
+      scheduleSync();
+      stopWalkLoop();
+      return;
+    }
+
+    walkRafRef.current = requestAnimationFrame(walkFrame);
+  }
+
+  function ensureWalkLoop() {
+    if (walkRafRef.current != null) return;
+    walkLastTsRef.current = null;
+    walkRafRef.current = requestAnimationFrame(walkFrame);
+  }
+
+  /**
+   * Press or OS-repeat for a walk key.
+   * Always re-asserts held state + rAF (repeats must revive a stopped loop).
+   * Only the initial (!repeat) press seeds the tap impulse / reduced-motion step.
+   */
+  function beginWalk(dir: 1 | -1, isRepeat: boolean) {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    if (dir > 0) keysHeldRef.current.right = true;
+    else keysHeldRef.current.left = true;
+    lastDirRef.current = dir;
+    setFacingDir(dir > 0 ? "right" : "left");
+
+    if (preferReducedMotionRef.current) {
+      if (!isRepeat) {
+        el.scrollLeft += dir * WALK_STEP;
+        scheduleSync();
+      }
+      velocityRef.current = dir * WALK_MAX_SPEED;
+      ensureWalkLoop();
+      return;
+    }
+
+    if (!isRepeat) {
+      velocityRef.current = seedTapImpulse(velocityRef.current, dir);
+    }
+    setWalkingAnim(true);
+    ensureWalkLoop();
+  }
+
+  function endWalk(dir: 1 | -1) {
+    if (dir > 0) keysHeldRef.current.right = false;
+    else keysHeldRef.current.left = false;
+
+    const stillHeld = keysHeldRef.current.left || keysHeldRef.current.right;
+    if (stillHeld) {
+      lastDirRef.current = keysHeldRef.current.right && !keysHeldRef.current.left
+        ? 1
+        : keysHeldRef.current.left && !keysHeldRef.current.right
+          ? -1
+          : lastDirRef.current;
+      // Opposite key still down — keep cruising that way (do not leave rAF dead).
+      ensureWalkLoop();
+      return;
+    }
+
+    lastDirRef.current = 0;
+
+    if (preferReducedMotionRef.current) {
+      velocityRef.current = 0;
+      stopWalkLoop();
+      return;
+    }
+
+    // Coast / decelerate to a stop.
+    ensureWalkLoop();
   }
 
   function playJump() {
-    if (preferReducedMotion) {
-      return;
-    }
+    if (preferReducedMotionRef.current) return;
     setIsJumping(true);
     if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
     jumpTimerRef.current = setTimeout(() => setIsJumping(false), 420);
@@ -119,7 +317,10 @@ export function LibraryWalk({ books }: Props) {
       levelRef.current = next;
       return next;
     });
-    requestAnimationFrame(syncActive);
+    requestAnimationFrame(() => {
+      refreshColumnCache();
+      syncActive();
+    });
   }
 
   function scrollToSlot(slot: number, nextLevel?: FloorLevel) {
@@ -134,7 +335,7 @@ export function LibraryWalk({ books }: Props) {
     if (!node) return;
     el.scrollTo({
       left: Math.max(0, node.offsetLeft - el.clientWidth * 0.12),
-      behavior: preferReducedMotion ? "auto" : "smooth",
+      behavior: preferReducedMotionRef.current ? "auto" : "smooth",
     });
   }
 
@@ -142,19 +343,16 @@ export function LibraryWalk({ books }: Props) {
     const el = scrollerRef.current;
     if (!el) return;
 
+    refreshColumnCache();
+
     const onScroll = () => {
       const x = el.scrollLeft;
       const delta = x - lastScrollRef.current;
       if (Math.abs(delta) > 1) {
-        setFacing(delta > 0 ? "right" : "left");
-        if (!preferReducedMotion) {
-          setIsWalking(true);
-          if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
-          walkTimerRef.current = setTimeout(() => setIsWalking(false), 180);
-        }
+        markWalking(delta > 0 ? "right" : "left");
       }
       lastScrollRef.current = x;
-      syncActive();
+      scheduleSync();
     };
 
     const onWheelNative = (event: WheelEvent) => {
@@ -166,27 +364,47 @@ export function LibraryWalk({ books }: Props) {
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheelNative, { passive: false });
-    window.addEventListener("resize", syncActive);
+    window.addEventListener("resize", () => {
+      refreshColumnCache();
+      scheduleSync();
+    });
     return () => {
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheelNative);
-      window.removeEventListener("resize", syncActive);
       if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
+      if (syncRafRef.current != null) cancelAnimationFrame(syncRafRef.current);
+      stopWalkLoop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferReducedMotion, plan]);
+  }, [plan]);
 
   useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
+    const isWalkKey = (key: string) =>
+      key === "ArrowRight" ||
+      key === "ArrowLeft" ||
+      key === "a" ||
+      key === "A" ||
+      key === "d" ||
+      key === "D";
+
+    const onKeyDown = (event: KeyboardEvent) => {
       const el = scrollerRef.current;
       if (!el) return;
+
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        el.scrollBy({ left: WALK_STEP, behavior: preferReducedMotion ? "auto" : "smooth" });
-      } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
+        // Repeats re-assert held + rAF (do not re-seed impulse).
+        beginWalk(1, event.repeat);
+        return;
+      }
+
+      if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        el.scrollBy({ left: -WALK_STEP, behavior: preferReducedMotion ? "auto" : "smooth" });
-      } else if (
+        beginWalk(-1, event.repeat);
+        return;
+      }
+
+      if (
         event.key === " " ||
         event.key === "Spacebar" ||
         event.key === "ArrowUp" ||
@@ -194,25 +412,62 @@ export function LibraryWalk({ books }: Props) {
         event.key === "W"
       ) {
         event.preventDefault();
+        if (event.repeat) return;
         jump();
-      } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
+        return;
+      }
+
+      if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
         event.preventDefault();
+        if (event.repeat) return;
         if (levelRef.current === 1) jump();
-      } else if (event.key === "Home") {
+        return;
+      }
+
+      if (event.key === "Home") {
         event.preventDefault();
-        el.scrollTo({ left: 0, behavior: preferReducedMotion ? "auto" : "smooth" });
+        el.scrollTo({
+          left: 0,
+          behavior: preferReducedMotionRef.current ? "auto" : "smooth",
+        });
       } else if (event.key === "End") {
         event.preventDefault();
         el.scrollTo({
           left: el.scrollWidth,
-          behavior: preferReducedMotion ? "auto" : "smooth",
+          behavior: preferReducedMotionRef.current ? "auto" : "smooth",
         });
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (!isWalkKey(event.key)) return;
+      if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
+        endWalk(1);
+      } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
+        endWalk(-1);
+      }
+    };
+
+    const onBlur = () => {
+      keysHeldRef.current.left = false;
+      keysHeldRef.current.right = false;
+      lastDirRef.current = 0;
+      velocityRef.current = 0;
+      setWalkingAnim(false);
+      stopWalkLoop();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      stopWalkLoop();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preferReducedMotion]);
+  }, []);
 
   useEffect(
     () => () => {
@@ -363,11 +618,8 @@ export function LibraryWalk({ books }: Props) {
               ))}
               {level === floor && (
                 <div
+                  ref={youMarkerRef}
                   className="walk-minimap__you"
-                  style={{
-                    left: `${progress.left * 100}%`,
-                    width: `${Math.max(progress.width * 100, 6)}%`,
-                  }}
                   aria-hidden="true"
                 />
               )}
@@ -382,7 +634,13 @@ export function LibraryWalk({ books }: Props) {
   );
 }
 
-function LevelBay({ bay, calm }: { bay: WalkBay; calm: boolean }) {
+const LevelBay = memo(function LevelBay({
+  bay,
+  calm,
+}: {
+  bay: WalkBay;
+  calm: boolean;
+}) {
   const style = {
     "--sec-sky": bay.theme.sky,
     "--sec-wall": bay.theme.wall,
@@ -439,7 +697,7 @@ function LevelBay({ bay, calm }: { bay: WalkBay; calm: boolean }) {
       )}
     </section>
   );
-}
+});
 
 function SectionShelves({ kit }: { kit: DecorKit }) {
   if (kit === "tall-hearth") {
