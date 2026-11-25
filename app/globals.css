@@ -1240,6 +1240,8 @@
     position: absolute;
     top: 2px;
     bottom: 2px;
+    left: 0;
+    width: 12%;
     border: 2px solid var(--walk-wood-deep);
     background: rgb(255 231 176 / 0.55);
     pointer-events: none;
