@@ -14,6 +14,7 @@ import { WalkBook } from "@/components/library2d/WalkBook";
 import {
   baysOnFloor,
   buildFloorPlan,
+  caseWidthRem,
   columnWidthRem,
   duplexColumns,
   type FloorLevel,
@@ -721,6 +722,7 @@ const LevelBay = memo(function LevelBay({
   bay: WalkBay;
   calm: boolean;
 }) {
+  const caseW = caseWidthRem(bay);
   const style = {
     "--sec-sky": bay.theme.sky,
     "--sec-wall": bay.theme.wall,
@@ -729,17 +731,20 @@ const LevelBay = memo(function LevelBay({
     "--sec-floor-deep": bay.theme.floorDeep,
     "--sec-accent": bay.theme.accent,
     "--sec-light": bay.theme.light,
+    ...(caseW > 0 ? { "--walk-case-width": `${caseW}rem` } : null),
   } as CSSProperties;
+
+  const multi = bay.shelfRows.length > 1;
+  const showLadder = bay.paired && !bay.empty;
 
   return (
     <section
-      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}`}
+      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}`}
       data-section-id={bay.id}
       data-floor={bay.floor}
+      data-shelf-rows={bay.shelfRows.length}
       aria-label={
-        bay.empty
-          ? `${bay.label}`
-          : `${bay.label}, ${bay.books.length + bay.piles.length} books`
+        bay.empty ? `${bay.label}` : `${bay.label}, ${bay.books.length} books`
       }
       style={style}
     >
@@ -759,74 +764,60 @@ const LevelBay = memo(function LevelBay({
 
       {!bay.empty && (
         <>
-          <SectionShelves kit={bay.kit} />
-          <SectionDecor kit={bay.kit} index={bay.slot} />
-          <div className="walk-rail">
-            {bay.books.map((book) => (
-              <WalkBook key={book.uid} book={book} />
+          <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} />
+          {!multi && <SectionDecor kit={bay.kit} index={bay.slot} />}
+          {showLadder && <LibraryLadder />}
+          <div className="walk-rails" data-rows={bay.shelfRows.length}>
+            {bay.shelfRows.map((row, rowIndex) => (
+              <div
+                key={`${bay.id}-row-${rowIndex}`}
+                className="walk-rail"
+                aria-label={
+                  bay.shelfRows.length > 1
+                    ? `${bay.label} shelf ${rowIndex + 1}`
+                    : undefined
+                }
+              >
+                {row.map((book) => (
+                  <WalkBook key={book.uid} book={book} />
+                ))}
+              </div>
             ))}
           </div>
-          {bay.piles.length > 0 && (
-            <div className="walk-pile" aria-label={`${bay.label} stack`}>
-              {bay.piles.map((book) => (
-                <WalkBook key={`pile-${book.uid}`} book={book} pose="pile" />
-              ))}
-            </div>
-          )}
         </>
       )}
     </section>
   );
 });
 
-function SectionShelves({ kit }: { kit: DecorKit }) {
-  if (kit === "tall-hearth") {
-    return (
-      <div className="walk-case walk-case--tall" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-    );
-  }
-  if (kit === "low-nook") {
-    return (
-      <div className="walk-case walk-case--low" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-    );
-  }
-  if (kit === "mezzanine") {
-    return (
-      <div className="walk-case walk-case--mid" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-    );
-  }
-  if (kit === "ladder-desk") {
-    return (
-      <div className="walk-case walk-case--tall" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-    );
-  }
-  if (kit === "plants-globe") {
-    return (
-      <div className="walk-case walk-case--mid" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-    );
-  }
+function LibraryLadder() {
+  const rungs = [12, 28, 44, 60, 76];
   return (
-    <div className="walk-case walk-case--low" aria-hidden="true">
-      <div className="walk-case__board" />
-      <div className="walk-case__board" />
+    <div className="walk-ladder" aria-hidden="true">
+      <span className="walk-ladder__rail walk-ladder__rail--l" />
+      <span className="walk-ladder__rail walk-ladder__rail--r" />
+      {rungs.map((top) => (
+        <span
+          key={top}
+          className="walk-ladder__rung"
+          style={{ top: `${top}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function SectionShelves({ kit, rows }: { kit: DecorKit; rows: number }) {
+  const boards = Math.max(rows + 1, kit === "tall-hearth" || kit === "ladder-desk" ? 3 : 2);
+  const tall = rows > 1 || kit === "tall-hearth" || kit === "ladder-desk" || kit === "mezzanine";
+  return (
+    <div
+      className={`walk-case${tall ? " walk-case--tall" : " walk-case--low"}${rows > 1 ? " walk-case--multi" : ""}`}
+      aria-hidden="true"
+    >
+      {Array.from({ length: boards }, (_, i) => (
+        <div key={i} className="walk-case__board" />
+      ))}
     </div>
   );
 }

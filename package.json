@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "check:walk": "tsx scripts/check-walk-hold.ts",
+    "check:floors": "tsx scripts/check-genre-floors.ts",
     "import": "tsx scripts/import-storygraph.ts",
     "add-book": "tsx scripts/add-book.ts"
   },

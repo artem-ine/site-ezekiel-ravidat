@@ -976,7 +976,8 @@
     flex: 1 1 50%;
     min-height: 0;
     height: 50%;
-    padding: 0 0.65rem;
+    /* No horizontal padding — case/rails share --walk-case-left so books stay on the shelf. */
+    padding: 0;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -1130,10 +1131,15 @@
     image-rendering: pixelated;
   }
 
-  /* Cases — sized for half-viewport levels */
+  /* Cases — width is content-driven via --walk-case-width (never % of bay). */
   .walk-case {
+    --walk-case-left: 0.55rem;
+    --walk-case-pad: 0.55rem;
     position: absolute;
     z-index: 1;
+    left: var(--walk-case-left);
+    width: var(--walk-case-width);
+    right: auto;
     border: 3px solid var(--walk-wood-deep);
     background:
       linear-gradient(180deg, var(--walk-wood) 0 7%, transparent 7%),
@@ -1158,8 +1164,6 @@
   }
 
   .walk-case--tall {
-    left: 0.45rem;
-    right: 26%;
     bottom: calc(var(--walk-deck) + 0.15rem);
     height: min(62%, 11.5rem);
   }
@@ -1169,8 +1173,6 @@
   .walk-case--tall .walk-case__board:nth-child(3) { top: 68%; }
 
   .walk-case--mid {
-    left: 0.45rem;
-    right: 16%;
     bottom: calc(var(--walk-deck) + 0.15rem);
     height: min(52%, 9.5rem);
   }
@@ -1180,8 +1182,6 @@
   .walk-case--mid .walk-case__board:nth-child(3) { bottom: 0; height: 0.4rem; }
 
   .walk-case--low {
-    left: 0.45rem;
-    width: 55%;
     bottom: calc(var(--walk-deck) + 0.15rem);
     height: min(36%, 6.5rem);
   }
@@ -1189,20 +1189,95 @@
   .walk-case--low .walk-case__board:nth-child(1) { top: 45%; }
   .walk-case--low .walk-case__board:nth-child(2) { bottom: 0; height: 0.4rem; }
 
-  .walk-rail {
+  /* Rails sit inside the case: same left/width, padded by the wood frame. */
+  .walk-rails {
+    --walk-case-left: 0.55rem;
+    --walk-case-pad: 0.55rem;
     position: relative;
     z-index: 3;
     display: flex;
-    flex-wrap: nowrap;
-    align-items: flex-end;
-    gap: 0.08rem 0.1rem;
-    margin: 0 1rem calc(var(--walk-deck) + 0.3rem);
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    box-sizing: border-box;
+    width: var(--walk-case-width);
+    max-width: none;
+    margin: 0 0 calc(var(--walk-deck) + 0.35rem);
+    margin-left: var(--walk-case-left);
+    padding-left: var(--walk-case-pad);
+    padding-right: var(--walk-case-pad);
+    max-height: calc(100% - var(--walk-deck) - 1.5rem);
     pointer-events: auto;
   }
 
-  /* Duplex shelves: one horizontal row, spines sized to the half-height bay. */
+  .walk-rail {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    flex: 0 0 auto;
+    gap: 0.08rem 0.1rem;
+    min-height: 0;
+    width: 100%;
+  }
+
+  /* Duplex shelves: one horizontal row per rail, spines sized to the bay. */
   .walk-rail .walk-book {
     max-height: min(38%, 5.75rem);
+    flex: 0 0 auto;
+  }
+
+  .walk-bay--multi .walk-rail .walk-book {
+    max-height: min(22%, 3.6rem);
+  }
+
+  .walk-case--multi {
+    bottom: calc(var(--walk-deck) + 0.15rem);
+    height: min(72%, 14rem);
+  }
+
+  /* Decorative library ladder — pure chrome, never interactive. */
+  .walk-ladder {
+    --walk-case-left: 0.55rem;
+    position: absolute;
+    z-index: 2;
+    left: calc(var(--walk-case-left) + var(--walk-case-width, 0px) + 0.2rem);
+    bottom: var(--walk-deck);
+    width: 1.15rem;
+    height: min(58%, 10.5rem);
+    pointer-events: none;
+    image-rendering: pixelated;
+  }
+
+  .walk-ladder__rail {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--walk-wood-deep);
+    box-shadow: 1px 0 0 #c4a078;
+  }
+
+  .walk-ladder__rail--l { left: 0; }
+  .walk-ladder__rail--r { right: 0; }
+
+  .walk-ladder__rung {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #a07242;
+    box-shadow: 0 1px 0 var(--walk-wood-deep);
+  }
+
+  .walk-bay--ground .walk-ladder {
+    height: min(72%, 13rem);
+    transform: skewX(-6deg);
+    transform-origin: bottom left;
+  }
+
+  .walk-bay--upper .walk-ladder {
+    height: min(48%, 8.5rem);
   }
 
   .walk-pile {
