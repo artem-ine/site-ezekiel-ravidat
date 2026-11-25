@@ -20,7 +20,11 @@ export default async function BookPage({ params }: Props) {
     <article className="book-detail settle">
       <p className="label">
         <Link href="/" className="ink-link">
-          Back into the room
+          Back to the walk
+        </Link>
+        {" · "}
+        <Link href="/cozy" className="ink-link">
+          Cozy room
         </Link>
       </p>
 

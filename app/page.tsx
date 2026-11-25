@@ -1,16 +1,16 @@
 import { Suspense } from "react";
-import { LibraryRoom } from "@/components/room/LibraryRoom";
+import { LibraryWalk } from "@/components/library2d/LibraryWalk";
 import { getLibraryBooks } from "@/lib/books";
 
 export default function Home() {
   return (
-    <Suspense fallback={<p className="room-empty">Opening the room…</p>}>
-      <HomeRoom />
+    <Suspense fallback={<p className="walk-loading">Opening the library…</p>}>
+      <HomeLibrary />
     </Suspense>
   );
 }
 
-async function HomeRoom() {
+async function HomeLibrary() {
   const books = await getLibraryBooks();
-  return <LibraryRoom books={books} />;
+  return <LibraryWalk books={books} />;
 }

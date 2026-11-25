@@ -506,6 +506,9 @@ export function LibraryRoom({ books }: Props) {
             {facing.slot?.shelf ? ` · ${facing.slot.shelf.books.length} vols` : ""}
           </p>
           <p className="room-hud__hint label">WASD · R/F pitch · piles &amp; nooks · map</p>
+          <Link href="/" className="room-catalogue-pull">
+            2D walk
+          </Link>
           <button type="button" className="room-catalogue-pull" onClick={goEntrance}>
             Entrance
           </button>

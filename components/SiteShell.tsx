@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-/** Quiet page chrome for book detail and other document pages — not used by the room. */
+/** Quiet page chrome for book detail and other document pages. */
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-library flex-col px-gutter">

@@ -55,8 +55,8 @@ export function depenetrate(
     for (const box of colliders) {
       const closestX = clamp(px, box.minX, box.maxX);
       const closestZ = clamp(pz, box.minZ, box.maxZ);
-      let dx = px - closestX;
-      let dz = pz - closestZ;
+      const dx = px - closestX;
+      const dz = pz - closestZ;
       const distSq = dx * dx + dz * dz;
 
       if (distSq < 1e-10) {
@@ -185,8 +185,8 @@ export function nudgeFromColliders(
   for (const box of colliders) {
     const closestX = clamp(px, box.minX, box.maxX);
     const closestZ = clamp(pz, box.minZ, box.maxZ);
-    let dx = px - closestX;
-    let dz = pz - closestZ;
+    const dx = px - closestX;
+    const dz = pz - closestZ;
     const distSq = dx * dx + dz * dz;
 
     if (distSq < 1e-10) {
