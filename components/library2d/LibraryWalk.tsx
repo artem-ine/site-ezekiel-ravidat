@@ -554,7 +554,7 @@ export function LibraryWalk({ books }: Props) {
           </div>
 
           <div className="walk-layer walk-layer--shelves">
-            <div className="walk-edge walk-edge--start" aria-hidden="true" />
+            <EntranceCap />
             {columns.map((column) => (
               <div
                 key={column.slot}
@@ -570,7 +570,7 @@ export function LibraryWalk({ books }: Props) {
                 <LevelBay bay={column.ground} calm={preferReducedMotion} />
               </div>
             ))}
-            <div className="walk-edge walk-edge--end" aria-hidden="true" />
+            <EndingCap />
           </div>
         </div>
       </div>
@@ -639,6 +639,78 @@ export function LibraryWalk({ books }: Props) {
         </p>
       </aside>
     </section>
+  );
+}
+
+/** Left end of the walk: entrance hall + how-to board (real text). */
+function EntranceCap() {
+  return (
+    <aside className="walk-cap walk-cap--start" aria-label="Library entrance">
+      <div className="walk-cap__storey walk-cap__storey--upper" aria-hidden="true">
+        <div className="walk-cap__paper walk-cap__paper--loft" />
+        <div className="walk-cap__window" />
+        <div className="walk-cap__case walk-cap__case--loft" />
+        <div className="walk-cap__deck" />
+        <p className="walk-cap__plaque">Landing</p>
+        <div className="walk-cap__plant walk-cap__plant--loft" />
+        <div className="walk-cap__rug walk-cap__rug--loft" />
+      </div>
+      <div className="walk-cap__storey walk-cap__storey--ground">
+        <div className="walk-cap__paper" aria-hidden="true" />
+        <div className="walk-cap__door" aria-hidden="true" />
+        <div className="walk-cap__coat" aria-hidden="true" />
+        <div className="walk-cap__mat" aria-hidden="true" />
+        <div className="walk-cap__plant" aria-hidden="true" />
+        <div className="walk-cap__rug" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+        <div className="walk-cap__guide">
+          <p className="walk-cap__guide-title">How to walk the stacks</p>
+          <ul className="walk-cap__guide-list">
+            <li>
+              <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> — walk
+            </li>
+            <li>
+              <kbd>Space</kbd> — jump between floors
+            </li>
+            <li>Click a book — open it</li>
+            <li>Mini-map — jump to a genre</li>
+            <li className="walk-cap__guide-touch">Touch: drag to walk, Jump or swipe up</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+/** Right end of the walk: reading nook / end of the shelves. */
+function EndingCap() {
+  return (
+    <aside className="walk-cap walk-cap--end" aria-label="End of the shelves">
+      <div className="walk-cap__storey walk-cap__storey--upper" aria-hidden="true">
+        <div className="walk-cap__paper walk-cap__paper--loft" />
+        <div className="walk-cap__window walk-cap__window--wide" />
+        <div className="walk-cap__case walk-cap__case--loft" />
+        <div className="walk-cap__deck" />
+        <p className="walk-cap__plaque">Attic quiet</p>
+        <div className="walk-cap__chair" />
+        <div className="walk-cap__rug walk-cap__rug--loft" />
+        <div className="walk-cap__plant walk-cap__plant--loft-end" />
+      </div>
+      <div className="walk-cap__storey walk-cap__storey--ground">
+        <div className="walk-cap__paper" aria-hidden="true" />
+        <div className="walk-cap__window walk-cap__window--end" aria-hidden="true" />
+        <div className="walk-cap__case walk-cap__case--end" aria-hidden="true" />
+        <div className="walk-cap__lamp" aria-hidden="true">
+          <span className="walk-cap__lamp-glow" />
+        </div>
+        <div className="walk-cap__plant walk-cap__plant--end" aria-hidden="true" />
+        <div className="walk-cap__nook" aria-hidden="true" />
+        <div className="walk-cap__table" aria-hidden="true" />
+        <div className="walk-cap__rug walk-cap__rug--end" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+        <p className="walk-cap__end-sign">End of the shelves</p>
+      </div>
+    </aside>
   );
 }
 
