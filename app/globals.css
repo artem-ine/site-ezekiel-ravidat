@@ -576,9 +576,11 @@
     --sec-floor-deep: #b89050;
     --sec-accent: #a07b35;
     --sec-light: rgb(200 230 255 / 0.45);
+    /* Fixed column width so every floor is the same length. */
+    --walk-bay-width: min(100vw, 42rem);
     position: relative;
     flex: 0 0 auto;
-    width: min(100vw, 46rem);
+    width: var(--walk-bay-width);
     height: 100%;
     padding: 0 1rem;
     display: flex;
@@ -588,9 +590,14 @@
     overflow: hidden;
   }
 
-  .walk-section--mezzanine,
-  .walk-section--balcony-clock {
-    width: min(100vw, 52rem);
+  .walk-section--empty .walk-section__paper {
+    background:
+      repeating-linear-gradient(
+        90deg,
+        transparent 0 28px,
+        rgb(0 0 0 / 0.04) 28px 30px
+      ),
+      linear-gradient(180deg, var(--sec-sky) 0 28%, var(--sec-wall) 28%);
   }
 
   .walk-section__wall {
@@ -1355,14 +1362,9 @@
     flex: 1 1 auto;
   }
 
-  .walk-section--spacer {
-    visibility: hidden;
-    pointer-events: none;
-  }
-
   .walk-climb {
     position: absolute;
-    z-index: 4;
+    z-index: 6;
     pointer-events: auto;
     appearance: none;
     border: 3px solid var(--walk-wood-deep);
@@ -1372,37 +1374,56 @@
     padding: 0;
   }
 
-  .walk-climb--ladder,
-  .walk-climb--rail {
-    left: 56%;
+  /* Ladder feet sit on the ground line in the walker's path. */
+  .walk-climb--ladder {
+    left: 50%;
     bottom: var(--walk-ground);
-    width: 1.7rem;
-    height: 46%;
+    width: 2.4rem;
+    height: min(52%, 18rem);
+    margin-left: -1.2rem;
     background:
-      repeating-linear-gradient(180deg, transparent 0 12px, var(--walk-wood-deep) 12px 15px),
-      #c4a078;
+      repeating-linear-gradient(180deg, transparent 0 14px, var(--walk-wood-deep) 14px 17px),
+      linear-gradient(90deg, #a07040 0 18%, #c4a078 18% 82%, #a07040 82%);
+    box-shadow: 0 0 0 2px rgb(255 231 176 / 0.35);
   }
 
-  .walk-climb--stairs,
-  .walk-climb--entrance {
-    right: 1rem;
-    bottom: var(--walk-ground);
-    width: 3.2rem;
-    height: 22%;
+  .walk-climb--jump {
+    left: 50%;
+    bottom: calc(var(--walk-ground) + 0.15rem);
+    width: 3.6rem;
+    height: 1.8rem;
+    margin-left: -1.8rem;
+    border-radius: 2px;
     background:
-      repeating-linear-gradient(180deg, #d4b078 0 10px, var(--walk-wood-deep) 10px 12px),
-      #a07040;
+      repeating-linear-gradient(90deg, #c9a227 0 8px, #6b4a2e 8px 16px),
+      #c9a227;
+    box-shadow: 0 -2px 0 var(--walk-wood-deep);
   }
 
-  .walk-climb--entrance {
-    left: 0.75rem;
-    right: auto;
+  .walk-climb--jump::after {
+    content: "↑";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 0.85rem;
+    color: #2f2118;
+    font-family: var(--font-mono);
   }
 
   .walk-climb:hover,
   .walk-climb:focus-visible {
     outline: 3px solid var(--walk-outline);
     outline-offset: 2px;
+  }
+
+  .walk-minimap__bay.is-empty {
+    opacity: 0.45;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent 0 4px,
+      rgb(0 0 0 / 0.08) 4px 6px
+    );
   }
 
   .walk-floor-pad {
