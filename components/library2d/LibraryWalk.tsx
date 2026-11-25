@@ -24,10 +24,17 @@ type Props = {
   books: LibraryBook[];
 };
 
-/** Comfortable arrow / A-D pace (px per tap). */
+/** Comfortable arrow / A-D pace (px per tap / eased glide). */
 const WALK_STEP = 72;
-/** Steady hold speed — roughly three taps per second, without stacking smooth scrolls. */
-const WALK_HOLD_PX_PER_SEC = 220;
+/** Cruise speed while a walk key is held (px/s). */
+const WALK_MAX_SPEED = 220;
+/** Accelerate toward cruise while held (px/s²). */
+const WALK_ACCEL = 900;
+/** Brake after release (px/s²). Tap impulse is derived so coast ≈ WALK_STEP. */
+const WALK_DECEL = 1000;
+/** Seed velocity on press: decelerating from this covers ~WALK_STEP. */
+const WALK_TAP_IMPULSE = Math.sqrt(2 * WALK_DECEL * WALK_STEP);
+const WALK_STOP_EPS = 8;
 
 /**
  * Duplex cross-section library: both levels visible in one viewport.
@@ -47,6 +54,8 @@ export function LibraryWalk({ books }: Props) {
   const facingRef = useRef<"right" | "left">("right");
   const preferReducedMotionRef = useRef(false);
   const keysHeldRef = useRef({ left: false, right: false });
+  const velocityRef = useRef(0);
+  const isWalkingRef = useRef(false);
   const walkRafRef = useRef<number | null>(null);
   const walkLastTsRef = useRef<number | null>(null);
   const syncRafRef = useRef<number | null>(null);
@@ -154,15 +163,31 @@ export function LibraryWalk({ books }: Props) {
     });
   }
 
-  function markWalking(dir: "left" | "right") {
-    if (facingRef.current !== dir) {
-      facingRef.current = dir;
-      setFacing(dir);
+  function setFacingDir(dir: "left" | "right") {
+    if (facingRef.current === dir) return;
+    facingRef.current = dir;
+    setFacing(dir);
+  }
+
+  function setWalkingAnim(active: boolean) {
+    if (preferReducedMotionRef.current) {
+      if (isWalkingRef.current) {
+        isWalkingRef.current = false;
+        setIsWalking(false);
+      }
+      return;
     }
-    if (preferReducedMotionRef.current) return;
-    setIsWalking(true);
+    if (isWalkingRef.current === active) return;
+    isWalkingRef.current = active;
+    setIsWalking(active);
+  }
+
+  /** Mark walker facing/anim from pointer or wheel scroll deltas. */
+  function markWalking(dir: "left" | "right") {
+    setFacingDir(dir);
+    setWalkingAnim(true);
     if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
-    walkTimerRef.current = setTimeout(() => setIsWalking(false), 180);
+    walkTimerRef.current = setTimeout(() => setWalkingAnim(false), 180);
   }
 
   function stopWalkLoop() {
@@ -173,23 +198,58 @@ export function LibraryWalk({ books }: Props) {
     walkLastTsRef.current = null;
   }
 
+  function approach(current: number, target: number, maxDelta: number) {
+    const delta = target - current;
+    if (Math.abs(delta) <= maxDelta) return target;
+    return current + Math.sign(delta) * maxDelta;
+  }
+
   function walkFrame(ts: number) {
     const el = scrollerRef.current;
-    const held = keysHeldRef.current;
-    const dir = (held.right ? 1 : 0) + (held.left ? -1 : 0);
-
-    if (!el || dir === 0) {
+    if (!el) {
       stopWalkLoop();
       return;
     }
 
+    const held = keysHeldRef.current;
+    const heldDir = (held.right ? 1 : 0) + (held.left ? -1 : 0);
     const last = walkLastTsRef.current ?? ts;
     const dt = Math.min((ts - last) / 1000, 0.05);
     walkLastTsRef.current = ts;
 
-    el.scrollLeft += dir * WALK_HOLD_PX_PER_SEC * dt;
-    markWalking(dir > 0 ? "right" : "left");
-    scheduleSync();
+    let velocity = velocityRef.current;
+
+    if (preferReducedMotionRef.current) {
+      // No easing: constant cruise while held, hard stop on release.
+      if (heldDir === 0) {
+        velocityRef.current = 0;
+        setWalkingAnim(false);
+        stopWalkLoop();
+        return;
+      }
+      velocity = heldDir * WALK_MAX_SPEED;
+    } else if (heldDir !== 0) {
+      velocity = approach(velocity, heldDir * WALK_MAX_SPEED, WALK_ACCEL * dt);
+    } else {
+      velocity = approach(velocity, 0, WALK_DECEL * dt);
+    }
+
+    velocityRef.current = velocity;
+    el.scrollLeft += velocity * dt;
+
+    if (Math.abs(velocity) > WALK_STOP_EPS) {
+      setFacingDir(velocity > 0 ? "right" : "left");
+      setWalkingAnim(true);
+      scheduleSync();
+    }
+
+    if (heldDir === 0 && Math.abs(velocity) <= WALK_STOP_EPS) {
+      velocityRef.current = 0;
+      setWalkingAnim(false);
+      scheduleSync();
+      stopWalkLoop();
+      return;
+    }
 
     walkRafRef.current = requestAnimationFrame(walkFrame);
   }
@@ -198,6 +258,50 @@ export function LibraryWalk({ books }: Props) {
     if (walkRafRef.current != null) return;
     walkLastTsRef.current = null;
     walkRafRef.current = requestAnimationFrame(walkFrame);
+  }
+
+  function beginWalk(dir: 1 | -1) {
+    const el = scrollerRef.current;
+    if (!el) return;
+
+    if (dir > 0) keysHeldRef.current.right = true;
+    else keysHeldRef.current.left = true;
+    setFacingDir(dir > 0 ? "right" : "left");
+
+    if (preferReducedMotionRef.current) {
+      el.scrollLeft += dir * WALK_STEP;
+      scheduleSync();
+      // Keep the loop for hold (constant speed); tap keyup stops immediately.
+      velocityRef.current = dir * WALK_MAX_SPEED;
+      ensureWalkLoop();
+      return;
+    }
+
+    // Seed (or reinforce) velocity so a quick tap coasts ~WALK_STEP with easing.
+    const seeded = dir * WALK_TAP_IMPULSE;
+    if (dir > 0) {
+      velocityRef.current = Math.max(velocityRef.current, seeded);
+    } else {
+      velocityRef.current = Math.min(velocityRef.current, seeded);
+    }
+    setWalkingAnim(true);
+    ensureWalkLoop();
+  }
+
+  function endWalk(dir: 1 | -1) {
+    if (dir > 0) keysHeldRef.current.right = false;
+    else keysHeldRef.current.left = false;
+
+    if (preferReducedMotionRef.current) {
+      if (!keysHeldRef.current.left && !keysHeldRef.current.right) {
+        velocityRef.current = 0;
+        stopWalkLoop();
+      }
+      return;
+    }
+
+    // Keep the rAF loop running so velocity can decelerate to a stop.
+    ensureWalkLoop();
   }
 
   function playJump() {
@@ -290,24 +394,16 @@ export function LibraryWalk({ books }: Props) {
 
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        // Ignore OS auto-repeat — hold is driven by the rAF loop below.
+        // Ignore OS auto-repeat — motion is driven by the rAF velocity loop.
         if (event.repeat) return;
-        keysHeldRef.current.right = true;
-        el.scrollLeft += WALK_STEP;
-        markWalking("right");
-        scheduleSync();
-        ensureWalkLoop();
+        beginWalk(1);
         return;
       }
 
       if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
         if (event.repeat) return;
-        keysHeldRef.current.left = true;
-        el.scrollLeft -= WALK_STEP;
-        markWalking("left");
-        scheduleSync();
-        ensureWalkLoop();
+        beginWalk(-1);
         return;
       }
 
@@ -349,18 +445,17 @@ export function LibraryWalk({ books }: Props) {
     const onKeyUp = (event: KeyboardEvent) => {
       if (!isWalkKey(event.key)) return;
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
-        keysHeldRef.current.right = false;
+        endWalk(1);
       } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
-        keysHeldRef.current.left = false;
-      }
-      if (!keysHeldRef.current.left && !keysHeldRef.current.right) {
-        stopWalkLoop();
+        endWalk(-1);
       }
     };
 
     const onBlur = () => {
       keysHeldRef.current.left = false;
       keysHeldRef.current.right = false;
+      velocityRef.current = 0;
+      setWalkingAnim(false);
       stopWalkLoop();
     };
 
