@@ -1189,20 +1189,43 @@
   .walk-case--low .walk-case__board:nth-child(1) { top: 45%; }
   .walk-case--low .walk-case__board:nth-child(2) { bottom: 0; height: 0.4rem; }
 
-  .walk-rail {
+  .walk-rails {
     position: relative;
     z-index: 3;
     display: flex;
-    flex-wrap: nowrap;
-    align-items: flex-end;
-    gap: 0.08rem 0.1rem;
-    margin: 0 1rem calc(var(--walk-deck) + 0.3rem);
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    gap: 0.45rem;
+    margin: 0 1rem calc(var(--walk-deck) + 0.35rem);
+    max-height: calc(100% - var(--walk-deck) - 1.5rem);
     pointer-events: auto;
   }
 
-  /* Duplex shelves: one horizontal row, spines sized to the half-height bay. */
+  .walk-rail {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    flex: 0 0 auto;
+    gap: 0.08rem 0.1rem;
+    min-height: 0;
+  }
+
+  /* Duplex shelves: one horizontal row per rail, spines sized to the bay. */
   .walk-rail .walk-book {
     max-height: min(38%, 5.75rem);
+    flex: 0 0 auto;
+  }
+
+  .walk-bay--multi .walk-rail .walk-book {
+    max-height: min(22%, 3.6rem);
+  }
+
+  .walk-case--multi {
+    left: 0.45rem;
+    right: 8%;
+    bottom: calc(var(--walk-deck) + 0.15rem);
+    height: min(72%, 14rem);
   }
 
   .walk-pile {

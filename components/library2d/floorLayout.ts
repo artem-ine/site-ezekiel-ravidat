@@ -8,24 +8,31 @@ import {
 } from "@/components/library2d/sectionTheme";
 import { spineWidthRem } from "@/lib/spine-style";
 
-/** Books on the ground shelves before overflow goes to the loft above. */
-export const BAY_CAPACITY = 14;
-/** Genres beyond this sit on the upper level as stacked rooms. */
-export const GROUND_GENRE_CAP = 5;
-
 export type FloorLevel = 0 | 1;
+
+/** Soft cap on how wide a genre column can grow before spilling to more rows/floors. */
+export const BAY_MAX_WIDTH_REM = 44;
+/** Minimum pleasant bay width (rem). */
+export const BAY_MIN_WIDTH_REM = 28;
+/** Horizontal chrome around the book rail (margins, padding, case edge). */
+const BAY_CHROME_REM = 3.5;
+const RAIL_GAP_REM = 0.1;
 
 export type WalkBay = {
   id: string;
   label: string;
+  /** Flat list of all books on this bay (all shelf rows). */
   books: LibraryBook[];
-  piles: LibraryBook[];
+  /** Each entry is one nowrap shelf rail — never overlaps. */
+  shelfRows: LibraryBook[][];
   theme: SectionTheme;
   kit: DecorKit;
   floor: FloorLevel;
   /** Shared column — both levels always share the same slot count. */
   slot: number;
   empty: boolean;
+  /** Same-genre loft partner on the other floor (for labels / minimap). */
+  paired: boolean;
 };
 
 export type FloorPlan = {
@@ -39,10 +46,42 @@ export type WalkColumn = {
   upper: WalkBay;
 };
 
-function splitBooks(books: LibraryBook[]) {
-  const piles = books.length > 8 ? books.slice(-4) : [];
-  const shelf = piles.length > 0 ? books.slice(0, -piles.length) : books;
-  return { shelf, piles };
+function booksWidthRem(books: LibraryBook[]): number {
+  if (books.length === 0) return 0;
+  let width = 0;
+  for (const book of books) {
+    width += spineWidthRem(book.pageCount) + RAIL_GAP_REM;
+  }
+  return width;
+}
+
+/** How many leading books fit in `maxInnerRem` as a single nowrap row. */
+export function fitRowCount(books: LibraryBook[], maxInnerRem: number): number {
+  if (books.length === 0) return 0;
+  let width = 0;
+  let count = 0;
+  for (const book of books) {
+    const spine = spineWidthRem(book.pageCount) + RAIL_GAP_REM;
+    if (count > 0 && width + spine > maxInnerRem) break;
+    width += spine;
+    count += 1;
+  }
+  return Math.max(1, count);
+}
+
+/** Pack books into nowrap rows that each fit within maxInnerRem. */
+export function packShelfRows(
+  books: LibraryBook[],
+  maxInnerRem: number,
+): LibraryBook[][] {
+  const rows: LibraryBook[][] = [];
+  let remaining = books;
+  while (remaining.length > 0) {
+    const n = fitRowCount(remaining, maxInnerRem);
+    rows.push(remaining.slice(0, n));
+    remaining = remaining.slice(n);
+  }
+  return rows;
 }
 
 function emptyBay(
@@ -55,129 +94,106 @@ function emptyBay(
     id: `empty-f${floor}-s${slot}`,
     label: floor === 0 ? "Hall" : "Landing",
     books: [],
-    piles: [],
+    shelfRows: [],
     theme,
     kit,
     floor,
     slot,
     empty: true,
+    paired: false,
   };
 }
 
-function genreBay(
+function bayFromRows(
   genre: ShelfGroup,
   floor: FloorLevel,
   slot: number,
   kit: DecorKit,
-  books: LibraryBook[],
-  label = genre.label,
+  rows: LibraryBook[][],
+  label: string,
+  paired: boolean,
 ): WalkBay {
-  const { shelf, piles } = splitBooks(books);
+  const books = rows.flat();
   return {
-    id: `${genre.id}__f${floor}`,
+    id: `${genre.id}__f${floor}${rows.length > 1 ? `-r${rows.length}` : ""}`,
     label,
-    books: shelf,
-    piles,
+    books,
+    shelfRows: rows,
     theme: themeForLabel(genre.label),
     kit,
     floor,
     slot,
-    empty: false,
+    empty: books.length === 0,
+    paired,
   };
 }
 
 /**
- * Build equal-length duplex columns: ground + upper in every slot.
- * Overflow of the same genre → loft above that column.
- * Extra genres → upper rooms over halls or over ground genres without lofts.
+ * One column per genre. Pack books by spine width into nowrap rows.
+ * First rows sit on the ground; overflow rows go to the upper floor of the
+ * same column. If both floors need more than one row, shelves go double-height
+ * (multiple rails per level). No piles, no overlapping spines.
  */
 export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
   let genres = groupIntoShelves(books, "genre");
   if (genres.length === 0) genres = groupIntoShelves(books, "title");
 
-  const groundGenres =
-    genres.length > GROUND_GENRE_CAP ? genres.slice(0, GROUND_GENRE_CAP) : [...genres];
-  const upperOnly =
-    genres.length > GROUND_GENRE_CAP ? genres.slice(GROUND_GENRE_CAP) : [];
-
-  const slots = Math.max(groundGenres.length, upperOnly.length, 1);
+  const maxInner = BAY_MAX_WIDTH_REM - BAY_CHROME_REM;
   const bays: WalkBay[] = [];
-  let upperIdx = 0;
+  const slots = Math.max(genres.length, 1);
 
   for (let slot = 0; slot < slots; slot += 1) {
-    const groundGenre = groundGenres[slot] ?? null;
-    const kit = decorKitForIndex(slot);
-
-    if (groundGenre) {
-      const overflow = groundGenre.books.length > BAY_CAPACITY;
-      const groundBooks = overflow
-        ? groundGenre.books.slice(0, BAY_CAPACITY)
-        : groundGenre.books;
-      const loftBooks = overflow ? groundGenre.books.slice(BAY_CAPACITY) : [];
-
-      bays.push(genreBay(groundGenre, 0, slot, kit, groundBooks));
-
-      if (overflow) {
-        bays.push(
-          genreBay(
-            groundGenre,
-            1,
-            slot,
-            "mezzanine",
-            loftBooks,
-            `${groundGenre.label} · loft`,
-          ),
-        );
-      } else if (upperIdx < upperOnly.length) {
-        const upper = upperOnly[upperIdx++];
-        bays.push(
-          genreBay(
-            upper,
-            1,
-            slot,
-            decorKitForIndex(slot + 3),
-            upper.books.slice(0, BAY_CAPACITY + 4),
-          ),
-        );
-      } else {
-        bays.push(emptyBay(1, slot, themeForLabel(groundGenre.label), "low-nook"));
-      }
-    } else {
-      const upper = upperOnly[upperIdx++];
-      const theme = themeForLabel(upper.label);
-      bays.push(emptyBay(0, slot, theme, kit));
-      bays.push(
-        genreBay(
-          upper,
-          1,
-          slot,
-          decorKitForIndex(slot + 5),
-          upper.books.slice(0, BAY_CAPACITY + 4),
-        ),
-      );
+    const genre = genres[slot];
+    if (!genre) {
+      bays.push(emptyBay(0, slot, themeForLabel("Hall"), decorKitForIndex(slot)));
+      bays.push(emptyBay(1, slot, themeForLabel("Landing"), "low-nook"));
+      continue;
     }
-  }
 
-  while (upperIdx < upperOnly.length) {
-    const slot = bays.filter((b) => b.floor === 0).length;
-    const upper = upperOnly[upperIdx++];
-    const theme = themeForLabel(upper.label);
     const kit = decorKitForIndex(slot);
-    bays.push(emptyBay(0, slot, theme, kit));
+    const rows = packShelfRows(genre.books, maxInner);
+
+    if (rows.length === 0) {
+      bays.push(emptyBay(0, slot, themeForLabel(genre.label), kit));
+      bays.push(emptyBay(1, slot, themeForLabel(genre.label), "low-nook"));
+      continue;
+    }
+
+    if (rows.length === 1) {
+      // Fits one shelf — ground only; upper is a quiet landing in the same theme.
+      bays.push(
+        bayFromRows(genre, 0, slot, kit, rows, genre.label, false),
+      );
+      bays.push(emptyBay(1, slot, themeForLabel(genre.label), "low-nook"));
+      continue;
+    }
+
+    // Two or more rows: spill upward. Split rows across floors.
+    // Odd extra row stays on the ground so the walker meets books first.
+    const groundRowCount = Math.ceil(rows.length / 2);
+    const groundRows = rows.slice(0, groundRowCount);
+    const upperRows = rows.slice(groundRowCount);
+    const paired = upperRows.length > 0;
+
     bays.push(
-      genreBay(
-        upper,
+      bayFromRows(genre, 0, slot, kit, groundRows, genre.label, paired),
+    );
+    bays.push(
+      bayFromRows(
+        genre,
         1,
         slot,
-        decorKitForIndex(slot + 5),
-        upper.books.slice(0, BAY_CAPACITY + 4),
+        "mezzanine",
+        upperRows,
+        `${genre.label} · loft`,
+        paired,
       ),
     );
   }
 
   return {
     bays,
-    slots: bays.filter((b) => b.floor === 0).length,
+    slots: bays.filter((bay) => bay.floor === 0).length,
   };
 }
 
@@ -200,26 +216,16 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
   return columns;
 }
 
-/** Minimum pleasant bay width (rem). */
-const BAY_MIN_WIDTH_REM = 28;
-/** Horizontal chrome around the book rail (margins, padding, case edge). */
-const BAY_CHROME_REM = 3.5;
-const RAIL_GAP_REM = 0.1;
-
 /**
- * Width needed so every shelf book sits in a single row (no wrap),
- * plus piles if present. Loft overflow stays on the upper bay.
+ * Width needed so every shelf row sits in a single line (no wrap).
  */
 export function bayRailWidthRem(bay: WalkBay): number {
-  if (bay.empty) return BAY_MIN_WIDTH_REM;
-  let width = BAY_CHROME_REM;
-  for (const book of bay.books) {
-    width += spineWidthRem(book.pageCount) + RAIL_GAP_REM;
+  if (bay.empty || bay.shelfRows.length === 0) return BAY_MIN_WIDTH_REM;
+  let widest = 0;
+  for (const row of bay.shelfRows) {
+    widest = Math.max(widest, booksWidthRem(row));
   }
-  for (const book of bay.piles) {
-    width += spineWidthRem(book.pageCount) * 0.85 + RAIL_GAP_REM;
-  }
-  return Math.max(BAY_MIN_WIDTH_REM, width);
+  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM, widest + BAY_CHROME_REM));
 }
 
 /** Column width: wide enough for the fuller of ground / upper rails. */
