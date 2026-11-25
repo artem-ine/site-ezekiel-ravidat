@@ -1,33 +1,34 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SliceZone } from "@prismicio/react";
 import { getPreviewRef } from "@prismicio/next";
-import { createClient } from "@/prismicio";
+import { PageContent } from "@/components/PageContent";
 import { getPageByUID } from "@/lib/page";
-import { components } from "@/slices";
+import { createClient } from "@/prismicio";
 
 export default async function Page({ params }: PageProps<"/[uid]">) {
-	const { uid } = await params;
-	const page = await getPageByUID(uid, await getPreviewRef());
-	if (!page) notFound();
+  const { uid } = await params;
+  const page = await getPageByUID(uid, await getPreviewRef());
+  if (!page) notFound();
 
-	return <SliceZone slices={page.data.slices} components={components} />;
+  return <PageContent slices={page.data.slices} />;
 }
 
 export async function generateMetadata({ params }: PageProps<"/[uid]">): Promise<Metadata> {
-	const { uid } = await params;
-	const page = await getPageByUID(uid, await getPreviewRef());
-	if (!page) return {};
+  const { uid } = await params;
+  const page = await getPageByUID(uid, await getPreviewRef());
+  if (!page) return {};
 
-	return {
-		title: page.data.meta_title || page.data.title,
-		description: page.data.meta_description,
-		openGraph: page.data.meta_image.url ? { images: [{ url: page.data.meta_image.url }] } : undefined,
-	};
+  const { title, meta_title, meta_description, meta_image } = page.data;
+  return {
+    title: meta_title || title,
+    description: meta_description,
+    openGraph: meta_image.url ? { images: [{ url: meta_image.url }] } : undefined,
+  };
 }
 
+// Next.js needs at least one static param, so fall back to "home" until a page exists.
 export async function generateStaticParams() {
-	const pages = await createClient().getAllByType("page");
-	const params = pages.filter((page) => page.uid).map((page) => ({ uid: page.uid }));
-	return params.length > 0 ? params : [{ uid: "home" }];
+  const pages = await createClient().getAllByType("page");
+  const uids = pages.flatMap((page) => (page.uid ? [{ uid: page.uid }] : []));
+  return uids.length > 0 ? uids : [{ uid: "home" }];
 }

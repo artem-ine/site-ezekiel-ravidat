@@ -9,7 +9,7 @@ Personal library site for Ezekiel Ravidat. Next.js (App Router, TypeScript) with
 
 ## Setup
 
-Requires Node 20.9+ (developed on Node 22) and npm.
+Requires Node 20.19 or newer (developed on Node 22) and npm. Older Node versions fail `npm run dev` with a `require() of ES Module` error from Tailwind. With nvm, run `nvm use` (the repo has an `.nvmrc`).
 
 ```sh
 npm install
@@ -158,7 +158,13 @@ Ezekiel decided there are no public reviews in v1. The `review` field exists so 
 - Per-filter shelf documents. "Read in 2024", "unread owned", "by genre" and similar are computed in code from book fields; `shelf` is only for hand-curated arrangements and has no `mode` field.
 - Author `links`, series `books` back-references, `purchase_year`, `edition_year`, publisher.
 - StoryGraph tags: not modelled, they are not genres.
-- Visual design: slice components are unstyled placeholders.
+- Final visual design: the current styling is a quiet foundation (layout, header and slices only). Shelves and book pages are not designed yet.
+
+## Styling
+
+Tailwind CSS v4 (`@tailwindcss/postcss`, configured in `postcss.config.mjs`). All design tokens live in one place, `app/globals.css`: the palette (aged paper, walnut ink, oxblood and brass accents), the fonts (EB Garamond for text, Courier Prime for small catalogue labels, loaded in `app/layout.tsx` with `next/font`), spacing and sizes. Change the values there and the whole site follows. Motion is limited to three small cues and is switched off under `prefers-reduced-motion`.
+
+Pages are cached for an hour (`cacheLife("hours")` in `lib/page.ts`) and revalidated by the `/api/revalidate` webhook when content is published.
 
 ## Routes in this scaffold
 
