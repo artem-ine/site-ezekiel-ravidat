@@ -14,8 +14,15 @@ export type FloorLevel = 0 | 1;
 export const BAY_MAX_WIDTH_REM = 44;
 /** Minimum pleasant bay width (rem). */
 export const BAY_MIN_WIDTH_REM = 28;
-/** Horizontal chrome around the book rail (margins, padding, case edge). */
-const BAY_CHROME_REM = 3.5;
+/**
+ * Horizontal chrome around the book rail inside a bay:
+ * case side frames + bay padding + rail inset.
+ */
+export const BAY_CHROME_REM = 3.5;
+/** Wood frame on each side of the book row inside the cabinet. */
+export const CASE_SIDE_PAD_REM = 0.55;
+/** Extra bay width reserved for a decorative ladder when the loft has books. */
+export const LADDER_SPACE_REM = 2.4;
 const RAIL_GAP_REM = 0.1;
 
 export type WalkBay = {
@@ -46,13 +53,35 @@ export type WalkColumn = {
   upper: WalkBay;
 };
 
-function booksWidthRem(books: LibraryBook[]): number {
+/** Sum of spine widths + flex gaps for one nowrap row. */
+export function booksWidthRem(books: LibraryBook[]): number {
   if (books.length === 0) return 0;
   let width = 0;
   for (const book of books) {
     width += spineWidthRem(book.pageCount) + RAIL_GAP_REM;
   }
-  return width;
+  // flex gap is between items only — drop the trailing gap added above
+  return Math.max(0, width - RAIL_GAP_REM);
+}
+
+/** Widest packed row on this bay (inner content, no case chrome). */
+export function bayContentWidthRem(bay: WalkBay): number {
+  if (bay.empty || bay.shelfRows.length === 0) return 0;
+  let widest = 0;
+  for (const row of bay.shelfRows) {
+    widest = Math.max(widest, booksWidthRem(row));
+  }
+  return widest;
+}
+
+/**
+ * Cabinet width so every book row sits fully on the shelf boards.
+ * Always >= content + side frames; never smaller than the books.
+ */
+export function caseWidthRem(bay: WalkBay): number {
+  const content = bayContentWidthRem(bay);
+  if (content <= 0) return 0;
+  return content + CASE_SIDE_PAD_REM * 2;
 }
 
 /** How many leading books fit in `maxInnerRem` as a single nowrap row. */
@@ -61,9 +90,10 @@ export function fitRowCount(books: LibraryBook[], maxInnerRem: number): number {
   let width = 0;
   let count = 0;
   for (const book of books) {
-    const spine = spineWidthRem(book.pageCount) + RAIL_GAP_REM;
-    if (count > 0 && width + spine > maxInnerRem) break;
-    width += spine;
+    const spine = spineWidthRem(book.pageCount);
+    const next = count === 0 ? spine : width + RAIL_GAP_REM + spine;
+    if (count > 0 && next > maxInnerRem) break;
+    width = next;
     count += 1;
   }
   return Math.max(1, count);
@@ -217,15 +247,16 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
 }
 
 /**
- * Width needed so every shelf row sits in a single line (no wrap).
+ * Width needed so every shelf row sits in a single line (no wrap),
+ * including case chrome and optional ladder space for loft pairs.
  */
 export function bayRailWidthRem(bay: WalkBay): number {
   if (bay.empty || bay.shelfRows.length === 0) return BAY_MIN_WIDTH_REM;
-  let widest = 0;
-  for (const row of bay.shelfRows) {
-    widest = Math.max(widest, booksWidthRem(row));
-  }
-  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM, widest + BAY_CHROME_REM));
+  const caseW = caseWidthRem(bay);
+  const ladder = bay.paired ? LADDER_SPACE_REM : 0;
+  // Case + bay padding/margins; ladder sits beside the cabinet.
+  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + ladder;
+  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + ladder, needed));
 }
 
 /** Column width: wide enough for the fuller of ground / upper rails. */

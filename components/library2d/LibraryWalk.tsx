@@ -14,6 +14,7 @@ import { WalkBook } from "@/components/library2d/WalkBook";
 import {
   baysOnFloor,
   buildFloorPlan,
+  caseWidthRem,
   columnWidthRem,
   duplexColumns,
   type FloorLevel,
@@ -721,6 +722,7 @@ const LevelBay = memo(function LevelBay({
   bay: WalkBay;
   calm: boolean;
 }) {
+  const caseW = caseWidthRem(bay);
   const style = {
     "--sec-sky": bay.theme.sky,
     "--sec-wall": bay.theme.wall,
@@ -729,9 +731,11 @@ const LevelBay = memo(function LevelBay({
     "--sec-floor-deep": bay.theme.floorDeep,
     "--sec-accent": bay.theme.accent,
     "--sec-light": bay.theme.light,
+    ...(caseW > 0 ? { "--walk-case-width": `${caseW}rem` } : null),
   } as CSSProperties;
 
   const multi = bay.shelfRows.length > 1;
+  const showLadder = bay.paired && !bay.empty;
 
   return (
     <section
@@ -762,6 +766,7 @@ const LevelBay = memo(function LevelBay({
         <>
           <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} />
           {!multi && <SectionDecor kit={bay.kit} index={bay.slot} />}
+          {showLadder && <LibraryLadder />}
           <div className="walk-rails" data-rows={bay.shelfRows.length}>
             {bay.shelfRows.map((row, rowIndex) => (
               <div
@@ -784,6 +789,23 @@ const LevelBay = memo(function LevelBay({
     </section>
   );
 });
+
+function LibraryLadder() {
+  const rungs = [12, 28, 44, 60, 76];
+  return (
+    <div className="walk-ladder" aria-hidden="true">
+      <span className="walk-ladder__rail walk-ladder__rail--l" />
+      <span className="walk-ladder__rail walk-ladder__rail--r" />
+      {rungs.map((top) => (
+        <span
+          key={top}
+          className="walk-ladder__rung"
+          style={{ top: `${top}%` }}
+        />
+      ))}
+    </div>
+  );
+}
 
 function SectionShelves({ kit, rows }: { kit: DecorKit; rows: number }) {
   const boards = Math.max(rows + 1, kit === "tall-hearth" || kit === "ladder-desk" ? 3 : 2);

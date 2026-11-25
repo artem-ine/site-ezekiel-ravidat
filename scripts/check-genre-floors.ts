@@ -3,10 +3,16 @@
  * Run: npx tsx scripts/check-genre-floors.ts
  */
 import {
+  BAY_CHROME_REM,
   BAY_MAX_WIDTH_REM,
   BAY_MIN_WIDTH_REM,
+  CASE_SIDE_PAD_REM,
+  LADDER_SPACE_REM,
+  bayContentWidthRem,
   bayRailWidthRem,
+  booksWidthRem,
   buildFloorPlan,
+  caseWidthRem,
   duplexColumns,
   fitRowCount,
   packShelfRows,
@@ -22,13 +28,13 @@ function assert(cond: boolean, msg: string) {
   }
 }
 
-function fakeBook(uid: string, pages = 300): LibraryBook {
+function fakeBook(uid: string, pages = 300, genre = "Science Fiction"): LibraryBook {
   return {
     uid,
     title: uid,
     subtitle: null,
     authors: ["Test"],
-    genres: [{ name: "Science Fiction", accent: null }],
+    genres: [{ name: genre, accent: null }],
     series: null,
     seriesPosition: null,
     coverUrl: null,
@@ -48,9 +54,12 @@ const mixed = [
   ...Array.from({ length: 12 }, (_, i) => fakeBook(`m-${i}`, 280)),
   ...Array.from({ length: 12 }, (_, i) => fakeBook(`w-${i}`, 700)),
 ];
+const biography = Array.from({ length: 18 }, (_, i) =>
+  fakeBook(`bio-${i}`, 320, "Biography"),
+);
 
 {
-  const maxInner = BAY_MAX_WIDTH_REM - 3.5;
+  const maxInner = BAY_MAX_WIDTH_REM - BAY_CHROME_REM;
   const n = fitRowCount(narrow, maxInner);
   assert(n >= 8, `fitRowCount packs several narrow spines (got ${n})`);
   const rows = packShelfRows(narrow, maxInner);
@@ -64,8 +73,6 @@ const mixed = [
 }
 
 {
-  // Build a plan from a single fat genre via groupIntoShelves path:
-  // inject many SF-tagged books — groupBooks uses genre names from the book.
   const plan = buildFloorPlan(mixed);
   const cols = duplexColumns(plan);
   assert(cols.length >= 1, "at least one column");
@@ -76,11 +83,28 @@ const mixed = [
       assert(bay.shelfRows.length >= 1, `${bay.label} has shelf rows`);
       for (const row of bay.shelfRows) {
         assert(row.length > 0, `${bay.label} row not empty`);
+        const rowW = booksWidthRem(row);
+        const caseW = caseWidthRem(bay);
+        assert(
+          caseW + 0.001 >= rowW + CASE_SIDE_PAD_REM * 2,
+          `${bay.label}: case ${caseW.toFixed(2)} covers row ${rowW.toFixed(2)} + pads`,
+        );
+        assert(
+          caseW + 0.001 >= rowW,
+          `${bay.label}: case width >= row content (${caseW.toFixed(2)} >= ${rowW.toFixed(2)})`,
+        );
       }
+      const content = bayContentWidthRem(bay);
+      const caseW = caseWidthRem(bay);
+      assert(
+        caseW >= content + CASE_SIDE_PAD_REM * 2 - 0.001,
+        `${bay.label}: case covers widest row (${caseW.toFixed(2)} vs content ${content.toFixed(2)})`,
+      );
       const flat = bay.shelfRows.flat().map((b) => b.uid);
       assert(new Set(flat).size === flat.length, `${bay.label} no dupes in rows`);
+      const maxBay = BAY_MAX_WIDTH_REM + (bay.paired ? LADDER_SPACE_REM : 0) + 0.01;
       assert(
-        bayRailWidthRem(bay) <= BAY_MAX_WIDTH_REM + 0.01,
+        bayRailWidthRem(bay) <= maxBay,
         `${bay.label} width within max (${bayRailWidthRem(bay)})`,
       );
       assert(
@@ -88,12 +112,27 @@ const mixed = [
         `${bay.label} width at least min`,
       );
     }
-    // Same genre spanning floors when overflow exists
     if (!col.ground.empty && !col.upper.empty && col.ground.paired) {
       assert(
         col.upper.label.includes(col.ground.label.split(" · ")[0]!) ||
           col.upper.paired,
         "upper loft pairs with ground genre",
+      );
+      assert(col.ground.paired && col.upper.paired, "both floors marked paired for loft");
+    }
+  }
+}
+
+{
+  // Biography-sized genre: case always >= every row.
+  const plan = buildFloorPlan(biography);
+  for (const bay of plan.bays) {
+    if (bay.empty) continue;
+    const caseW = caseWidthRem(bay);
+    for (const row of bay.shelfRows) {
+      assert(
+        caseW >= booksWidthRem(row) - 0.001,
+        `Biography bay case covers row (${caseW} >= ${booksWidthRem(row)})`,
       );
     }
   }
