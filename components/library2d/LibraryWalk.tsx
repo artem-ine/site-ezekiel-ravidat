@@ -19,22 +19,17 @@ import {
   type WalkBay,
 } from "@/components/library2d/floorLayout";
 import type { DecorKit, SectionTheme } from "@/components/library2d/sectionTheme";
+import {
+  WALK_MAX_SPEED,
+  WALK_STEP,
+  WALK_STOP_EPS,
+  seedTapImpulse,
+  stepWalk,
+} from "@/components/library2d/walkPhysics";
 
 type Props = {
   books: LibraryBook[];
 };
-
-/** Comfortable arrow / A-D pace (px per tap / eased glide). */
-const WALK_STEP = 72;
-/** Cruise speed while a walk key is held (px/s). */
-const WALK_MAX_SPEED = 220;
-/** Accelerate toward cruise while held (px/s²). */
-const WALK_ACCEL = 900;
-/** Brake after release (px/s²). Tap impulse is derived so coast ≈ WALK_STEP. */
-const WALK_DECEL = 1000;
-/** Seed velocity on press: decelerating from this covers ~WALK_STEP. */
-const WALK_TAP_IMPULSE = Math.sqrt(2 * WALK_DECEL * WALK_STEP);
-const WALK_STOP_EPS = 8;
 
 /**
  * Duplex cross-section library: both levels visible in one viewport.
@@ -54,6 +49,8 @@ export function LibraryWalk({ books }: Props) {
   const facingRef = useRef<"right" | "left">("right");
   const preferReducedMotionRef = useRef(false);
   const keysHeldRef = useRef({ left: false, right: false });
+  /** Most recent walk intent — used when both left and right are down. */
+  const lastDirRef = useRef<-1 | 0 | 1>(0);
   const velocityRef = useRef(0);
   const isWalkingRef = useRef(false);
   const walkRafRef = useRef<number | null>(null);
@@ -198,12 +195,6 @@ export function LibraryWalk({ books }: Props) {
     walkLastTsRef.current = null;
   }
 
-  function approach(current: number, target: number, maxDelta: number) {
-    const delta = target - current;
-    if (Math.abs(delta) <= maxDelta) return target;
-    return current + Math.sign(delta) * maxDelta;
-  }
-
   function walkFrame(ts: number) {
     const el = scrollerRef.current;
     if (!el) {
@@ -211,39 +202,32 @@ export function LibraryWalk({ books }: Props) {
       return;
     }
 
-    const held = keysHeldRef.current;
-    const heldDir = (held.right ? 1 : 0) + (held.left ? -1 : 0);
     const last = walkLastTsRef.current ?? ts;
-    const dt = Math.min((ts - last) / 1000, 0.05);
+    const dt = (ts - last) / 1000;
     walkLastTsRef.current = ts;
 
-    let velocity = velocityRef.current;
+    const stepped = stepWalk({
+      velocity: velocityRef.current,
+      keys: keysHeldRef.current,
+      lastDir: lastDirRef.current,
+      dt,
+      reducedMotion: preferReducedMotionRef.current,
+    });
 
-    if (preferReducedMotionRef.current) {
-      // No easing: constant cruise while held, hard stop on release.
-      if (heldDir === 0) {
-        velocityRef.current = 0;
-        setWalkingAnim(false);
-        stopWalkLoop();
-        return;
+    velocityRef.current = stepped.velocity;
+    el.scrollLeft += stepped.dx;
+
+    if (Math.abs(stepped.velocity) > WALK_STOP_EPS || stepped.heldDir !== 0) {
+      if (stepped.heldDir !== 0) {
+        setFacingDir(stepped.heldDir > 0 ? "right" : "left");
+      } else if (Math.abs(stepped.velocity) > WALK_STOP_EPS) {
+        setFacingDir(stepped.velocity > 0 ? "right" : "left");
       }
-      velocity = heldDir * WALK_MAX_SPEED;
-    } else if (heldDir !== 0) {
-      velocity = approach(velocity, heldDir * WALK_MAX_SPEED, WALK_ACCEL * dt);
-    } else {
-      velocity = approach(velocity, 0, WALK_DECEL * dt);
-    }
-
-    velocityRef.current = velocity;
-    el.scrollLeft += velocity * dt;
-
-    if (Math.abs(velocity) > WALK_STOP_EPS) {
-      setFacingDir(velocity > 0 ? "right" : "left");
-      setWalkingAnim(true);
+      setWalkingAnim(stepped.heldDir !== 0 || Math.abs(stepped.velocity) > WALK_STOP_EPS);
       scheduleSync();
     }
 
-    if (heldDir === 0 && Math.abs(velocity) <= WALK_STOP_EPS) {
+    if (!stepped.keepGoing) {
       velocityRef.current = 0;
       setWalkingAnim(false);
       scheduleSync();
@@ -260,29 +244,32 @@ export function LibraryWalk({ books }: Props) {
     walkRafRef.current = requestAnimationFrame(walkFrame);
   }
 
-  function beginWalk(dir: 1 | -1) {
+  /**
+   * Press or OS-repeat for a walk key.
+   * Always re-asserts held state + rAF (repeats must revive a stopped loop).
+   * Only the initial (!repeat) press seeds the tap impulse / reduced-motion step.
+   */
+  function beginWalk(dir: 1 | -1, isRepeat: boolean) {
     const el = scrollerRef.current;
     if (!el) return;
 
     if (dir > 0) keysHeldRef.current.right = true;
     else keysHeldRef.current.left = true;
+    lastDirRef.current = dir;
     setFacingDir(dir > 0 ? "right" : "left");
 
     if (preferReducedMotionRef.current) {
-      el.scrollLeft += dir * WALK_STEP;
-      scheduleSync();
-      // Keep the loop for hold (constant speed); tap keyup stops immediately.
+      if (!isRepeat) {
+        el.scrollLeft += dir * WALK_STEP;
+        scheduleSync();
+      }
       velocityRef.current = dir * WALK_MAX_SPEED;
       ensureWalkLoop();
       return;
     }
 
-    // Seed (or reinforce) velocity so a quick tap coasts ~WALK_STEP with easing.
-    const seeded = dir * WALK_TAP_IMPULSE;
-    if (dir > 0) {
-      velocityRef.current = Math.max(velocityRef.current, seeded);
-    } else {
-      velocityRef.current = Math.min(velocityRef.current, seeded);
+    if (!isRepeat) {
+      velocityRef.current = seedTapImpulse(velocityRef.current, dir);
     }
     setWalkingAnim(true);
     ensureWalkLoop();
@@ -292,15 +279,27 @@ export function LibraryWalk({ books }: Props) {
     if (dir > 0) keysHeldRef.current.right = false;
     else keysHeldRef.current.left = false;
 
-    if (preferReducedMotionRef.current) {
-      if (!keysHeldRef.current.left && !keysHeldRef.current.right) {
-        velocityRef.current = 0;
-        stopWalkLoop();
-      }
+    const stillHeld = keysHeldRef.current.left || keysHeldRef.current.right;
+    if (stillHeld) {
+      lastDirRef.current = keysHeldRef.current.right && !keysHeldRef.current.left
+        ? 1
+        : keysHeldRef.current.left && !keysHeldRef.current.right
+          ? -1
+          : lastDirRef.current;
+      // Opposite key still down — keep cruising that way (do not leave rAF dead).
+      ensureWalkLoop();
       return;
     }
 
-    // Keep the rAF loop running so velocity can decelerate to a stop.
+    lastDirRef.current = 0;
+
+    if (preferReducedMotionRef.current) {
+      velocityRef.current = 0;
+      stopWalkLoop();
+      return;
+    }
+
+    // Coast / decelerate to a stop.
     ensureWalkLoop();
   }
 
@@ -394,16 +393,14 @@ export function LibraryWalk({ books }: Props) {
 
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        // Ignore OS auto-repeat — motion is driven by the rAF velocity loop.
-        if (event.repeat) return;
-        beginWalk(1);
+        // Repeats re-assert held + rAF (do not re-seed impulse).
+        beginWalk(1, event.repeat);
         return;
       }
 
       if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        if (event.repeat) return;
-        beginWalk(-1);
+        beginWalk(-1, event.repeat);
         return;
       }
 
@@ -454,6 +451,7 @@ export function LibraryWalk({ books }: Props) {
     const onBlur = () => {
       keysHeldRef.current.left = false;
       keysHeldRef.current.right = false;
+      lastDirRef.current = 0;
       velocityRef.current = 0;
       setWalkingAnim(false);
       stopWalkLoop();
