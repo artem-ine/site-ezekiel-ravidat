@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -10,53 +9,63 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LibraryBook } from "@/lib/books";
-import { groupIntoShelves } from "@/components/library/groupBooks";
 import { WalkBook } from "@/components/library2d/WalkBook";
 import {
-  decorKitForIndex,
-  themeForLabel,
-  type DecorKit,
-  type SectionTheme,
-} from "@/components/library2d/sectionTheme";
+  baysOnFloor,
+  buildFloorPlan,
+  duplexColumns,
+  type FloorLevel,
+  type WalkBay,
+} from "@/components/library2d/floorLayout";
+import type { DecorKit, SectionTheme } from "@/components/library2d/sectionTheme";
 
 type Props = {
   books: LibraryBook[];
 };
 
-const MAX_PER_BAY = 20;
-const PILE_COUNT = 5;
+/** Comfortable arrow / A-D pace (px per tap). */
+const WALK_STEP = 72;
 
 /**
- * Full-viewport side-scroller library. Minimal chrome, themed sections,
- * mini-map navigation. HTML/CSS only — real <a> spines.
+ * Duplex cross-section library: both levels visible in one viewport.
+ * Walk left/right; Space (or jump button / swipe up) hops between platforms.
  */
 export function LibraryWalk({ books }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
   const lastScrollRef = useRef(0);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swipeYRef = useRef<number | null>(null);
+  const levelRef = useRef<FloorLevel>(0);
+  const activeSlotRef = useRef(0);
+
+  const [level, setLevel] = useState<FloorLevel>(0);
+  const [activeSlot, setActiveSlot] = useState(0);
   const [preferReducedMotion, setPreferReducedMotion] = useState(false);
   const [facing, setFacing] = useState<"right" | "left">("right");
   const [isWalking, setIsWalking] = useState(false);
+  const [isJumping, setIsJumping] = useState(false);
   const [progress, setProgress] = useState({ left: 0, width: 1 });
   const [tint, setTint] = useState<SectionTheme | null>(null);
 
-  const sections = useMemo(() => {
-    const shelves = groupIntoShelves(books, "genre");
-    if (shelves.length > 0) return shelves;
-    return groupIntoShelves(books, "title");
-  }, [books]);
+  const plan = useMemo(() => buildFloorPlan(books), [books]);
+  const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const planRef = useRef(plan);
+  const columnsRef = useRef(columns);
 
-  const themed = useMemo(
-    () =>
-      sections.map((section, index) => ({
-        ...section,
-        theme: themeForLabel(section.label),
-        kit: decorKitForIndex(index),
-      })),
-    [sections],
-  );
+  useEffect(() => {
+    planRef.current = plan;
+    columnsRef.current = columns;
+  }, [plan, columns]);
+
+  useEffect(() => {
+    levelRef.current = level;
+  }, [level]);
+
+  useEffect(() => {
+    activeSlotRef.current = activeSlot;
+  }, [activeSlot]);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -66,16 +75,75 @@ export function LibraryWalk({ books }: Props) {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
+  function syncActive() {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const x = el.scrollLeft;
+    if (!preferReducedMotion) el.style.setProperty("--walk-scroll", `${x}px`);
+
+    setProgress({
+      left: x / Math.max(1, el.scrollWidth),
+      width: el.clientWidth / Math.max(1, el.scrollWidth),
+    });
+
+    const mid = x + el.clientWidth / 2;
+    let nearestSlot = 0;
+    let best = Infinity;
+    for (const node of el.querySelectorAll<HTMLElement>("[data-column-slot]")) {
+      const center = node.offsetLeft + node.offsetWidth / 2;
+      const d = Math.abs(center - mid);
+      if (d < best) {
+        best = d;
+        nearestSlot = Number(node.dataset.columnSlot ?? 0);
+      }
+    }
+    setActiveSlot(nearestSlot);
+    const col = columnsRef.current.find((c) => c.slot === nearestSlot);
+    const bay = levelRef.current === 0 ? col?.ground : col?.upper;
+    if (bay) setTint(bay.theme);
+  }
+
+  function playJump() {
+    if (preferReducedMotion) {
+      return;
+    }
+    setIsJumping(true);
+    if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+    jumpTimerRef.current = setTimeout(() => setIsJumping(false), 420);
+  }
+
+  function jump() {
+    playJump();
+    setLevel((current) => {
+      const next: FloorLevel = current === 0 ? 1 : 0;
+      levelRef.current = next;
+      return next;
+    });
+    requestAnimationFrame(syncActive);
+  }
+
+  function scrollToSlot(slot: number, nextLevel?: FloorLevel) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (nextLevel != null && nextLevel !== levelRef.current) {
+      playJump();
+      setLevel(nextLevel);
+      levelRef.current = nextLevel;
+    }
+    const node = el.querySelector<HTMLElement>(`[data-column-slot="${slot}"]`);
+    if (!node) return;
+    el.scrollTo({
+      left: Math.max(0, node.offsetLeft - el.clientWidth * 0.12),
+      behavior: preferReducedMotion ? "auto" : "smooth",
+    });
+  }
+
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
 
     const onScroll = () => {
       const x = el.scrollLeft;
-      if (!preferReducedMotion) {
-        el.style.setProperty("--walk-scroll", `${x}px`);
-      }
-
       const delta = x - lastScrollRef.current;
       if (Math.abs(delta) > 1) {
         setFacing(delta > 0 ? "right" : "left");
@@ -86,91 +154,50 @@ export function LibraryWalk({ books }: Props) {
         }
       }
       lastScrollRef.current = x;
-
-      setProgress({
-        left: x / Math.max(1, el.scrollWidth),
-        width: el.clientWidth / Math.max(1, el.scrollWidth),
-      });
-
-      const mid = x + el.clientWidth / 2;
-      let nearest: (typeof themed)[number] | null = null;
-      let best = Infinity;
-      for (const node of el.querySelectorAll<HTMLElement>("[data-section-id]")) {
-        const center = node.offsetLeft + node.offsetWidth / 2;
-        const d = Math.abs(center - mid);
-        if (d < best) {
-          best = d;
-          nearest = themed.find((s) => s.id === node.dataset.sectionId) ?? null;
-        }
-      }
-      setActiveId(nearest?.id ?? null);
-      if (nearest) setTint(nearest.theme);
+      syncActive();
     };
 
     const onWheelNative = (event: WheelEvent) => {
       if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) return;
-      el.scrollLeft += event.deltaY;
+      el.scrollLeft += event.deltaY * 0.55;
       event.preventDefault();
     };
 
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheelNative, { passive: false });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", syncActive);
     return () => {
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheelNative);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", syncActive);
       if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
     };
-  }, [preferReducedMotion, themed]);
-
-  const scrollToSection = useCallback(
-    (id: string) => {
-      const el = scrollerRef.current;
-      if (!el) return;
-      const node = el.querySelector<HTMLElement>(`[data-section-id="${CSS.escape(id)}"]`);
-      if (!node) return;
-      el.scrollTo({
-        left: Math.max(0, node.offsetLeft - el.clientWidth * 0.12),
-        behavior: preferReducedMotion ? "auto" : "smooth",
-      });
-    },
-    [preferReducedMotion],
-  );
-
-  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    const el = scrollerRef.current;
-    if (!el) return;
-    const target = event.target as HTMLElement;
-    if (target.closest("a, button")) return;
-    dragRef.current = { id: event.pointerId, x: event.clientX, left: el.scrollLeft };
-    el.setPointerCapture(event.pointerId);
-  };
-
-  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = dragRef.current;
-    const el = scrollerRef.current;
-    if (!drag || drag.id !== event.pointerId || !el) return;
-    el.scrollLeft = drag.left - (event.clientX - drag.x);
-  };
-
-  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (dragRef.current?.id === event.pointerId) dragRef.current = null;
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preferReducedMotion, plan]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const el = scrollerRef.current;
       if (!el) return;
-      const step = Math.round(el.clientWidth * 0.35);
-      if (event.key === "ArrowRight") {
+      if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
-        el.scrollBy({ left: step, behavior: preferReducedMotion ? "auto" : "smooth" });
-      } else if (event.key === "ArrowLeft") {
+        el.scrollBy({ left: WALK_STEP, behavior: preferReducedMotion ? "auto" : "smooth" });
+      } else if (event.key === "ArrowLeft" || event.key === "a" || event.key === "A") {
         event.preventDefault();
-        el.scrollBy({ left: -step, behavior: preferReducedMotion ? "auto" : "smooth" });
+        el.scrollBy({ left: -WALK_STEP, behavior: preferReducedMotion ? "auto" : "smooth" });
+      } else if (
+        event.key === " " ||
+        event.key === "Spacebar" ||
+        event.key === "ArrowUp" ||
+        event.key === "w" ||
+        event.key === "W"
+      ) {
+        event.preventDefault();
+        jump();
+      } else if (event.key === "ArrowDown" || event.key === "s" || event.key === "S") {
+        event.preventDefault();
+        if (levelRef.current === 1) jump();
       } else if (event.key === "Home") {
         event.preventDefault();
         el.scrollTo({ left: 0, behavior: preferReducedMotion ? "auto" : "smooth" });
@@ -184,17 +211,52 @@ export function LibraryWalk({ books }: Props) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preferReducedMotion]);
 
+  useEffect(
+    () => () => {
+      if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current);
+    },
+    [],
+  );
+
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const el = scrollerRef.current;
+    if (!el) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("a, button")) return;
+    dragRef.current = { id: event.pointerId, x: event.clientX, left: el.scrollLeft };
+    swipeYRef.current = event.clientY;
+    el.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    const el = scrollerRef.current;
+    if (!drag || drag.id !== event.pointerId || !el) return;
+    el.scrollLeft = drag.left - (event.clientX - drag.x);
+  };
+
+  const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.id !== event.pointerId) return;
+    const startY = swipeYRef.current;
+    dragRef.current = null;
+    swipeYRef.current = null;
+    if (startY == null) return;
+    const dy = event.clientY - startY;
+    if (Math.abs(dy) > 70) jump();
+  };
+
   if (books.length === 0) {
-    return (
-      <p role="status" className="walk-empty">
-        No books on the shelves yet.
-      </p>
-    );
+    return <p role="status" className="walk-empty">No books on the shelves yet.</p>;
   }
 
-  const activeTheme = tint ?? themed[0]?.theme;
+  const activeCol = columns.find((c) => c.slot === activeSlot);
+  const activeBay = level === 0 ? activeCol?.ground : activeCol?.upper;
+  const activeTheme = tint ?? activeBay?.theme ?? columns[0]?.ground.theme;
+
   const walkStyle = {
     "--walk-sky": activeTheme?.sky,
     "--walk-wall": activeTheme?.wall,
@@ -203,14 +265,16 @@ export function LibraryWalk({ books }: Props) {
     "--walk-floor-deep": activeTheme?.floorDeep,
     "--walk-accent": activeTheme?.accent,
     "--walk-light": activeTheme?.light,
+    "--walk-level": level,
   } as CSSProperties;
 
   return (
     <section
-      className={`walk${preferReducedMotion ? " walk--calm" : ""}`}
-      aria-label="Pixel library side-scroller"
+      className={`walk walk--duplex${preferReducedMotion ? " walk--calm" : ""}`}
+      aria-label="Pixel library duplex"
       style={walkStyle}
       data-mood={activeTheme?.mood}
+      data-level={level}
     >
       <a className="walk-skip" href="#walk-scene">
         Skip to the stacks
@@ -222,7 +286,7 @@ export function LibraryWalk({ books }: Props) {
         className={`walk-scroller${preferReducedMotion ? " walk-scroller--calm" : ""}`}
         tabIndex={0}
         role="region"
-        aria-label="Scrollable library room. Arrow keys move left and right."
+        aria-label="Duplex library. Arrow keys or A and D walk. Space jumps between floors."
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -230,32 +294,26 @@ export function LibraryWalk({ books }: Props) {
       >
         <div className="walk-scene">
           <div className="walk-layer walk-layer--parallax" aria-hidden="true">
-            {/* Soft sky wash — colour transitions via CSS vars on .walk */}
             <div className="walk-skywash" />
           </div>
 
           <div className="walk-layer walk-layer--shelves">
-            <div className="walk-floor-run" aria-hidden="true" />
-            <div className="walk-ground" aria-hidden="true" />
-            {themed.map((section, index) => (
-              <WalkSection
-                key={section.id}
-                id={section.id}
-                label={section.label}
-                books={section.books}
-                theme={section.theme}
-                kit={section.kit}
-                index={index}
-                isLast={index === themed.length - 1}
-                calm={preferReducedMotion}
-              />
+            {columns.map((column) => (
+              <div
+                key={column.slot}
+                className="walk-column"
+                data-column-slot={column.slot}
+              >
+                <LevelBay bay={column.upper} calm={preferReducedMotion} />
+                <LevelBay bay={column.ground} calm={preferReducedMotion} />
+              </div>
             ))}
           </div>
         </div>
       </div>
 
       <div
-        className={`walk-avatar walk-avatar--${facing}${isWalking ? " is-walking" : ""}`}
+        className={`walk-avatar walk-avatar--${facing} walk-avatar--level-${level}${isWalking ? " is-walking" : ""}${isJumping ? " is-jumping" : ""}`}
         aria-hidden="true"
       >
         <span className="walk-avatar__body" />
@@ -263,116 +321,121 @@ export function LibraryWalk({ books }: Props) {
         <span className="walk-avatar__leg walk-avatar__leg--r" />
       </div>
 
+      <button
+        type="button"
+        className="walk-jump-btn"
+        aria-label={level === 0 ? "Jump to the upper floor" : "Jump to the ground floor"}
+        onClick={jump}
+      >
+        Jump
+      </button>
+
       <aside className="walk-minimap" aria-label="Library mini-map">
-        <p className="walk-minimap__title label">Map</p>
-        <div className="walk-minimap__track">
-          {themed.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className={`walk-minimap__bay${activeId === section.id ? " is-active" : ""}`}
-              style={
-                {
-                  "--bay-color": section.theme.wall,
-                  "--bay-accent": section.theme.accent,
-                } as CSSProperties
-              }
-              aria-label={`Jump to ${section.label}`}
-              title={section.label}
-              onClick={() => scrollToSection(section.id)}
-            >
-              <span className="walk-minimap__tip">{section.label}</span>
-            </button>
-          ))}
+        <p className="walk-minimap__title label">
+          Map · {level === 0 ? "ground" : "upper"}
+        </p>
+        {([1, 0] as FloorLevel[]).map((floor) => (
           <div
-            className="walk-minimap__you"
-            style={{
-              left: `${progress.left * 100}%`,
-              width: `${Math.max(progress.width * 100, 6)}%`,
-            }}
-            aria-hidden="true"
-          />
-        </div>
+            key={floor}
+            className={`walk-minimap__row${level === floor ? " is-current" : ""}`}
+          >
+            <span className="walk-minimap__floor-tag label">
+              {floor === 1 ? "Up" : "G"}
+            </span>
+            <div className="walk-minimap__track">
+              {baysOnFloor(plan, floor).map((bay) => (
+                <button
+                  key={bay.id}
+                  type="button"
+                  className={`walk-minimap__bay${activeSlot === bay.slot && level === floor ? " is-active" : ""}${bay.empty ? " is-empty" : ""}`}
+                  style={
+                    {
+                      "--bay-color": bay.theme.wall,
+                      "--bay-accent": bay.theme.accent,
+                    } as CSSProperties
+                  }
+                  aria-label={`Go to ${bay.label} on the ${floor === 0 ? "ground" : "upper"} floor`}
+                  title={bay.label}
+                  onClick={() => scrollToSlot(bay.slot, floor)}
+                >
+                  <span className="walk-minimap__tip">{bay.label}</span>
+                </button>
+              ))}
+              {level === floor && (
+                <div
+                  className="walk-minimap__you"
+                  style={{
+                    left: `${progress.left * 100}%`,
+                    width: `${Math.max(progress.width * 100, 6)}%`,
+                  }}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          </div>
+        ))}
         <p className="walk-minimap__here label" aria-live="polite">
-          {themed.find((s) => s.id === activeId)?.label ?? "Library"}
+          {activeBay?.label ?? "Library"}
         </p>
       </aside>
     </section>
   );
 }
 
-function WalkSection({
-  id,
-  label,
-  books,
-  theme,
-  kit,
-  index,
-  isLast,
-  calm,
-}: {
-  id: string;
-  label: string;
-  books: LibraryBook[];
-  theme: SectionTheme;
-  kit: DecorKit;
-  index: number;
-  isLast: boolean;
-  calm: boolean;
-}) {
-  const shelfBooks = books.slice(0, MAX_PER_BAY);
-  const pileBooks = books.slice(MAX_PER_BAY, MAX_PER_BAY + PILE_COUNT);
+function LevelBay({ bay, calm }: { bay: WalkBay; calm: boolean }) {
   const style = {
-    "--sec-sky": theme.sky,
-    "--sec-wall": theme.wall,
-    "--sec-wall-deep": theme.wallDeep,
-    "--sec-floor": theme.floor,
-    "--sec-floor-deep": theme.floorDeep,
-    "--sec-accent": theme.accent,
-    "--sec-light": theme.light,
+    "--sec-sky": bay.theme.sky,
+    "--sec-wall": bay.theme.wall,
+    "--sec-wall-deep": bay.theme.wallDeep,
+    "--sec-floor": bay.theme.floor,
+    "--sec-floor-deep": bay.theme.floorDeep,
+    "--sec-accent": bay.theme.accent,
+    "--sec-light": bay.theme.light,
   } as CSSProperties;
 
   return (
     <section
-      className={`walk-section walk-section--${kit} walk-section--${theme.pattern}`}
-      data-section-id={id}
-      data-mood={theme.mood}
-      aria-label={`${label}, ${books.length} books`}
+      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}`}
+      data-section-id={bay.id}
+      data-floor={bay.floor}
+      aria-label={
+        bay.empty
+          ? `${bay.label}`
+          : `${bay.label}, ${bay.books.length + bay.piles.length} books`
+      }
       style={style}
     >
-      <div className="walk-section__wall" aria-hidden="true">
-        <div className="walk-section__paper" />
-        <div className="walk-section__glow" />
-        {!calm && <div className="walk-section__motes" />}
-        <div className="walk-section__window" />
+      <div className="walk-bay__wall" aria-hidden="true">
+        <div className="walk-bay__paper" />
+        <div className="walk-bay__glow" />
+        {!calm && !bay.empty && <div className="walk-bay__motes" />}
+        <div className="walk-bay__window" />
       </div>
+
+      <div className="walk-bay__deck" aria-hidden="true" />
 
       <div className="walk-sign" aria-hidden="true">
-        <span>{label}</span>
+        <span>{bay.label}</span>
       </div>
-      <h3 className="walk-sr-only">{label}</h3>
+      <h3 className="walk-sr-only">{bay.label}</h3>
 
-      <SectionShelves kit={kit} />
-      <SectionDecor kit={kit} index={index} />
-
-      <div className="walk-rail">
-        {shelfBooks.map((book) => (
-          <WalkBook key={book.uid} book={book} />
-        ))}
-      </div>
-
-      {pileBooks.length > 0 && (
-        <div className="walk-pile" aria-label={`${label} floor stack`}>
-          {pileBooks.map((book) => (
-            <WalkBook key={`pile-${book.uid}`} book={book} pose="pile" />
-          ))}
-        </div>
-      )}
-
-      {!isLast && (
-        <div className="walk-sign walk-sign--end" aria-hidden="true">
-          <span>→</span>
-        </div>
+      {!bay.empty && (
+        <>
+          <SectionShelves kit={bay.kit} />
+          <SectionDecor kit={bay.kit} index={bay.slot} />
+          <div className="walk-rail">
+            {bay.books.map((book) => (
+              <WalkBook key={book.uid} book={book} />
+            ))}
+          </div>
+          {bay.piles.length > 0 && (
+            <div className="walk-pile" aria-label={`${bay.label} stack`}>
+              {bay.piles.map((book) => (
+                <WalkBook key={`pile-${book.uid}`} book={book} pose="pile" />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </section>
   );
@@ -385,57 +448,18 @@ function SectionShelves({ kit }: { kit: DecorKit }) {
         <div className="walk-case__board" />
         <div className="walk-case__board" />
         <div className="walk-case__board" />
-        <div className="walk-case__board" />
       </div>
     );
   }
   if (kit === "low-nook") {
     return (
-      <>
-        <div className="walk-case walk-case--low" aria-hidden="true">
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-        </div>
-        <div className="walk-case walk-case--side" aria-hidden="true">
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-        </div>
-      </>
+      <div className="walk-case walk-case--low" aria-hidden="true">
+        <div className="walk-case__board" />
+        <div className="walk-case__board" />
+      </div>
     );
   }
   if (kit === "mezzanine") {
-    return (
-      <>
-        <div className="walk-mezzanine" aria-hidden="true">
-          <div className="walk-mezzanine__rail" />
-          <div className="walk-case walk-case--balcony">
-            <div className="walk-case__board" />
-            <div className="walk-case__board" />
-          </div>
-        </div>
-        <div className="walk-case walk-case--mid" aria-hidden="true">
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-        </div>
-      </>
-    );
-  }
-  if (kit === "ladder-desk") {
-    return (
-      <>
-        <div className="walk-case walk-case--tall" aria-hidden="true">
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-          <div className="walk-case__board" />
-        </div>
-        <div className="walk-ladder" aria-hidden="true" />
-      </>
-    );
-  }
-  if (kit === "plants-globe") {
     return (
       <div className="walk-case walk-case--mid" aria-hidden="true">
         <div className="walk-case__board" />
@@ -444,20 +468,28 @@ function SectionShelves({ kit }: { kit: DecorKit }) {
       </div>
     );
   }
+  if (kit === "ladder-desk") {
+    return (
+      <div className="walk-case walk-case--tall" aria-hidden="true">
+        <div className="walk-case__board" />
+        <div className="walk-case__board" />
+        <div className="walk-case__board" />
+      </div>
+    );
+  }
+  if (kit === "plants-globe") {
+    return (
+      <div className="walk-case walk-case--mid" aria-hidden="true">
+        <div className="walk-case__board" />
+        <div className="walk-case__board" />
+      </div>
+    );
+  }
   return (
-    <>
-      <div className="walk-mezzanine walk-mezzanine--clock" aria-hidden="true">
-        <div className="walk-mezzanine__rail" />
-        <div className="walk-case walk-case--balcony">
-          <div className="walk-case__board" />
-        </div>
-      </div>
-      <div className="walk-case walk-case--low" aria-hidden="true">
-        <div className="walk-case__board" />
-        <div className="walk-case__board" />
-      </div>
-      <div className="walk-stool" aria-hidden="true" />
-    </>
+    <div className="walk-case walk-case--low" aria-hidden="true">
+      <div className="walk-case__board" />
+      <div className="walk-case__board" />
+    </div>
   );
 }
 
@@ -470,36 +502,21 @@ function SectionDecor({ kit, index }: { kit: DecorKit; index: number }) {
         </div>
       )}
       {(kit === "low-nook" || kit === "plants-globe") && <div className="walk-sofa" />}
-      {(kit === "tall-hearth" || kit === "balcony-clock") && (
-        <>
-          <div className="walk-chair" />
-          <div className="walk-chair walk-chair--b" />
-        </>
-      )}
+      {(kit === "tall-hearth" || kit === "balcony-clock") && <div className="walk-chair" />}
       {(kit === "ladder-desk" || kit === "mezzanine") && (
-        <>
-          <div className="walk-desk" />
-          <div className="walk-lamp">
-            <div className="walk-lamp__glow" />
-          </div>
-        </>
+        <div className="walk-lamp">
+          <div className="walk-lamp__glow" />
+        </div>
       )}
       {(kit === "plants-globe" || kit === "balcony-clock") && (
         <>
           <div className="walk-plant" />
-          <div className="walk-plant walk-plant--b" />
           <div className="walk-globe" />
         </>
       )}
       {kit === "balcony-clock" && <div className="walk-clock" />}
-      {(kit === "low-nook" || kit === "ladder-desk") && (
-        <>
-          <div className="walk-bean" />
-          <div className="walk-bean walk-bean--b" />
-        </>
-      )}
       <div className={`walk-rug walk-rug--${(index % 3) + 1}`} />
-      {(kit === "tall-hearth" || kit === "plants-globe" || index % 2 === 0) && (
+      {index % 2 === 0 && (
         <div className="walk-cat">
           <div className="walk-cat__body" />
         </div>
