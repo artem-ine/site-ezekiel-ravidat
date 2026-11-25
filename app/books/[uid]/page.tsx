@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SiteShell } from "@/components/SiteShell";
 import { getLibraryBook, getLibraryBooks } from "@/lib/books";
 import { STATUS_LABEL } from "@/lib/spine-style";
 
@@ -15,10 +16,11 @@ export default async function BookPage({ params }: Props) {
   const authors = book.authors.join(", ") || "Unknown author";
 
   return (
+    <SiteShell>
     <article className="book-detail settle">
       <p className="label">
         <Link href="/" className="ink-link">
-          Back to the shelves
+          Back to the walk
         </Link>
       </p>
 
@@ -102,6 +104,7 @@ export default async function BookPage({ params }: Props) {
         </div>
       </div>
     </article>
+    </SiteShell>
   );
 }
 

@@ -16,18 +16,23 @@ type Props = {
   books: LibraryBook[];
 };
 
-const MAX_PER_BAY = 18;
+const MAX_PER_BAY = 22;
 const PILE_COUNT = 5;
 
 /**
- * Horizontally scrolling pixel-art library walk.
- * No WebGL — HTML/CSS layers, real <a> book hotspots, keyboard + touch.
+ * Full-viewport side-scroller library walk (Chrome-dino spirit).
+ * HTML/CSS only — no WebGL. Real <a> spines, keyboard + drag/touch.
  */
 export function LibraryWalk({ books }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
+  const lastScrollRef = useRef(0);
+  const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [preferReducedMotion, setPreferReducedMotion] = useState(false);
+  const [facing, setFacing] = useState<"right" | "left">("right");
+  const [isWalking, setIsWalking] = useState(false);
+  const [progress, setProgress] = useState({ left: 0, width: 1 });
 
   const sections = useMemo(() => {
     const shelves = groupIntoShelves(books, "genre");
@@ -43,7 +48,6 @@ export function LibraryWalk({ books }: Props) {
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  // Parallax + active section from scroll; wheel mapped to horizontal (non-passive).
   useEffect(() => {
     const el = scrollerRef.current;
     if (!el) return;
@@ -53,6 +57,23 @@ export function LibraryWalk({ books }: Props) {
       if (!preferReducedMotion) {
         el.style.setProperty("--walk-scroll", `${x}px`);
       }
+
+      const delta = x - lastScrollRef.current;
+      if (Math.abs(delta) > 1) {
+        setFacing(delta > 0 ? "right" : "left");
+        if (!preferReducedMotion) {
+          setIsWalking(true);
+          if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
+          walkTimerRef.current = setTimeout(() => setIsWalking(false), 180);
+        }
+      }
+      lastScrollRef.current = x;
+
+      setProgress({
+        left: x / Math.max(1, el.scrollWidth),
+        width: el.clientWidth / Math.max(1, el.scrollWidth),
+      });
+
       const mid = x + el.clientWidth / 2;
       let nearest: string | null = null;
       let best = Infinity;
@@ -76,28 +97,33 @@ export function LibraryWalk({ books }: Props) {
     onScroll();
     el.addEventListener("scroll", onScroll, { passive: true });
     el.addEventListener("wheel", onWheelNative, { passive: false });
+    window.addEventListener("resize", onScroll);
     return () => {
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheelNative);
+      window.removeEventListener("resize", onScroll);
+      if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
     };
   }, [preferReducedMotion, sections]);
 
-  const scrollToSection = useCallback((id: string) => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const node = el.querySelector<HTMLElement>(`[data-section-id="${CSS.escape(id)}"]`);
-    if (!node) return;
-    el.scrollTo({
-      left: Math.max(0, node.offsetLeft - el.clientWidth * 0.15),
-      behavior: preferReducedMotion ? "auto" : "smooth",
-    });
-  }, [preferReducedMotion]);
+  const scrollToSection = useCallback(
+    (id: string) => {
+      const el = scrollerRef.current;
+      if (!el) return;
+      const node = el.querySelector<HTMLElement>(`[data-section-id="${CSS.escape(id)}"]`);
+      if (!node) return;
+      el.scrollTo({
+        left: Math.max(0, node.offsetLeft - el.clientWidth * 0.12),
+        behavior: preferReducedMotion ? "auto" : "smooth",
+      });
+    },
+    [preferReducedMotion],
+  );
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
     const el = scrollerRef.current;
     if (!el) return;
-    // Don't steal clicks from book links / strip buttons.
     const target = event.target as HTMLElement;
     if (target.closest("a, button")) return;
     dragRef.current = { id: event.pointerId, x: event.clientX, left: el.scrollLeft };
@@ -119,12 +145,13 @@ export function LibraryWalk({ books }: Props) {
     const onKey = (event: KeyboardEvent) => {
       const el = scrollerRef.current;
       if (!el) return;
+      const step = Math.round(el.clientWidth * 0.35);
       if (event.key === "ArrowRight") {
         event.preventDefault();
-        el.scrollBy({ left: 280, behavior: preferReducedMotion ? "auto" : "smooth" });
+        el.scrollBy({ left: step, behavior: preferReducedMotion ? "auto" : "smooth" });
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
-        el.scrollBy({ left: -280, behavior: preferReducedMotion ? "auto" : "smooth" });
+        el.scrollBy({ left: -step, behavior: preferReducedMotion ? "auto" : "smooth" });
       } else if (event.key === "Home") {
         event.preventDefault();
         el.scrollTo({ left: 0, behavior: preferReducedMotion ? "auto" : "smooth" });
@@ -149,32 +176,34 @@ export function LibraryWalk({ books }: Props) {
   }
 
   return (
-    <section className="walk" aria-label="Pixel library walk">
-      <div className="walk__intro">
-        <p className="label">Walk the stacks</p>
-        <h2 className="walk__heading">A side-on stroll through the room</h2>
-        <p className="walk__lede">
-          Drag, scroll, or use the arrow keys. Hover a spine, then open it — every book is a real
-          link. Jump sections below, or skip to the{" "}
-          <a className="ink-link" href="#catalogue">
-            full catalogue list
-          </a>
-          .
-        </p>
-      </div>
+    <section className="walk" aria-label="Pixel library side-scroller">
+      <header className="walk-hud">
+        <div className="walk-hud__brand">
+          <p className="label">A personal library</p>
+          <p className="walk-hud__title">
+            Ezekiel <em>Ravidat</em>
+          </p>
+          <p className="walk-hud__hint">
+            Drag, scroll, or ← →.{" "}
+            <a className="ink-link" href="#catalogue">
+              Skip to catalogue list
+            </a>
+          </p>
+        </div>
 
-      <nav className="walk-strip" aria-label="Library sections">
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            className={`walk-strip__btn${activeId === section.id ? " is-active" : ""}`}
-            onClick={() => scrollToSection(section.id)}
-          >
-            {section.label}
-          </button>
-        ))}
-      </nav>
+        <nav className="walk-strip" aria-label="Library sections">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              className={`walk-strip__btn${activeId === section.id ? " is-active" : ""}`}
+              onClick={() => scrollToSection(section.id)}
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      </header>
 
       <div
         ref={scrollerRef}
@@ -193,13 +222,16 @@ export function LibraryWalk({ books }: Props) {
             <div className="walk-window walk-window--a" />
             <div className="walk-window walk-window--b" />
             <div className="walk-window walk-window--c" />
+            <div className="walk-window walk-window--d" />
             <div className="walk-shaft walk-shaft--a" />
             <div className="walk-shaft walk-shaft--b" />
+            <div className="walk-shaft walk-shaft--c" />
             {!preferReducedMotion && <div className="walk-motes" />}
           </div>
 
           <div className="walk-layer walk-layer--shelves">
             <div className="walk-floor" aria-hidden="true" />
+            <div className="walk-ground" aria-hidden="true" />
             {sections.map((section, index) => (
               <WalkSection
                 key={section.id}
@@ -215,6 +247,7 @@ export function LibraryWalk({ books }: Props) {
           <div className="walk-layer walk-layer--fore" aria-hidden="true">
             <div className="walk-rug walk-rug--a" />
             <div className="walk-rug walk-rug--b" />
+            <div className="walk-rug walk-rug--c" />
             <div className="walk-hearth">
               <div className="walk-hearth__glow" />
             </div>
@@ -231,6 +264,41 @@ export function LibraryWalk({ books }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Fixed on the ground line — world scrolls past, like the Chrome dino. */}
+      <div
+        className={`walk-avatar walk-avatar--${facing}${isWalking ? " is-walking" : ""}`}
+        aria-hidden="true"
+      >
+        <span className="walk-avatar__body" />
+        <span className="walk-avatar__leg walk-avatar__leg--l" />
+        <span className="walk-avatar__leg walk-avatar__leg--r" />
+      </div>
+
+      <aside className="walk-minimap" aria-label="Library mini-map">
+        <div className="walk-minimap__track" role="presentation">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              className={`walk-minimap__bay${activeId === section.id ? " is-active" : ""}`}
+              title={section.label}
+              aria-label={`Jump to ${section.label}`}
+              onClick={() => scrollToSection(section.id)}
+            />
+          ))}
+          <div
+            className="walk-minimap__you"
+            style={{
+              left: `${progress.left * 100}%`,
+              width: `${Math.max(progress.width * 100, 8)}%`,
+            }}
+          />
+        </div>
+        <p className="walk-minimap__label label">
+          {sections.find((s) => s.id === activeId)?.label ?? "Library"}
+        </p>
+      </aside>
     </section>
   );
 }
