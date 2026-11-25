@@ -6,6 +6,7 @@ import {
   type DecorKit,
   type SectionTheme,
 } from "@/components/library2d/sectionTheme";
+import { spineWidthRem } from "@/lib/spine-style";
 
 /** Books on the ground shelves before overflow goes to the loft above. */
 export const BAY_CAPACITY = 14;
@@ -197,4 +198,31 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
     columns.push({ slot, ground, upper });
   }
   return columns;
+}
+
+/** Minimum pleasant bay width (rem). */
+const BAY_MIN_WIDTH_REM = 28;
+/** Horizontal chrome around the book rail (margins, padding, case edge). */
+const BAY_CHROME_REM = 3.5;
+const RAIL_GAP_REM = 0.1;
+
+/**
+ * Width needed so every shelf book sits in a single row (no wrap),
+ * plus piles if present. Loft overflow stays on the upper bay.
+ */
+export function bayRailWidthRem(bay: WalkBay): number {
+  if (bay.empty) return BAY_MIN_WIDTH_REM;
+  let width = BAY_CHROME_REM;
+  for (const book of bay.books) {
+    width += spineWidthRem(book.pageCount) + RAIL_GAP_REM;
+  }
+  for (const book of bay.piles) {
+    width += spineWidthRem(book.pageCount) * 0.85 + RAIL_GAP_REM;
+  }
+  return Math.max(BAY_MIN_WIDTH_REM, width);
+}
+
+/** Column width: wide enough for the fuller of ground / upper rails. */
+export function columnWidthRem(column: WalkColumn): number {
+  return Math.max(bayRailWidthRem(column.ground), bayRailWidthRem(column.upper));
 }
