@@ -14,6 +14,7 @@ import { WalkBook } from "@/components/library2d/WalkBook";
 import {
   baysOnFloor,
   buildFloorPlan,
+  columnWidthRem,
   duplexColumns,
   type FloorLevel,
   type WalkBay,
@@ -553,16 +554,23 @@ export function LibraryWalk({ books }: Props) {
           </div>
 
           <div className="walk-layer walk-layer--shelves">
+            <div className="walk-edge walk-edge--start" aria-hidden="true" />
             {columns.map((column) => (
               <div
                 key={column.slot}
                 className="walk-column"
                 data-column-slot={column.slot}
+                style={
+                  {
+                    "--walk-bay-width": `${columnWidthRem(column)}rem`,
+                  } as CSSProperties
+                }
               >
                 <LevelBay bay={column.upper} calm={preferReducedMotion} />
                 <LevelBay bay={column.ground} calm={preferReducedMotion} />
               </div>
             ))}
+            <div className="walk-edge walk-edge--end" aria-hidden="true" />
           </div>
         </div>
       </div>

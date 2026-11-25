@@ -520,8 +520,20 @@
     min-width: 100%;
   }
 
+  /*
+   * Side pads so the fixed-center walker can stand over the first and last
+   * genres (max scroll alone leaves the last column short of center).
+   */
+  .walk-edge {
+    flex: 0 0 auto;
+    width: 50vw;
+    height: 100%;
+    pointer-events: none;
+  }
+
   .walk-column {
-    --walk-bay-width: min(100vw, 40rem);
+    /* Content-driven width — never capped to 100vw (that forced wrap). */
+    --walk-bay-width: 40rem;
     flex: 0 0 auto;
     width: var(--walk-bay-width);
     height: 100%;
@@ -760,18 +772,16 @@
     position: relative;
     z-index: 3;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: flex-end;
-    align-content: flex-end;
     gap: 0.08rem 0.1rem;
-    max-height: min(48%, 7.5rem);
     margin: 0 1rem calc(var(--walk-deck) + 0.3rem);
     pointer-events: auto;
   }
 
-  .walk-bay--low-nook .walk-rail,
-  .walk-bay--balcony-clock .walk-rail {
-    max-height: min(40%, 6rem);
+  /* Duplex shelves: one horizontal row, spines sized to the half-height bay. */
+  .walk-rail .walk-book {
+    max-height: min(38%, 5.75rem);
   }
 
   .walk-pile {
