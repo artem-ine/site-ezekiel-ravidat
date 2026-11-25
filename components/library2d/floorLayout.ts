@@ -7,9 +7,9 @@ import {
   type SectionTheme,
 } from "@/components/library2d/sectionTheme";
 
-/** Books on the ground shelves before overflow goes to a ladder loft. */
+/** Books on the ground shelves before overflow goes to the loft above. */
 export const BAY_CAPACITY = 14;
-/** Genres beyond this move to the upper floor (jump), not a loft. */
+/** Genres beyond this sit on the upper level as stacked rooms. */
 export const GROUND_GENRE_CAP = 5;
 
 export type FloorLevel = 0 | 1;
@@ -22,20 +22,20 @@ export type WalkBay = {
   theme: SectionTheme;
   kit: DecorKit;
   floor: FloorLevel;
-  /** Shared column index — both floors always have the same slot count. */
+  /** Shared column — both levels always share the same slot count. */
   slot: number;
-  partnerId: string | null;
-  /** How this bay is reached / left vertically. */
-  access: "ground" | "ladder" | "jump" | "empty";
-  /** Solid empty pad so floors stay the same length. */
   empty: boolean;
 };
 
 export type FloorPlan = {
   bays: WalkBay[];
-  floors: FloorLevel[];
-  /** Total columns — identical on every floor. */
   slots: number;
+};
+
+export type WalkColumn = {
+  slot: number;
+  ground: WalkBay;
+  upper: WalkBay;
 };
 
 function splitBooks(books: LibraryBook[]) {
@@ -59,8 +59,6 @@ function emptyBay(
     kit,
     floor,
     slot,
-    partnerId: null,
-    access: "empty",
     empty: true,
   };
 }
@@ -69,8 +67,6 @@ function genreBay(
   genre: ShelfGroup,
   floor: FloorLevel,
   slot: number,
-  access: WalkBay["access"],
-  partnerId: string | null,
   kit: DecorKit,
   books: LibraryBook[],
   label = genre.label,
@@ -85,12 +81,15 @@ function genreBay(
     kit,
     floor,
     slot,
-    partnerId,
-    access,
     empty: false,
   };
 }
 
+/**
+ * Build equal-length duplex columns: ground + upper in every slot.
+ * Overflow of the same genre → loft above that column.
+ * Extra genres → upper rooms over halls or over ground genres without lofts.
+ */
 export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
   let genres = groupIntoShelves(books, "genre");
   if (genres.length === 0) genres = groupIntoShelves(books, "title");
@@ -100,7 +99,6 @@ export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
   const upperOnly =
     genres.length > GROUND_GENRE_CAP ? genres.slice(GROUND_GENRE_CAP) : [];
 
-  // Columns = max(ground genres, upper-only genres). Both floors get every column.
   const slots = Math.max(groundGenres.length, upperOnly.length, 1);
   const bays: WalkBay[] = [];
   let upperIdx = 0;
@@ -115,20 +113,15 @@ export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
         ? groundGenre.books.slice(0, BAY_CAPACITY)
         : groundGenre.books;
       const loftBooks = overflow ? groundGenre.books.slice(BAY_CAPACITY) : [];
-      const groundId = `${groundGenre.id}__f0`;
-      const loftId = `${groundGenre.id}__f1`;
+
+      bays.push(genreBay(groundGenre, 0, slot, kit, groundBooks));
 
       if (overflow) {
-        bays.push(
-          genreBay(groundGenre, 0, slot, "ladder", loftId, kit, groundBooks),
-        );
         bays.push(
           genreBay(
             groundGenre,
             1,
             slot,
-            "ladder",
-            groundId,
             "mezzanine",
             loftBooks,
             `${groundGenre.label} · loft`,
@@ -136,45 +129,27 @@ export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
         );
       } else if (upperIdx < upperOnly.length) {
         const upper = upperOnly[upperIdx++];
-        const upperId = `${upper.id}__f1`;
-        bays.push(
-          genreBay(groundGenre, 0, slot, "jump", upperId, kit, groundBooks),
-        );
         bays.push(
           genreBay(
             upper,
             1,
             slot,
-            "jump",
-            groundId,
             decorKitForIndex(slot + 3),
             upper.books.slice(0, BAY_CAPACITY + 4),
           ),
         );
       } else {
-        bays.push(
-          genreBay(groundGenre, 0, slot, "ground", null, kit, groundBooks),
-        );
         bays.push(emptyBay(1, slot, themeForLabel(groundGenre.label), "low-nook"));
       }
     } else {
-      // No ground genre for this column — pad ground, put upper-only genre above.
       const upper = upperOnly[upperIdx++];
       const theme = themeForLabel(upper.label);
-      const groundId = `empty-f0-s${slot}`;
-      const upperId = `${upper.id}__f1`;
-      const pad = emptyBay(0, slot, theme, kit);
-      pad.id = groundId;
-      pad.partnerId = upperId;
-      pad.access = "jump";
-      bays.push(pad);
+      bays.push(emptyBay(0, slot, theme, kit));
       bays.push(
         genreBay(
           upper,
           1,
           slot,
-          "jump",
-          groundId,
           decorKitForIndex(slot + 5),
           upper.books.slice(0, BAY_CAPACITY + 4),
         ),
@@ -182,42 +157,44 @@ export function buildFloorPlan(books: LibraryBook[]): FloorPlan {
     }
   }
 
-  // Any leftover upper genres: extend BOTH floors with equal new columns.
   while (upperIdx < upperOnly.length) {
     const slot = bays.filter((b) => b.floor === 0).length;
     const upper = upperOnly[upperIdx++];
     const theme = themeForLabel(upper.label);
     const kit = decorKitForIndex(slot);
-    const groundId = `empty-f0-s${slot}`;
-    const upperId = `${upper.id}__f1`;
-    const pad = emptyBay(0, slot, theme, kit);
-    pad.id = groundId;
-    pad.partnerId = upperId;
-    pad.access = "jump";
-    bays.push(pad);
+    bays.push(emptyBay(0, slot, theme, kit));
     bays.push(
       genreBay(
         upper,
         1,
         slot,
-        "jump",
-        groundId,
         decorKitForIndex(slot + 5),
         upper.books.slice(0, BAY_CAPACITY + 4),
       ),
     );
   }
 
-  const finalSlots = bays.filter((b) => b.floor === 0).length;
-  const hasUpperContent = bays.some((b) => b.floor === 1 && !b.empty);
-
   return {
     bays,
-    floors: hasUpperContent ? [0, 1] : [0],
-    slots: finalSlots,
+    slots: bays.filter((b) => b.floor === 0).length,
   };
 }
 
 export function baysOnFloor(plan: FloorPlan, floor: FloorLevel): WalkBay[] {
   return plan.bays.filter((bay) => bay.floor === floor).sort((a, b) => a.slot - b.slot);
+}
+
+/** Columns for the duplex cross-section (ground + upper paired). */
+export function duplexColumns(plan: FloorPlan): WalkColumn[] {
+  const columns: WalkColumn[] = [];
+  for (let slot = 0; slot < plan.slots; slot += 1) {
+    const ground =
+      plan.bays.find((b) => b.floor === 0 && b.slot === slot) ??
+      emptyBay(0, slot, themeForLabel("Hall"), decorKitForIndex(slot));
+    const upper =
+      plan.bays.find((b) => b.floor === 1 && b.slot === slot) ??
+      emptyBay(1, slot, ground.theme, "low-nook");
+    columns.push({ slot, ground, upper });
+  }
+  return columns;
 }
