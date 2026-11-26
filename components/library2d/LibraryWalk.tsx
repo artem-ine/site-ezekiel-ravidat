@@ -67,6 +67,26 @@ export function LibraryWalk({ books }: Props) {
   const [isWalking, setIsWalking] = useState(false);
   const [isJumping, setIsJumping] = useState(false);
   const [tint, setTint] = useState<SectionTheme | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
+  const mapRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!mapOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (mapRef.current && !mapRef.current.contains(event.target as Node)) {
+        setMapOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMapOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [mapOpen]);
 
   const plan = useMemo(() => buildFloorPlan(books), [books]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
@@ -594,10 +614,24 @@ export function LibraryWalk({ books }: Props) {
         Jump
       </button>
 
-      <aside className="walk-minimap" aria-label="Library mini-map">
-        <p className="walk-minimap__title label">
-          Map · {level === 0 ? "ground" : "upper"}
-        </p>
+      <aside
+        ref={mapRef}
+        className={`walk-minimap${mapOpen ? " is-open" : ""}`}
+        aria-label="Library mini-map"
+      >
+        <button
+          type="button"
+          className="walk-minimap__toggle"
+          aria-expanded={mapOpen}
+          aria-controls="walk-minimap-panel"
+          onClick={() => setMapOpen((open) => !open)}
+        >
+          <span className="walk-minimap__toggle-icon" aria-hidden="true" />
+          <span className="walk-minimap__toggle-label">
+            {activeBay?.label ?? "Map"}
+          </span>
+        </button>
+        <div id="walk-minimap-panel" className="walk-minimap__panel">
         {([1, 0] as FloorLevel[]).map((floor) => (
           <div
             key={floor}
@@ -620,7 +654,10 @@ export function LibraryWalk({ books }: Props) {
                   }
                   aria-label={`Go to ${bay.label} on the ${floor === 0 ? "ground" : "upper"} floor`}
                   title={bay.label}
-                  onClick={() => scrollToSlot(bay.slot, floor)}
+                  onClick={() => {
+                    scrollToSlot(bay.slot, floor);
+                    setMapOpen(false);
+                  }}
                 >
                   <span className="walk-minimap__tip">{bay.label}</span>
                 </button>
@@ -638,6 +675,7 @@ export function LibraryWalk({ books }: Props) {
         <p className="walk-minimap__here label" aria-live="polite">
           {activeBay?.label ?? "Library"}
         </p>
+        </div>
       </aside>
     </section>
   );
