@@ -64,6 +64,15 @@ function relatedName(
   return data?.name?.trim() || field.uid || null;
 }
 
+/**
+ * Audiobooks are only how a title was read, so they never get a place on the
+ * site. The documents stay in Prismic; the paperback/hardcover edition of the
+ * same title is what shows.
+ */
+function isAudiobook(doc: Content.BookDocument): boolean {
+  return doc.data.format === "audio";
+}
+
 function mapBook(doc: Content.BookDocument): LibraryBook | null {
   if (!doc.uid) return null;
 
@@ -122,6 +131,7 @@ export async function getLibraryBooks(): Promise<LibraryBook[]> {
   });
 
   return docs
+    .filter((doc) => !isAudiobook(doc))
     .map(mapBook)
     .filter((book): book is LibraryBook => book !== null)
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
@@ -138,7 +148,7 @@ export async function getLibraryBook(uid: string): Promise<LibraryBook | undefin
       fetchLinks: [...FETCH_LINKS],
       ...(ref ? { ref } : {}),
     });
-    return mapBook(doc) ?? undefined;
+    return isAudiobook(doc) ? undefined : (mapBook(doc) ?? undefined);
   } catch {
     return undefined;
   }
