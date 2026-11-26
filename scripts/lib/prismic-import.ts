@@ -528,11 +528,27 @@ export async function pushBooksToPrismic(
   // 2. Genres
   const genreIds = new Map<string, string>();
   console.log(`Syncing ${genreMap.size} genres...`);
+  // `parent` is edited by hand in Prismic (Fiction / Nonfiction top levels); an update must not wipe it.
+  const existingGenreParents = new Map<string, string>();
+  try {
+    const existingGenres = await getReadClient().getAllByType("genre", { pageSize: 100 });
+    for (const d of existingGenres) {
+      const parent = d.data.parent;
+      if (d.uid && "id" in parent && parent.id) existingGenreParents.set(d.uid, parent.id);
+    }
+  } catch {
+    // No read token or no published genres yet: nothing to preserve
+  }
   for (const [uid, g] of genreMap) {
+    const parentId = existingGenreParents.get(uid);
     const data: GenreDocumentData = {
       name: g.name,
       accent: g.accent as GenreDocumentData["accent"],
       description: g.description,
+      // The Migration API only needs link_type and id; the rest of the typed link is read-side.
+      parent: (parentId
+        ? { link_type: "Document", id: parentId }
+        : { link_type: "Document" }) as GenreDocumentData["parent"],
     };
     try {
       const res = await upsertDoc(api, store, publishedUids.genre, {
