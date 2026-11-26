@@ -863,7 +863,7 @@ const LevelBay = memo(function LevelBay({
 
   return (
     <section
-      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}${display === "covers" ? " walk-bay--covers" : ""}`}
+      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}${display === "covers" ? " walk-bay--covers" : ""}${bay.shelfRows.length >= 3 ? " walk-bay--triple" : ""}`}
       data-section-id={bay.id}
       data-floor={bay.floor}
       data-shelf-rows={bay.shelfRows.length}
@@ -889,10 +889,17 @@ const LevelBay = memo(function LevelBay({
 
       {!bay.empty && (
         <>
-          <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
+          {bay.table ? (
+            <SectionTable />
+          ) : (
+            <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
+          )}
           {!multi && <SectionDecor kit={bay.kit} index={bay.slot} />}
           {showLadder && <LibraryLadder />}
-          <div className="walk-rails" data-rows={bay.shelfRows.length}>
+          <div
+            className={`walk-rails${bay.table ? " walk-rails--table" : ""}`}
+            data-rows={bay.shelfRows.length}
+          >
             {bay.shelfRows.map((row, rowIndex) => (
               <div
                 key={`${bay.id}-row-${rowIndex}`}
@@ -949,14 +956,26 @@ function SectionShelves({
   // One row of covers fits the low cabinet; tall cabinets stay for spines and double rows.
   const tall = rows > 1 || (kitIsTall && display === "spines");
   const boards = Math.max(rows + 1, tall && kitIsTall ? 3 : 2);
+  const shape =
+    rows >= 3
+      ? "walk-case--triple"
+      : `${tall ? " walk-case--tall" : " walk-case--low"}${rows > 1 ? " walk-case--multi" : ""}`;
   return (
-    <div
-      className={`walk-case${tall ? " walk-case--tall" : " walk-case--low"}${rows > 1 ? " walk-case--multi" : ""}`}
-      aria-hidden="true"
-    >
+    <div className={`walk-case ${shape}`} aria-hidden="true">
       {Array.from({ length: boards }, (_, i) => (
         <div key={i} className="walk-case__board" />
       ))}
+    </div>
+  );
+}
+
+/** A small display table: books stand on its top instead of in a cabinet. */
+function SectionTable() {
+  return (
+    <div className="walk-table" aria-hidden="true">
+      <span className="walk-table__top" />
+      <span className="walk-table__leg walk-table__leg--l" />
+      <span className="walk-table__leg walk-table__leg--r" />
     </div>
   );
 }

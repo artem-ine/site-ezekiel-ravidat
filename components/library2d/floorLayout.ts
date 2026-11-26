@@ -31,12 +31,18 @@ export type DisplayMode = "spines" | "covers";
 /** A book shown cover-out is a fixed 2:3 block. */
 export const FACE_WIDTH_REM = 3.2;
 export const FACE_HEIGHT_REM = 4.8;
-/** Covers mode: every book faces out at this size (two rows fit a double-height cabinet). */
+/** Covers mode: every book faces out at this size. */
 export const COVER_WIDTH_REM = 3.6;
 export const COVER_HEIGHT_REM = 5.4;
 const COVER_GAPS_REM = [0.2, 0.3, 0.45, 0.6] as const;
-/** A shelf row never holds more than this many rails; a long genre spills into more columns. */
-export const MAX_ROWS_PER_BAY = 2;
+/** A shelf needs at least this many books; fewer go on a display table instead. */
+export const SHELF_MIN_BOOKS = 3;
+/**
+ * Rows per cabinet, repeating along the walk so neighbouring cabinets differ in height.
+ * Spines are tall, so they stay at two rows at most.
+ */
+const COVER_ROW_PATTERN = [3, 2, 3, 1, 2] as const;
+const SPINE_ROW_PATTERN = [2, 1, 2] as const;
 /** Series longer than this stand together as a tight set instead of stacking. */
 const STACK_MAX_SERIES = 6;
 const STACK_MAX_HIGH = 3;
@@ -82,6 +88,8 @@ export type WalkBay = {
   empty: boolean;
   /** The other floor of this column has books too, so a ladder links them. */
   paired: boolean;
+  /** A small display table of books rather than a shelf. */
+  table: boolean;
   /** Top-level genre (wing) this bay belongs to. */
   parent: string;
   /** First column of its wing: the wing gate stands just before it. */
@@ -302,26 +310,10 @@ export function packShelfRows(items: ShelfItem[], maxInnerRem: number): ShelfIte
   return rows;
 }
 
-type CoverShape = { widthRem: number; heightRem: number };
-
-/**
- * Cover shapes in the order they repeat along a shelf. Adjacent units always differ,
- * so a row reads tall, wide, standard, tall, ... rather than one size throughout.
- */
-const COVER_SHAPES: readonly CoverShape[] = [
-  { widthRem: 3.2, heightRem: 5.7 },
-  { widthRem: 4.5, heightRem: 4.4 },
-  { widthRem: COVER_WIDTH_REM, heightRem: COVER_HEIGHT_REM },
-  { widthRem: 3.2, heightRem: 5.7 },
-  { widthRem: COVER_WIDTH_REM, heightRem: COVER_HEIGHT_REM },
-  { widthRem: 4.5, heightRem: 4.4 },
-];
-
-/** Every book facing out, series kept together, sized in alternating shapes, with uneven but deterministic gaps. */
+/** Every book faces out at one size; series stay together, gaps vary deterministically. */
 export function buildCoverItems(books: LibraryBook[]): ShelfItem[] {
   const items: ShelfItem[] = [];
-  groupSeriesUnits(books).forEach((unit, unitIndex) => {
-    const shape = COVER_SHAPES[unitIndex % COVER_SHAPES.length]!;
+  for (const unit of groupSeriesUnits(books)) {
     unit.books.forEach((book, index) => {
       const h = hash(book.uid);
       const last = index === unit.books.length - 1;
@@ -329,25 +321,87 @@ export function buildCoverItems(books: LibraryBook[]): ShelfItem[] {
       items.push({
         kind: "face",
         book,
-        widthRem: shape.widthRem,
-        heightRem: shape.heightRem + ((h >>> 6) % 5 - 2) * 0.12,
+        widthRem: COVER_WIDTH_REM,
+        heightRem: COVER_HEIGHT_REM + ((h >>> 6) % 5 - 2) * 0.12,
         gapRem: unit.series && !last ? 0.12 : loose,
       });
     });
-  });
+  }
   return items;
 }
 
+function shelfItems(books: LibraryBook[], display: DisplayMode): ShelfItem[] {
+  return display === "covers" ? buildCoverItems(books) : buildShelfItems(books, false);
+}
+
+function bookCount(items: ShelfItem[]): number {
+  return items.reduce((total, item) => total + itemBooks(item).length, 0);
+}
+
+/** Longest run from the front of `items` that packs into `rows` rows at full width. */
+function leadingRun(items: ShelfItem[], rows: number, maxInnerRem: number): number {
+  let lo = 1;
+  let hi = items.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (packShelfRows(items.slice(0, mid), maxInnerRem).length <= rows) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo;
+}
+
+/** Rows for `items` at the narrowest width that still keeps them within `rows` rows. */
+function narrowestRows(items: ShelfItem[], rows: number, maxInnerRem: number): ShelfItem[][] {
+  let lo = 0;
+  let hi = maxInnerRem;
+  for (let step = 0; step < 16; step += 1) {
+    const mid = (lo + hi) / 2;
+    if (packShelfRows(items, mid).length <= rows) hi = mid;
+    else lo = mid;
+  }
+  return packShelfRows(items, hi);
+}
+
 /**
- * Cover-out books are 4.8rem tall, which only fits single-row bays. When a
- * genre needs more than two rows (so a bay goes double-height), shelve it
- * again without them.
+ * Cut a genre's items into cabinets. Each cabinet takes the rows the pattern asks for
+ * and is as narrow as that allows, so a three-row cabinet is tall and short. A
+ * cabinet never ends up with fewer than SHELF_MIN_BOOKS by borrowing from the one before.
  */
-function packGenre(books: LibraryBook[], maxInnerRem: number, display: DisplayMode): ShelfItem[][] {
-  if (display === "covers") return packShelfRows(buildCoverItems(books), maxInnerRem);
-  const withFaces = packShelfRows(buildShelfItems(books, true), maxInnerRem);
-  if (withFaces.length <= 2) return withFaces;
-  return packShelfRows(buildShelfItems(books, false), maxInnerRem);
+function groupIntoCabinets(
+  items: ShelfItem[],
+  pattern: readonly number[],
+  offset: number,
+  maxInnerRem: number,
+): ShelfItem[][][] {
+  const groups: { items: ShelfItem[]; rows: number }[] = [];
+  let rest = items;
+  while (rest.length > 0) {
+    const rows = pattern[(offset + groups.length) % pattern.length]!;
+    const count = leadingRun(rest, rows, maxInnerRem);
+    groups.push({ items: rest.slice(0, count), rows });
+    rest = rest.slice(count);
+  }
+  for (let g = groups.length - 1; g > 0; g -= 1) {
+    const group = groups[g]!;
+    const before = groups[g - 1]!;
+    while (
+      bookCount(group.items) < SHELF_MIN_BOOKS &&
+      before.items.length > 1 &&
+      packShelfRows([before.items[before.items.length - 1]!, ...group.items], maxInnerRem).length <= group.rows
+    ) {
+      group.items.unshift(before.items.pop()!);
+    }
+  }
+  return groups.map((group) => {
+    const books = bookCount(group.items);
+    const rows = Math.min(group.rows, Math.max(1, Math.floor(books / SHELF_MIN_BOOKS)));
+    return narrowestRows(group.items, rows, maxInnerRem);
+  });
+}
+
+/** Audiobooks are not shelved on the walk; they stay in the library. */
+function isShelved(book: LibraryBook): boolean {
+  return book.format !== "audio";
 }
 
 type Placement = { parent: string; wingStart: boolean };
@@ -370,6 +424,7 @@ function emptyBay(
     slot,
     empty: true,
     paired: false,
+    table: false,
     ...place,
   };
 }
@@ -383,6 +438,7 @@ function bayFromRows(
   label: string,
   paired: boolean,
   place: Placement,
+  table: boolean,
 ): WalkBay {
   const books = rows.flat().flatMap(itemBooks);
   return {
@@ -396,18 +452,19 @@ function bayFromRows(
     slot,
     empty: books.length === 0,
     paired,
+    table,
     ...place,
   };
 }
 
-type Piece = { shelf: ShelfGroup; rows: ShelfItem[][]; label: string };
+type Piece = { shelf: ShelfGroup; rows: ShelfItem[][]; label: string; table: boolean };
 
 function surnameTag(book: LibraryBook): string {
   const letters = book.authorSort.replace(/[^a-z]/g, "").slice(0, 3);
   return letters ? letters[0]!.toUpperCase() + letters.slice(1) : "#";
 }
 
-/** "Abe-Dun": which authors a long genre's column covers, so you can find your way. */
+/** "Abe-Dun": which authors a long genre's cabinet covers, so you can find your way. */
 function rangeLabel(base: string, rows: ShelfItem[][]): string {
   const books = rows.flat().flatMap(itemBooks);
   const from = surnameTag(books[0]!);
@@ -415,86 +472,64 @@ function rangeLabel(base: string, rows: ShelfItem[][]): string {
   return from === to ? `${base} · ${from}` : `${base} · ${from}–${to}`;
 }
 
-/** Rows per column: as even as possible, never more than two floors of MAX_ROWS_PER_BAY. */
-function columnRowCounts(totalRows: number): number[] {
-  const perColumn = MAX_ROWS_PER_BAY * 2;
-  const columns = Math.ceil(totalRows / perColumn);
-  const base = Math.floor(totalRows / columns);
-  const extra = totalRows % columns;
-  return Array.from({ length: columns }, (_, i) => base + (i < extra ? 1 : 0));
-}
-
 /**
- * One wing per parent genre (Fiction, Nonfiction, ...), each a run of columns
- * with one subgenre per shelf. A column holds at most two double-height floors
- * (four rows); a subgenre with more rows continues into the next column, labelled
- * with the authors it covers. Subgenres that fit on one row go last and share a
- * column in pairs, one on each floor, so the walk stays short. Books run A to Z
- * by author and read top to bottom, ground floor then loft.
+ * One wing per parent genre (Fiction, Nonfiction, ...). Each subgenre is cut into
+ * cabinets of one to three rows, and the wing's cabinets fill columns two at a time,
+ * ground floor then loft. Subgenres with fewer than SHELF_MIN_BOOKS get a display
+ * table instead of a shelf. Books run A to Z by author and read top to bottom.
  */
-export function buildFloorPlan(books: LibraryBook[], display: DisplayMode = "spines"): FloorPlan {
+export function buildFloorPlan(allBooks: LibraryBook[], display: DisplayMode = "spines"): FloorPlan {
+  const books = allBooks.filter(isShelved);
   const wings = groupIntoWings(books);
   const maxInner = BAY_MAX_WIDTH_REM - BAY_CHROME_REM;
+  const pattern = display === "covers" ? COVER_ROW_PATTERN : SPINE_ROW_PATTERN;
   const bays: WalkBay[] = [];
   const wingInfo: WingInfo[] = [];
   let slot = 0;
+  let variety = 0;
 
   for (const wing of wings) {
-    const large: Piece[] = [];
-    const small: Piece[] = [];
+    const pieces: Piece[] = [];
 
     for (const shelf of wing.shelves) {
-      const rows = packGenre(shelf.books, maxInner, display);
-      if (rows.length <= 1) {
-        small.push({ shelf, rows, label: shelf.label });
+      if (shelf.books.length < SHELF_MIN_BOOKS) {
+        pieces.push({ shelf, rows: [buildCoverItems(shelf.books)], label: shelf.label, table: true });
         continue;
       }
-      const counts = columnRowCounts(rows.length);
-      let from = 0;
-      for (const count of counts) {
-        const chunk = rows.slice(from, from + count);
-        from += count;
-        large.push({
+      const cabinets = groupIntoCabinets(shelfItems(shelf.books, display), pattern, variety, maxInner);
+      variety += cabinets.length;
+      for (const rows of cabinets) {
+        pieces.push({
           shelf,
-          rows: chunk,
-          label: counts.length > 1 ? rangeLabel(shelf.label, chunk) : shelf.label,
+          rows,
+          label: cabinets.length > 1 ? rangeLabel(shelf.label, rows) : shelf.label,
+          table: false,
         });
       }
     }
 
     const startSlot = slot;
-    let first = true;
-    const next = (): Placement => {
-      const place = { parent: wing.label, wingStart: first };
-      first = false;
-      return place;
-    };
-
-    for (const { shelf, rows, label } of large) {
-      const place = next();
-      const groundRowCount = Math.ceil(rows.length / 2);
-      const upperRows = rows.slice(groundRowCount);
-      const paired = upperRows.length > 0;
+    pieces.forEach((piece, index) => {
+      const column = startSlot + Math.floor(index / 2);
+      const floor: FloorLevel = index % 2 === 0 ? 0 : 1;
+      const place: Placement = { parent: wing.label, wingStart: index === 0 };
+      const paired = floor === 1 || index + 1 < pieces.length;
+      const label = floor === 0 ? piece.label : `${piece.label} · loft`;
       bays.push(
-        bayFromRows(shelf, 0, slot, decorKitForIndex(slot), rows.slice(0, groundRowCount), label, paired, place),
-        bayFromRows(shelf, 1, slot, "mezzanine", upperRows, `${label} · loft`, paired, place),
+        bayFromRows(
+          piece.shelf,
+          floor,
+          column,
+          floor === 0 ? decorKitForIndex(column) : "mezzanine",
+          piece.rows,
+          label,
+          paired,
+          place,
+          piece.table,
+        ),
       );
-      slot += 1;
-    }
-
-    for (let i = 0; i < small.length; i += 2) {
-      const place = next();
-      const low = small[i]!;
-      const high = small[i + 1];
-      const kit = decorKitForIndex(slot);
-      bays.push(bayFromRows(low.shelf, 0, slot, kit, low.rows, low.label, !!high, place));
-      bays.push(
-        high
-          ? bayFromRows(high.shelf, 1, slot, "mezzanine", high.rows, high.label, true, place)
-          : emptyBay(1, slot, themeForLabel(low.shelf.label), "low-nook", place),
-      );
-      slot += 1;
-    }
+    });
+    slot = startSlot + Math.ceil(pieces.length / 2);
 
     wingInfo.push({
       id: wing.id,
