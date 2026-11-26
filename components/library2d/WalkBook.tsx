@@ -22,7 +22,7 @@ type Props = {
 
 /** Accessible spine hotspot — real link, hover outline + lift. */
 export function WalkBook({ book, pose = "shelf", size, style }: Props) {
-  const width = size?.width ?? spineWidthRem(book.pageCount) * (pose === "pile" ? 0.85 : 1);
+  const width = size?.width ?? spineWidthRem(book) * (pose === "pile" ? 0.85 : 1);
   const height = size?.height ?? spineHeightRem(book) * (pose === "pile" ? 0.72 : 1);
   const cloth = spineCloth(book);
   const authors = book.authors.join(", ") || "Unknown author";

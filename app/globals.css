@@ -1225,7 +1225,7 @@
   /* Duplex shelves: one horizontal row per rail, spines sized to the bay. */
   /* Books fill most of the cabinet height; the cap follows the cabinet they stand in. */
   .walk-rail .walk-book {
-    max-height: 10.5rem;
+    max-height: 11.2rem;
     flex: 0 0 auto;
   }
 

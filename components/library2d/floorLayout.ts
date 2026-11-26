@@ -97,7 +97,7 @@ function looseGapRem(seed: string): number {
 }
 
 function standItem(book: LibraryBook, gapRem: number): ShelfItem {
-  return { kind: "stand", book, widthRem: spineWidthRem(book.pageCount), gapRem };
+  return { kind: "stand", book, widthRem: spineWidthRem(book), gapRem };
 }
 
 function stackItem(books: LibraryBook[], seed: string): ShelfItem {
@@ -106,7 +106,7 @@ function stackItem(books: LibraryBook[], seed: string): ShelfItem {
     return {
       book,
       lengthRem: 3 + (h % 6) * 0.18,
-      thicknessRem: 0.5 + spineWidthRem(book.pageCount) * 0.26,
+      thicknessRem: 0.5 + spineWidthRem(book) * 0.26,
       offsetRem: ((h >>> 4) % 7) * (STACK_JITTER_REM / 6),
     };
   });
