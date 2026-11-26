@@ -302,10 +302,26 @@ export function packShelfRows(items: ShelfItem[], maxInnerRem: number): ShelfIte
   return rows;
 }
 
-/** Every book facing out, series kept together, with uneven but deterministic gaps. */
+type CoverShape = { widthRem: number; heightRem: number };
+
+/**
+ * Cover shapes in the order they repeat along a shelf. Adjacent units always differ,
+ * so a row reads tall, wide, standard, tall, ... rather than one size throughout.
+ */
+const COVER_SHAPES: readonly CoverShape[] = [
+  { widthRem: 3.2, heightRem: 5.7 },
+  { widthRem: 4.5, heightRem: 4.4 },
+  { widthRem: COVER_WIDTH_REM, heightRem: COVER_HEIGHT_REM },
+  { widthRem: 3.2, heightRem: 5.7 },
+  { widthRem: COVER_WIDTH_REM, heightRem: COVER_HEIGHT_REM },
+  { widthRem: 4.5, heightRem: 4.4 },
+];
+
+/** Every book facing out, series kept together, sized in alternating shapes, with uneven but deterministic gaps. */
 export function buildCoverItems(books: LibraryBook[]): ShelfItem[] {
   const items: ShelfItem[] = [];
-  for (const unit of groupSeriesUnits(books)) {
+  groupSeriesUnits(books).forEach((unit, unitIndex) => {
+    const shape = COVER_SHAPES[unitIndex % COVER_SHAPES.length]!;
     unit.books.forEach((book, index) => {
       const h = hash(book.uid);
       const last = index === unit.books.length - 1;
@@ -313,12 +329,12 @@ export function buildCoverItems(books: LibraryBook[]): ShelfItem[] {
       items.push({
         kind: "face",
         book,
-        widthRem: COVER_WIDTH_REM,
-        heightRem: COVER_HEIGHT_REM + ((h >>> 6) % 5 - 2) * 0.12,
+        widthRem: shape.widthRem,
+        heightRem: shape.heightRem + ((h >>> 6) % 5 - 2) * 0.12,
         gapRem: unit.series && !last ? 0.12 : loose,
       });
     });
-  }
+  });
   return items;
 }
 

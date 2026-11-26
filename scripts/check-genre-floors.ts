@@ -18,7 +18,10 @@ import {
   itemBooks,
   itemsWidthRem,
   packShelfRows,
+  type ShelfItem,
 } from "../components/library2d/floorLayout";
+
+type FaceItem = Extract<ShelfItem, { kind: "face" }>;
 import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
@@ -333,6 +336,14 @@ for (const [name, input] of [
       assert(
         items.every((item) => item.kind === "face" && item.widthRem > 0),
         "covers: every book faces the reader",
+      );
+      const faces = items.filter((item): item is FaceItem => item.kind === "face");
+      const shapes = new Set(faces.map((item) => `${item.widthRem}x${item.heightRem}`));
+      assert(shapes.size >= 3, "covers: tall, standard and wide shapes all appear");
+      assert(
+        faces.some((item) => item.heightRem > item.widthRem) &&
+          faces.some((item) => item.widthRem > item.heightRem),
+        "covers: some books are taller than wide, some wider than tall",
       );
     }
   }
