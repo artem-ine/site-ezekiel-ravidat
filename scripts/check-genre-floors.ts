@@ -20,6 +20,8 @@ import {
   packShelfRows,
 } from "../components/library2d/floorLayout";
 import type { LibraryBook } from "../lib/books";
+import { authorSortKey } from "../lib/author-sort";
+import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) {
@@ -41,7 +43,8 @@ function fakeBook(
     title: uid,
     subtitle: null,
     authors: ["Test"],
-    genres: [{ name: genre, accent: null }],
+    authorSort: "test",
+    genres: [{ name: genre, accent: null, parent: "Fiction" }],
     series: null,
     seriesPosition: null,
     coverUrl: `https://images.prismic.io/${uid}.jpg`,
@@ -206,6 +209,96 @@ for (const [name, input] of [
   const seen = plan.bays.flatMap((b) => b.books.map((book) => book.uid));
   assert(seen.length === input.length, `${name}: all books placed (got ${seen.length}/${input.length})`);
   assert(new Set(seen).size === input.length, `${name}: each book once across floors`);
+}
+
+
+{
+  // Author keys and ordering.
+  assert(authorSortKey("Isaac Asimov") === "asimov isaac", "author key puts surname first");
+  assert(authorSortKey("Ursula K. Le Guin").startsWith("le guin"), "particles stay with the surname");
+  assert(authorSortKey("Martin Luther King Jr.").startsWith("king"), "suffixes are ignored");
+  assert(authorSortKey("Angela Davis") > authorSortKey("Isaac Asimov"), "Davis files after Asimov");
+  assert(authorSortKey("") === "\uffff", "no author files last");
+
+  const named = (uid: string, author: string, extra: Partial<LibraryBook> = {}) =>
+    fakeBook(uid, 300, "Fantasy", { authors: [author], authorSort: authorSortKey(author), ...extra });
+  const sorted = sortByAuthor([
+    named("z1", "Zadie Smith"),
+    named("a1", "Isaac Asimov"),
+    named("b2", "Octavia Butler", { series: "Earthseed", seriesPosition: 2 }),
+    named("b1", "Octavia Butler", { series: "Earthseed", seriesPosition: 1 }),
+  ]);
+  assert(
+    sorted.map((b) => b.uid).join(",") === "a1,b1,b2,z1",
+    "sorted by author surname, then series order",
+  );
+}
+
+{
+  // Wings: parent genres divide the library, subgenres sit inside.
+  const inGenre = (uid: string, genre: string, parent: string | null, author = "Test") =>
+    fakeBook(uid, 300, genre, {
+      authors: [author],
+      authorSort: authorSortKey(author),
+      genres: [{ name: genre, accent: null, parent }],
+    });
+
+  const mixedLibrary: LibraryBook[] = [
+    ...Array.from({ length: 70 }, (_, i) => inGenre(`f-${i}`, "Fantasy", "Fiction", `Author ${String.fromCharCode(90 - (i % 26))}${i}`)),
+    ...Array.from({ length: 6 }, (_, i) => inGenre(`h-${i}`, "Horror", "Fiction")),
+    ...Array.from({ length: 5 }, (_, i) => inGenre(`r-${i}`, "Romance", "Fiction")),
+    ...Array.from({ length: 4 }, (_, i) => inGenre(`p-${i}`, "Politics", "Nonfiction")),
+    ...Array.from({ length: 4 }, (_, i) => inGenre(`m-${i}`, "Memoir", "Nonfiction")),
+    ...Array.from({ length: 3 }, (_, i) => inGenre(`c-${i}`, "Crime", "Nonfiction")),
+    ...Array.from({ length: 5 }, (_, i) => inGenre(`l-${i}`, "History", null)),
+  ];
+
+  const wings = groupIntoWings(mixedLibrary);
+  assert(
+    wings.map((w) => w.label).join("|") === "Fiction|Nonfiction|Unsorted",
+    "wings run Fiction, Nonfiction, then Unsorted last",
+  );
+  const fantasy = wings[0]!.shelves.find((s) => s.label === "Fantasy")!;
+  const keys = fantasy.books.map((b) => b.authorSort);
+  assert(
+    keys.every((key, i) => i === 0 || keys[i - 1]!.localeCompare(key) <= 0),
+    "a subgenre shelf runs A to Z by author",
+  );
+
+  const plan = buildFloorPlan(mixedLibrary);
+  const cols = duplexColumns(plan);
+  assert(plan.wings.length === 3, "plan lists three wings");
+  assert(cols.filter((c) => c.wingStart).length === 3, "one wing gate per wing");
+  assert(
+    plan.wings.every((w) => cols[w.startSlot]?.wingStart && cols[w.startSlot]?.parent === w.label),
+    "each wing starts at its first column",
+  );
+  assert(
+    cols.every((c, i) => i === 0 || c.parent === cols[i - 1]!.parent || c.wingStart),
+    "a wing never mixes into the next without a gate",
+  );
+
+  const nonfiction = cols.filter((c) => c.parent === "Nonfiction");
+  assert(
+    nonfiction.length === 2 &&
+      !nonfiction[0]!.upper.empty &&
+      nonfiction[0]!.ground.label !== nonfiction[0]!.upper.label,
+    "small subgenres share a column, one per floor",
+  );
+  const placed = plan.bays.flatMap((b) => b.books.map((book) => book.uid));
+  assert(
+    placed.length === mixedLibrary.length && new Set(placed).size === mixedLibrary.length,
+    "every book is shelved exactly once across wings",
+  );
+
+  // Reading order within a split subgenre runs ground then loft, top row first.
+  const fantasyBays = plan.bays.filter((b) => b.label.startsWith("Fantasy"));
+  const reading = fantasyBays.flatMap((b) => [...b.shelfRows].reverse().flat().flatMap(itemBooks));
+  const readKeys = reading.map((b) => b.authorSort);
+  assert(
+    readKeys.every((key, i) => i === 0 || readKeys[i - 1]!.localeCompare(key) <= 0),
+    "reading order stays A to Z across rows and floors",
+  );
 }
 
 if (process.exitCode) {

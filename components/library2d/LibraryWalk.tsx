@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Fragment,
   memo,
   useEffect,
   useMemo,
@@ -20,6 +21,7 @@ import {
   itemKey,
   type FloorLevel,
   type WalkBay,
+  type WingInfo,
 } from "@/components/library2d/floorLayout";
 import type { DecorKit, SectionTheme } from "@/components/library2d/sectionTheme";
 import {
@@ -395,7 +397,10 @@ export function LibraryWalk({ books }: Props) {
       el.removeEventListener("scroll", onScroll);
       el.removeEventListener("wheel", onWheelNative);
       if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
-      if (syncRafRef.current != null) cancelAnimationFrame(syncRafRef.current);
+      if (syncRafRef.current != null) {
+        cancelAnimationFrame(syncRafRef.current);
+        syncRafRef.current = null;
+      }
       stopWalkLoop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -580,19 +585,23 @@ export function LibraryWalk({ books }: Props) {
           <div className="walk-layer walk-layer--shelves">
             <EntranceCap />
             {columns.map((column) => (
-              <div
-                key={column.slot}
-                className="walk-column"
-                data-column-slot={column.slot}
-                style={
-                  {
-                    "--walk-bay-width": `${columnWidthRem(column)}rem`,
-                  } as CSSProperties
-                }
-              >
-                <LevelBay bay={column.upper} calm={preferReducedMotion} />
-                <LevelBay bay={column.ground} calm={preferReducedMotion} />
-              </div>
+              <Fragment key={column.slot}>
+                {column.wingStart && (
+                  <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
+                )}
+                <div
+                  className="walk-column"
+                  data-column-slot={column.slot}
+                  style={
+                    {
+                      "--walk-bay-width": `${columnWidthRem(column)}rem`,
+                    } as CSSProperties
+                  }
+                >
+                  <LevelBay bay={column.upper} calm={preferReducedMotion} />
+                  <LevelBay bay={column.ground} calm={preferReducedMotion} />
+                </div>
+              </Fragment>
             ))}
             <EndingCap />
           </div>
@@ -631,7 +640,7 @@ export function LibraryWalk({ books }: Props) {
         >
           <span className="walk-minimap__toggle-icon" aria-hidden="true" />
           <span className="walk-minimap__toggle-label">
-            {activeBay?.label ?? "Map"}
+            {activeBay ? bayTitle(activeBay) : "Map"}
           </span>
         </button>
         <div id="walk-minimap-panel" className="walk-minimap__panel">
@@ -648,21 +657,21 @@ export function LibraryWalk({ books }: Props) {
                 <button
                   key={bay.id}
                   type="button"
-                  className={`walk-minimap__bay${activeSlot === bay.slot && level === floor ? " is-active" : ""}${bay.empty ? " is-empty" : ""}`}
+                  className={`walk-minimap__bay${activeSlot === bay.slot && level === floor ? " is-active" : ""}${bay.empty ? " is-empty" : ""}${bay.wingStart ? " is-wing-start" : ""}`}
                   style={
                     {
                       "--bay-color": bay.theme.wall,
                       "--bay-accent": bay.theme.accent,
                     } as CSSProperties
                   }
-                  aria-label={`Go to ${bay.label} on the ${floor === 0 ? "ground" : "upper"} floor`}
-                  title={bay.label}
+                  aria-label={`Go to ${bayTitle(bay)} on the ${floor === 0 ? "ground" : "upper"} floor`}
+                  title={bayTitle(bay)}
                   onClick={() => {
                     scrollToSlot(bay.slot, floor);
                     setMapOpen(false);
                   }}
                 >
-                  <span className="walk-minimap__tip">{bay.label}</span>
+                  <span className="walk-minimap__tip">{bayTitle(bay)}</span>
                 </button>
               ))}
               {level === floor && (
@@ -676,11 +685,39 @@ export function LibraryWalk({ books }: Props) {
           </div>
         ))}
         <p className="walk-minimap__here label" aria-live="polite">
-          {activeBay?.label ?? "Library"}
+          {activeBay ? bayTitle(activeBay) : "Library"}
         </p>
         </div>
       </aside>
     </section>
+  );
+}
+
+function bayTitle(bay: WalkBay): string {
+  return bay.empty ? bay.parent : `${bay.parent} · ${bay.label}`;
+}
+
+/** Archway between wings, naming the parent genre that follows. */
+function WingGate({ wing }: { wing: WingInfo | undefined }) {
+  if (!wing) return null;
+  return (
+    <div className="walk-wing" role="group" aria-label={`${wing.label} wing, ${wing.sections} sections`}>
+      <div className="walk-wing__storey walk-wing__storey--upper" aria-hidden="true">
+        <div className="walk-cap__paper walk-cap__paper--loft" />
+        <div className="walk-cap__deck" />
+        <p className="walk-wing__banner">{wing.label}</p>
+      </div>
+      <div className="walk-wing__storey walk-wing__storey--ground">
+        <div className="walk-cap__paper" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+        <div className="walk-wing__sign">
+          <p className="walk-wing__title">{wing.label}</p>
+          <p className="walk-wing__count">
+            {wing.sections} {wing.sections === 1 ? "section" : "sections"} · {wing.books} books
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -815,7 +852,7 @@ const LevelBay = memo(function LevelBay({
                 className="walk-rail"
                 aria-label={
                   bay.shelfRows.length > 1
-                    ? `${bay.label} shelf ${rowIndex + 1}`
+                    ? `${bay.label} shelf ${bay.shelfRows.length - rowIndex}`
                     : undefined
                 }
               >
