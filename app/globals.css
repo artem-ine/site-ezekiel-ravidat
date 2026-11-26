@@ -1160,31 +1160,224 @@
     animation: walk-mote-drift 14s linear infinite;
   }
 
-  .walk-bay__window {
+  /* —— Windows: a few kinds, not on every wall, with a shaft of light and a floor patch. —— */
+  .walk-window-set {
+    --win-w: 4.4rem;
+    --win-h: 5.6rem;
     position: absolute;
-    top: 8%;
-    right: 10%;
-    width: 4.2rem;
-    height: min(38%, 7.5rem);
-    border: 3px solid var(--walk-wood-deep);
-    background: linear-gradient(180deg, var(--sec-sky), #f4f8ff 60%);
-    box-shadow: 0 0 18px var(--sec-light);
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .walk-window-set--arch { --win-w: 4.2rem; --win-h: 6.4rem; }
+  .walk-window-set--round { --win-w: 4.4rem; --win-h: 4.4rem; }
+  .walk-window-set--tall { --win-w: 2.8rem; --win-h: 8.2rem; }
+  .walk-window-set--triple { --win-w: 7.2rem; --win-h: 4.6rem; }
+
+  .walk-window {
+    position: absolute;
+    top: var(--win-top);
+    left: var(--win-left);
+    width: var(--win-w);
+    height: var(--win-h);
     image-rendering: pixelated;
   }
 
-  .walk-bay__window::after {
+  .walk-window__glass {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border: 3px solid var(--walk-wood-deep);
+    background:
+      radial-gradient(circle at 72% 22%, rgb(255 246 205 / 0.95), transparent 52%),
+      linear-gradient(180deg, var(--sec-sky), #f4f8ff 75%);
+    box-shadow:
+      0 0 20px var(--sec-light),
+      0 0 3px rgb(255 245 210 / 0.8);
+  }
+
+  /* Sun glints across the pane. */
+  .walk-window__glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 26%,
+      rgb(255 255 255 / 0.55) 28% 36%,
+      transparent 38% 47%,
+      rgb(255 255 255 / 0.3) 49% 53%,
+      transparent 55%
+    );
+  }
+
+  /* Glazing bars. */
+  .walk-window__glass::after {
     content: "";
     position: absolute;
     inset: 0;
     background:
       linear-gradient(90deg, transparent 48%, var(--walk-wood-deep) 48% 52%, transparent 52%),
       linear-gradient(180deg, transparent 48%, var(--walk-wood-deep) 48% 52%, transparent 52%);
-    opacity: 0.65;
+    opacity: 0.7;
   }
 
-  .walk-bay--tall-hearth .walk-bay__window { left: 8%; right: auto; }
-  .walk-bay--ladder-desk .walk-bay__window { right: 6%; }
-  .walk-bay--plants-globe .walk-bay__window { left: 40%; right: auto; width: 3.4rem; }
+  .walk-window-set--arch .walk-window__glass {
+    border-radius: 2.2rem 2.2rem 0 0;
+  }
+
+  .walk-window-set--arch .walk-window__glass::after {
+    background:
+      linear-gradient(90deg, transparent 48%, var(--walk-wood-deep) 48% 52%, transparent 52%),
+      linear-gradient(180deg, transparent 56%, var(--walk-wood-deep) 56% 61%, transparent 61%);
+  }
+
+  .walk-window-set--round .walk-window__glass {
+    border-radius: 50%;
+  }
+
+  .walk-window-set--tall .walk-window__glass::after {
+    background:
+      linear-gradient(180deg, transparent 32%, var(--walk-wood-deep) 32% 36%, transparent 36% 65%, var(--walk-wood-deep) 65% 69%, transparent 69%);
+  }
+
+  .walk-window-set--triple .walk-window__glass::after {
+    background:
+      linear-gradient(90deg, transparent 32%, var(--walk-wood-deep) 32% 36%, transparent 36% 65%, var(--walk-wood-deep) 65% 69%, transparent 69%);
+  }
+
+  /* Dusk windows for the dark rooms: night sky, stars and a moon, with cool light. */
+  .walk-window-set.is-night .walk-window__glass {
+    background:
+      radial-gradient(circle at 74% 24%, #fffbe0 0 9%, rgb(255 251 224 / 0.35) 10% 20%, transparent 24%),
+      radial-gradient(circle, rgb(255 255 255 / 0.9) 0 1px, transparent 2px) 0 0 / 1.1rem 1.4rem,
+      linear-gradient(180deg, #1c2446, #46538a);
+  }
+
+  .walk-window-set.is-night .walk-window__glass::before {
+    background: linear-gradient(115deg, transparent 30%, rgb(190 205 255 / 0.22) 32% 40%, transparent 42%);
+  }
+
+  .walk-window__curtain {
+    position: absolute;
+    top: -0.35rem;
+    bottom: 22%;
+    width: 30%;
+    border: 2px solid var(--walk-wood-deep);
+    background: repeating-linear-gradient(
+      90deg,
+      var(--sec-accent) 0 3px,
+      color-mix(in srgb, var(--sec-accent) 72%, #000) 3px 5px
+    );
+  }
+
+  .walk-window__curtain--l {
+    left: -0.3rem;
+    border-radius: 0 0 55% 0;
+  }
+
+  .walk-window__curtain--r {
+    right: -0.3rem;
+    border-radius: 0 0 0 55%;
+  }
+
+  .walk-window__sill {
+    position: absolute;
+    top: 100%;
+    left: -0.4rem;
+    right: -0.4rem;
+    height: 0.4rem;
+    border: 2px solid var(--walk-wood-deep);
+    background: #b78a56;
+  }
+
+  /* A potted flower on the sill. */
+  .walk-window__pot {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 100%;
+    width: 0.85rem;
+    height: 0.55rem;
+    border: 2px solid var(--walk-wood-deep);
+    background: #c06c47;
+  }
+
+  .walk-window__pot::before {
+    content: "";
+    position: absolute;
+    left: -0.2rem;
+    bottom: 100%;
+    width: 1.05rem;
+    height: 0.8rem;
+    border-radius: 50% 50% 20% 20%;
+    background: #5e9a52;
+  }
+
+  .walk-window__pot::after {
+    content: "";
+    position: absolute;
+    left: 0.15rem;
+    bottom: calc(100% + 0.6rem);
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: #f08aa6;
+    box-shadow: 0 0 0 2px rgb(255 235 240 / 0.7);
+  }
+
+  /* Light falling from the pane down the wall to the floor, drifting sideways. */
+  .walk-window__beam {
+    position: absolute;
+    top: calc(var(--win-top) + var(--win-h) + 0.6rem);
+    bottom: 0;
+    left: var(--win-left);
+    width: var(--win-w);
+    clip-path: polygon(0 0, 100% 0, calc(100% + var(--beam-dx)) 100%, var(--beam-dx) 100%);
+    background: linear-gradient(180deg, rgb(255 246 214 / 0.42), rgb(255 246 214 / 0.07) 88%);
+    mix-blend-mode: soft-light;
+    animation: walk-beam-breathe 9s ease-in-out infinite;
+  }
+
+  .walk-window-set.is-night .walk-window__beam {
+    background: linear-gradient(180deg, rgb(185 200 255 / 0.4), rgb(185 200 255 / 0.05) 88%);
+  }
+
+  .walk-window-set--floor {
+    inset: auto 0 0 0;
+    height: var(--walk-deck);
+    z-index: 6;
+  }
+
+  .walk-window__patch {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--win-left) + var(--beam-dx));
+    width: var(--win-w);
+    transform: skewX(-24deg);
+    background: linear-gradient(90deg, transparent, rgb(255 246 214 / 0.55) 30% 70%, transparent);
+    mix-blend-mode: soft-light;
+    animation: walk-beam-breathe 9s ease-in-out infinite;
+  }
+
+  .walk-window-set--floor.is-night .walk-window__patch {
+    background: linear-gradient(90deg, transparent, rgb(185 200 255 / 0.5) 30% 70%, transparent);
+  }
+
+  @keyframes walk-beam-breathe {
+    0%, 100% { opacity: 0.8; }
+    50% { opacity: 1; }
+  }
+
+  /* On short screens the cabinets reach the ceiling, so skip the windows. */
+  @media (max-height: 640px) {
+    .walk-window-set { display: none; }
+  }
+
+  .walk--calm .walk-window__beam,
+  .walk--calm .walk-window__patch {
+    animation: none;
+  }
 
   /* Continuous solid deck across each level. */
   .walk-bay__deck {
@@ -1330,7 +1523,7 @@
   }
 
   /* A book shown cover-out: a 2:3 block with its own explicit size. */
-  .walk-rail .walk-book--face {
+  .walk-bay .walk-rails .walk-rail .walk-book.walk-book--face {
     max-height: none;
     padding: 0;
     box-shadow:
@@ -1339,6 +1532,9 @@
   }
 
   .walk-book--face .walk-book__cover { object-position: 50% 50%; }
+
+  /* Covers on show: one clear row stands on the bottom shelf with no board behind the covers. */
+  .walk-bay--covers .walk-case--low .walk-case__board:nth-child(1) { display: none; }
 
   .walk-rail .walk-book--face::before {
     background: linear-gradient(
@@ -1879,7 +2075,8 @@
   .walk-avatar__leg--l { left: 0.18rem; }
   .walk-avatar__leg--r { right: 0.18rem; }
 
-  .walk-jump-btn {
+  .walk-jump-btn,
+  .walk-view-btn {
     position: absolute;
     left: max(0.75rem, env(safe-area-inset-left));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
@@ -1900,8 +2097,15 @@
     box-shadow: 3px 3px 0 rgb(47 33 24 / 0.25);
   }
 
+  .walk-view-btn {
+    left: calc(max(0.75rem, env(safe-area-inset-left)) + 5.4rem);
+    min-width: 4.6rem;
+  }
+
   .walk-jump-btn:hover,
-  .walk-jump-btn:focus-visible {
+  .walk-jump-btn:focus-visible,
+  .walk-view-btn:hover,
+  .walk-view-btn:focus-visible {
     outline: 3px solid var(--walk-outline);
     outline-offset: 2px;
   }

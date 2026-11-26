@@ -301,6 +301,43 @@ for (const [name, input] of [
   );
 }
 
+{
+  const big = Array.from({ length: 260 }, (_, i) =>
+    fakeBook(`big-${i}`, 300, "Fantasy", {
+      authors: [`Author ${String.fromCharCode(65 + (i % 26))}${i}`],
+      authorSort: authorSortKey(`Zed Author${String.fromCharCode(97 + (i % 26))}${String(i).padStart(3, "0")}`),
+    }),
+  );
+
+  for (const display of ["spines", "covers"] as const) {
+    const plan = buildFloorPlan(big, display);
+    const cols = duplexColumns(plan);
+    assert(
+      plan.bays.every((b) => b.shelfRows.length <= 2),
+      `${display}: no bay holds more than two rows`,
+    );
+    assert(
+      cols.every((c) => c.ground.shelfRows.length >= c.upper.shelfRows.length),
+      `${display}: the ground floor is never lighter than the loft`,
+    );
+    assert(
+      cols.length > 1 && cols.every((c) => c.ground.label.startsWith("Fantasy · ")),
+      `${display}: a long genre continues across labelled columns`,
+    );
+    const ids = plan.bays.map((b) => b.id);
+    assert(new Set(ids).size === ids.length, `${display}: bay ids are unique`);
+    const placed = plan.bays.flatMap((b) => b.books.map((book) => book.uid));
+    assert(new Set(placed).size === big.length, `${display}: every book is shelved once`);
+    if (display === "covers") {
+      const items = plan.bays.flatMap((b) => b.shelfRows.flat());
+      assert(
+        items.every((item) => item.kind === "face" && item.widthRem > 0),
+        "covers: every book faces the reader",
+      );
+    }
+  }
+}
+
 if (process.exitCode) {
   console.error("\ncheck-genre-floors: FAILED");
   process.exit(1);
