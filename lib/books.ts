@@ -1,6 +1,7 @@
 import { asText, isFilled, type Content } from "@prismicio/client";
 import { cacheLife } from "next/cache";
 import { createClient } from "@/prismicio";
+import { authorSortKey } from "@/lib/author-sort";
 
 export type ReadStatus =
   | "read"
@@ -13,7 +14,10 @@ export type LibraryBook = {
   title: string;
   subtitle: string | null;
   authors: string[];
-  genres: { name: string; accent: string | null }[];
+  /** Surname-first key of the first author, for shelving A to Z by author. */
+  authorSort: string;
+  /** `parent` is the top-level genre this one sits under (e.g. Fiction), if any. */
+  genres: { name: string; accent: string | null; parent: string | null }[];
   series: string | null;
   seriesPosition: number | null;
   coverUrl: string | null;
@@ -64,7 +68,39 @@ function relatedName(
   return data?.name?.trim() || field.uid || null;
 }
 
-function mapBook(doc: Content.BookDocument): LibraryBook | null {
+/** Genre document id -> name of its parent genre (null for top-level genres). */
+async function loadGenreParents(ref?: string): Promise<Map<string, string | null>> {
+  const docs = await createClient().getAllByType("genre", {
+    pageSize: 100,
+    ...(ref ? { ref } : {}),
+  });
+  const names = new Map(docs.map((doc) => [doc.id, doc.data.name?.trim() || doc.uid || ""]));
+
+  return new Map(
+    docs.map((doc) => {
+      const parent = doc.data.parent;
+      const parentName =
+        isFilled.contentRelationship(parent) && !parent.isBroken
+          ? names.get(parent.id) || null
+          : null;
+      return [doc.id, parentName];
+    }),
+  );
+}
+
+function firstAuthorSortKey(doc: Content.BookDocument): string {
+  const first = doc.data.authors[0]?.author;
+  if (!first || !isFilled.contentRelationship(first) || first.isBroken) {
+    return authorSortKey(null);
+  }
+  const data = first.data as { name?: string | null; sort_name?: string | null } | undefined;
+  return authorSortKey(data?.name ?? first.uid, data?.sort_name);
+}
+
+function mapBook(
+  doc: Content.BookDocument,
+  genreParents: Map<string, string | null>,
+): LibraryBook | null {
   if (!doc.uid) return null;
 
   const title = doc.data.title?.trim();
@@ -79,7 +115,13 @@ function mapBook(doc: Content.BookDocument): LibraryBook | null {
     const data = item.genre.data as { name?: string | null; accent?: string | null } | undefined;
     const name = data?.name?.trim();
     if (!name) return [];
-    return [{ name, accent: data?.accent?.trim() || null }];
+    return [
+      {
+        name,
+        accent: data?.accent?.trim() || null,
+        parent: genreParents.get(item.genre.id) ?? null,
+      },
+    ];
   });
 
   const statusRaw = doc.data.read_status;
@@ -94,6 +136,7 @@ function mapBook(doc: Content.BookDocument): LibraryBook | null {
     title,
     subtitle: doc.data.subtitle?.trim() || null,
     authors,
+    authorSort: firstAuthorSortKey(doc),
     genres,
     series: relatedName(doc.data.series),
     seriesPosition: doc.data.series_position ?? null,
@@ -115,14 +158,17 @@ export async function getLibraryBooks(): Promise<LibraryBook[]> {
   cacheLife("hours");
 
   const ref = await resolveDevRef();
-  const docs = await createClient().getAllByType("book", {
-    pageSize: 100,
-    fetchLinks: [...FETCH_LINKS],
-    ...(ref ? { ref } : {}),
-  });
+  const [docs, genreParents] = await Promise.all([
+    createClient().getAllByType("book", {
+      pageSize: 100,
+      fetchLinks: [...FETCH_LINKS],
+      ...(ref ? { ref } : {}),
+    }),
+    loadGenreParents(ref),
+  ]);
 
   return docs
-    .map(mapBook)
+    .map((doc) => mapBook(doc, genreParents))
     .filter((book): book is LibraryBook => book !== null)
     .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
 }
@@ -138,7 +184,7 @@ export async function getLibraryBook(uid: string): Promise<LibraryBook | undefin
       fetchLinks: [...FETCH_LINKS],
       ...(ref ? { ref } : {}),
     });
-    return mapBook(doc) ?? undefined;
+    return mapBook(doc, await loadGenreParents(ref)) ?? undefined;
   } catch {
     return undefined;
   }

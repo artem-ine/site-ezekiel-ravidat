@@ -952,6 +952,98 @@
     box-shadow: 3px 3px 0 var(--walk-wood-deep);
   }
 
+  /* Wing gates: an archway naming the parent genre that follows. */
+  .walk-wing {
+    --cap-sky: #c5d8e8;
+    --cap-wall: #e2d4b4;
+    --cap-wall-deep: #c4ad82;
+    --cap-floor: #d2b078;
+    --cap-floor-deep: #b89050;
+    position: relative;
+    flex: 0 0 auto;
+    width: 12rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    pointer-events: none;
+    image-rendering: pixelated;
+  }
+
+  .walk-wing__storey {
+    position: relative;
+    flex: 1 1 50%;
+    min-height: 0;
+    height: 50%;
+    overflow: hidden;
+  }
+
+  .walk-wing__storey--upper {
+    border-bottom: 3px solid var(--walk-wood-deep);
+  }
+
+  .walk-wing__storey::before,
+  .walk-wing__storey::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 0.55rem;
+    z-index: 6;
+    background: var(--walk-wood-deep);
+    box-shadow: inset -2px 0 0 rgb(255 220 160 / 0.15);
+  }
+
+  .walk-wing__storey::before { left: 0; }
+  .walk-wing__storey::after { right: 0; }
+
+  .walk-wing__sign {
+    position: absolute;
+    top: 24%;
+    left: 50%;
+    z-index: 4;
+    min-width: 8rem;
+    padding: 0.5rem 0.7rem 0.45rem;
+    border: 3px solid var(--walk-wood-deep);
+    background: #f0e2c0;
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    text-align: center;
+    text-transform: uppercase;
+    transform: translateX(-50%);
+    box-shadow: 4px 4px 0 var(--walk-wood-deep);
+  }
+
+  .walk-wing__title {
+    margin: 0;
+    font-size: 1.05rem;
+    letter-spacing: 0.14em;
+  }
+
+  .walk-wing__count {
+    margin: 0.3rem 0 0;
+    font-size: 0.5rem;
+    letter-spacing: 0.08em;
+    opacity: 0.75;
+  }
+
+  .walk-wing__banner {
+    position: absolute;
+    top: 22%;
+    left: 50%;
+    z-index: 4;
+    margin: 0;
+    padding: 0.3rem 0.8rem;
+    border: 2px solid var(--walk-wood-deep);
+    background: var(--walk-accent, #a07b35);
+    color: #f6ead0;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    transform: translateX(-50%);
+    box-shadow: 3px 3px 0 var(--walk-wood-deep);
+  }
+
   .walk-column {
     /* Content-driven width — never capped to 100vw (that forced wrap). */
     --walk-bay-width: 40rem;
@@ -1921,6 +2013,10 @@
 
   .walk-minimap__bay {
     border-width: 1px;
+  }
+
+  .walk-minimap__bay.is-wing-start {
+    margin-left: 5px;
   }
 
   .walk-minimap__bay.is-active,
