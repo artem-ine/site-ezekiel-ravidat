@@ -603,6 +603,17 @@ interface GenreDocumentData {
 	 * - **Documentation**: https://prismic.io/docs/fields/text
 	 */
 	description: prismic.KeyTextField;
+	
+	/**
+	 * Parent genre (top level) field in *Genre*
+	 *
+	 * - **Field Type**: Content Relationship
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: genre.parent
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+	 */
+	parent: prismic.ContentRelationshipField<"genre">;
 }
 
 /**
