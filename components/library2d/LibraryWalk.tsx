@@ -7,11 +7,13 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LibraryBook } from "@/lib/books";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
+import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -19,6 +21,7 @@ import {
   columnWidthRem,
   duplexColumns,
   itemKey,
+  type DisplayMode,
   type FloorLevel,
   type WalkBay,
   type WingInfo,
@@ -35,6 +38,36 @@ import {
 type Props = {
   books: LibraryBook[];
 };
+
+const DISPLAY_KEY = "walk-display";
+const DISPLAY_EVENT = "walk-display-change";
+
+function subscribeDisplay(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(DISPLAY_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(DISPLAY_EVENT, onChange);
+  };
+}
+
+/** Covers are the default; the choice is remembered in this browser. */
+function readDisplay(): DisplayMode {
+  try {
+    return window.localStorage.getItem(DISPLAY_KEY) === "spines" ? "spines" : "covers";
+  } catch {
+    return "covers";
+  }
+}
+
+function writeDisplay(mode: DisplayMode) {
+  try {
+    window.localStorage.setItem(DISPLAY_KEY, mode);
+  } catch {
+    // Private mode: the toggle still works for this page view via the event below.
+  }
+  window.dispatchEvent(new Event(DISPLAY_EVENT));
+}
 
 /**
  * Duplex cross-section library: both levels visible in one viewport.
@@ -91,7 +124,8 @@ export function LibraryWalk({ books }: Props) {
     };
   }, [mapOpen]);
 
-  const plan = useMemo(() => buildFloorPlan(books), [books]);
+  const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
+  const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
   const planRef = useRef(plan);
   const columnsRef = useRef(columns);
@@ -598,8 +632,8 @@ export function LibraryWalk({ books }: Props) {
                     } as CSSProperties
                   }
                 >
-                  <LevelBay bay={column.upper} calm={preferReducedMotion} />
-                  <LevelBay bay={column.ground} calm={preferReducedMotion} />
+                  <LevelBay bay={column.upper} calm={preferReducedMotion} display={display} />
+                  <LevelBay bay={column.ground} calm={preferReducedMotion} display={display} />
                 </div>
               </Fragment>
             ))}
@@ -624,6 +658,16 @@ export function LibraryWalk({ books }: Props) {
         onClick={jump}
       >
         Jump
+      </button>
+
+      <button
+        type="button"
+        className="walk-view-btn"
+        aria-label={`Showing ${display}. Switch to ${display === "covers" ? "spines" : "covers"}.`}
+        title={`Switch to ${display === "covers" ? "spines" : "covers"}`}
+        onClick={() => writeDisplay(display === "covers" ? "spines" : "covers")}
+      >
+        {display === "covers" ? "Covers" : "Spines"}
       </button>
 
       <aside
@@ -796,9 +840,11 @@ function EndingCap() {
 const LevelBay = memo(function LevelBay({
   bay,
   calm,
+  display,
 }: {
   bay: WalkBay;
   calm: boolean;
+  display: DisplayMode;
 }) {
   const caseW = caseWidthRem(bay);
   const style = {
@@ -817,7 +863,7 @@ const LevelBay = memo(function LevelBay({
 
   return (
     <section
-      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}`}
+      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}${display === "covers" ? " walk-bay--covers" : ""}`}
       data-section-id={bay.id}
       data-floor={bay.floor}
       data-shelf-rows={bay.shelfRows.length}
@@ -830,10 +876,11 @@ const LevelBay = memo(function LevelBay({
         <div className="walk-bay__paper" />
         <div className="walk-bay__glow" />
         {!calm && !bay.empty && <div className="walk-bay__motes" />}
-        <div className="walk-bay__window" />
+        <WallWindow bay={bay} />
       </div>
 
       <div className="walk-bay__deck" aria-hidden="true" />
+      <WallWindowPatch bay={bay} />
 
       <div className="walk-sign" aria-hidden="true">
         <span>{bay.label}</span>
@@ -842,7 +889,7 @@ const LevelBay = memo(function LevelBay({
 
       {!bay.empty && (
         <>
-          <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} />
+          <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
           {!multi && <SectionDecor kit={bay.kit} index={bay.slot} />}
           {showLadder && <LibraryLadder />}
           <div className="walk-rails" data-rows={bay.shelfRows.length}>
@@ -889,9 +936,19 @@ function LibraryLadder() {
   );
 }
 
-function SectionShelves({ kit, rows }: { kit: DecorKit; rows: number }) {
-  const boards = Math.max(rows + 1, kit === "tall-hearth" || kit === "ladder-desk" ? 3 : 2);
-  const tall = rows > 1 || kit === "tall-hearth" || kit === "ladder-desk" || kit === "mezzanine";
+function SectionShelves({
+  kit,
+  rows,
+  display,
+}: {
+  kit: DecorKit;
+  rows: number;
+  display: DisplayMode;
+}) {
+  const kitIsTall = kit === "tall-hearth" || kit === "ladder-desk" || kit === "mezzanine";
+  // One row of covers fits the low cabinet; tall cabinets stay for spines and double rows.
+  const tall = rows > 1 || (kitIsTall && display === "spines");
+  const boards = Math.max(rows + 1, tall && kitIsTall ? 3 : 2);
   return (
     <div
       className={`walk-case${tall ? " walk-case--tall" : " walk-case--low"}${rows > 1 ? " walk-case--multi" : ""}`}
