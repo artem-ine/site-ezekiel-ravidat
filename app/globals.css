@@ -1676,24 +1676,81 @@
     right: max(0.75rem, env(safe-area-inset-right));
     bottom: max(0.75rem, env(safe-area-inset-bottom));
     z-index: 10;
-    width: min(14rem, 48vw);
-    padding: 0.45rem 0.5rem 0.5rem;
-    border: 3px solid var(--walk-wood-deep);
-    background: rgb(240 226 192 / 0.94);
-    box-shadow: 4px 4px 0 rgb(47 33 24 / 0.25);
     image-rendering: pixelated;
   }
 
-  .walk-minimap__title {
-    margin: 0 0 0.3rem;
+  /* Small screens: a slim pill; the full map is a popover above it. */
+  .walk-minimap__toggle {
+    appearance: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    max-width: min(11rem, 52vw);
+    height: 2.5rem;
+    padding: 0 0.6rem;
+    border: 3px solid var(--walk-wood-deep);
+    background: rgb(240 226 192 / 0.95);
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 3px 3px 0 rgb(47 33 24 / 0.25);
+  }
+
+  .walk-minimap__toggle:hover,
+  .walk-minimap__toggle:focus-visible {
+    outline: 3px solid var(--walk-outline);
+    outline-offset: 2px;
+  }
+
+  .walk-minimap__toggle-icon {
+    flex: 0 0 auto;
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 2px solid var(--walk-wood-deep);
+    background:
+      linear-gradient(var(--walk-wood-deep), var(--walk-wood-deep)) 0 50% / 100% 2px no-repeat,
+      linear-gradient(var(--walk-wood-deep), var(--walk-wood-deep)) 50% 0 / 2px 100% no-repeat,
+      #f7ecd0;
+  }
+
+  .walk-minimap__toggle-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .walk-minimap__panel {
+    display: none;
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 0.5rem);
+    width: min(19rem, calc(100vw - 1.5rem));
+    padding: 0.35rem 0.4rem 0.4rem;
+    border: 3px solid var(--walk-wood-deep);
+    background: rgb(240 226 192 / 0.97);
+    box-shadow: 4px 4px 0 rgb(47 33 24 / 0.25);
+  }
+
+  .walk-minimap.is-open .walk-minimap__panel {
+    display: block;
+  }
+
+  .walk-minimap__here {
+    /* Pill already names the section on small screens. */
+    display: none;
   }
 
   .walk-minimap__track {
     position: relative;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(1.1rem, 1fr));
-    gap: 3px;
-    min-height: 1.85rem;
+    /* One row per floor so the strip reads as a map and the marker stays true. */
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    min-height: 1.1rem;
     padding: 3px;
     border: 2px solid var(--walk-wood-deep);
     background: rgb(255 248 230 / 0.7);
@@ -1703,11 +1760,23 @@
     position: relative;
     appearance: none;
     border: 2px solid transparent;
-    min-height: 1.35rem;
+    min-height: 1.1rem;
+    min-width: 0;
     padding: 0;
     background: var(--bay-color, #c4ad82);
     cursor: pointer;
     image-rendering: pixelated;
+  }
+
+  /* Visually slim, but a finger-sized hit area. */
+  .walk-minimap__bay::before {
+    content: "";
+    position: absolute;
+    inset: -0.3rem 0;
+  }
+
+  .walk-minimap__bay {
+    border-width: 1px;
   }
 
   .walk-minimap__bay.is-active,
@@ -1753,10 +1822,6 @@
     pointer-events: none;
   }
 
-  .walk-minimap__here {
-    margin: 0.35rem 0 0;
-  }
-
   .walk-minimap__row {
     display: flex;
     align-items: stretch;
@@ -1787,6 +1852,34 @@
       transparent 0 4px,
       rgb(0 0 0 / 0.08) 4px 6px
     );
+  }
+
+  /* Desktop: always-open, compact panel; the pill isn't needed. */
+  @media (min-width: 720px) {
+    .walk-minimap__toggle {
+      display: none;
+    }
+
+    .walk-minimap__panel {
+      position: static;
+      display: block;
+      width: 13rem;
+      opacity: 0.88;
+      transition: opacity 0.15s steps(3);
+    }
+
+    .walk-minimap__panel:hover,
+    .walk-minimap__panel:focus-within {
+      opacity: 1;
+    }
+
+    .walk-minimap__here {
+      display: block;
+      margin: 0.3rem 0 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }
 
