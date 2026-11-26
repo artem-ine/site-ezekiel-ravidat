@@ -10,13 +10,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LibraryBook } from "@/lib/books";
-import { WalkBook } from "@/components/library2d/WalkBook";
+import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import {
   baysOnFloor,
   buildFloorPlan,
   caseWidthRem,
   columnWidthRem,
   duplexColumns,
+  itemKey,
   type FloorLevel,
   type WalkBay,
 } from "@/components/library2d/floorLayout";
@@ -818,8 +819,12 @@ const LevelBay = memo(function LevelBay({
                     : undefined
                 }
               >
-                {row.map((book) => (
-                  <WalkBook key={book.uid} book={book} />
+                {row.map((item, itemIndex) => (
+                  <ShelfItemView
+                    key={itemKey(item)}
+                    item={item}
+                    last={itemIndex === row.length - 1}
+                  />
                 ))}
               </div>
             ))}

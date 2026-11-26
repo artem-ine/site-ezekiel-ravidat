@@ -14,7 +14,7 @@ type Props = {
 };
 
 export function BookSpine({ book }: Props) {
-  const width = spineWidthRem(book.pageCount);
+  const width = spineWidthRem(book);
   const height = spineHeightRem(book);
   const cloth = spineCloth(book);
   const authors = book.authors.join(", ") || "Unknown author";

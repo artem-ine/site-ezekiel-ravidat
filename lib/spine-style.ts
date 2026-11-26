@@ -30,7 +30,8 @@ export const STATUS_MARK: Record<ReadStatus, string> = {
   "did-not-finish": "D",
 };
 
-function hash(text: string): number {
+/** Stable string hash — keeps "random" shelf variety identical on every render. */
+export function hash(text: string): number {
   let value = 0;
   for (let i = 0; i < text.length; i += 1) {
     value = (value * 31 + text.charCodeAt(i)) >>> 0;
@@ -44,19 +45,32 @@ export function spineCloth(book: LibraryBook): string {
   return CLOTH[hash(book.uid) % CLOTH.length];
 }
 
-/** Spine width in rem from page count; short books stay readable. */
-export function spineWidthRem(pageCount: number | null): number {
-  const pages = pageCount && pageCount > 0 ? pageCount : 280;
-  const rem = 0.7 + (pages / 900) * 2.4;
-  return Math.min(3.2, Math.max(0.85, rem));
+export type BindingKind = "hardcover" | "paperback";
+
+/**
+ * Hardcovers stand taller and leaner; paperbacks are shorter and fatter.
+ * Digital, audio and unknown formats use the paperback shape.
+ */
+export function bindingOf(book: LibraryBook): BindingKind {
+  return book.format === "hardcover" ? "hardcover" : "paperback";
 }
 
-/** Spine height in rem — slight variation so the shelf feels lived-in. */
+/** Spine width in rem from page count and binding; short books stay readable. */
+export function spineWidthRem(book: LibraryBook): number {
+  const pages = book.pageCount && book.pageCount > 0 ? book.pageCount : 280;
+  const base = 0.7 + (pages / 900) * 2.4;
+  const bindingScale = bindingOf(book) === "hardcover" ? 0.8 : 1.3;
+  return Math.min(3.6, Math.max(0.85, base * bindingScale));
+}
+
+/** Spine height in rem; binding and page count set the shape, the hash adds variety. */
 export function spineHeightRem(book: LibraryBook): number {
-  const base = 9.5 + (hash(book.uid) % 7) * 0.35;
-  if (book.pageCount && book.pageCount > 500) return base + 0.8;
-  if (book.pageCount && book.pageCount < 180) return base - 0.7;
-  return base;
+  const pages = book.pageCount ?? 0;
+  let height = 9 + (hash(book.uid) % 7) * 0.25;
+  if (pages > 500) height += 0.4;
+  if (pages > 0 && pages < 180) height -= 0.6;
+  height += bindingOf(book) === "hardcover" ? 0.6 : -0.5;
+  return Math.min(11.5, Math.max(7.5, height));
 }
 
 export function shortTitle(title: string, max = 28): string {

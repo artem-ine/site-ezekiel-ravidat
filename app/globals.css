@@ -1216,19 +1216,132 @@
     flex-wrap: nowrap;
     align-items: flex-end;
     flex: 0 0 auto;
-    gap: 0.08rem 0.1rem;
+    /* Spacing comes from each item's own margin-right so gaps can vary. */
+    gap: 0;
     min-height: 0;
     width: 100%;
   }
 
   /* Duplex shelves: one horizontal row per rail, spines sized to the bay. */
+  /* Books fill most of the cabinet height; the cap follows the cabinet they stand in. */
   .walk-rail .walk-book {
-    max-height: min(38%, 5.75rem);
+    max-height: 11.2rem;
     flex: 0 0 auto;
   }
 
-  .walk-bay--multi .walk-rail .walk-book {
-    max-height: min(22%, 3.6rem);
+  .walk-bay:has(.walk-case--low) .walk-rail .walk-book {
+    max-height: 5.9rem;
+  }
+
+  .walk-bay:has(.walk-case--multi) .walk-rail .walk-book {
+    max-height: 4.6rem;
+  }
+
+  /* A book shown cover-out: a 2:3 block with its own explicit size. */
+  .walk-rail .walk-book--face {
+    max-height: none;
+    padding: 0;
+    box-shadow:
+      inset 0 0 0 2px rgb(0 0 0 / 0.35),
+      3px 3px 0 rgb(0 0 0 / 0.25);
+  }
+
+  .walk-book--face .walk-book__cover { object-position: 50% 50%; }
+
+  .walk-rail .walk-book--face::before {
+    background: linear-gradient(
+      90deg,
+      rgb(0 0 0 / 0.3),
+      transparent 8%,
+      transparent 96%,
+      rgb(0 0 0 / 0.18)
+    );
+  }
+
+  /* A flat pile of books (a short series), spines out, slightly off-square. */
+  .walk-stack {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column-reverse;
+    align-items: flex-start;
+    gap: 1px;
+  }
+
+  .walk-lie {
+    position: relative;
+    display: block;
+    flex: 0 0 auto;
+    overflow: hidden;
+    isolation: isolate;
+    color: #f3e6c8;
+    text-decoration: none;
+    box-shadow:
+      inset 0 -2px 0 rgb(0 0 0 / 0.3),
+      inset 0 2px 0 rgb(255 255 255 / 0.14),
+      2px 2px 0 rgb(0 0 0 / 0.2);
+  }
+
+  .walk-lie__cover {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 22%;
+    pointer-events: none;
+    image-rendering: auto;
+    z-index: 0;
+  }
+
+  .walk-lie::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.12),
+      transparent 35%,
+      transparent 65%,
+      rgb(0 0 0 / 0.3)
+    );
+  }
+
+  .walk-lie__title {
+    position: absolute;
+    inset: 0 0.55rem 0 0.3rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-size: 0.45rem;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+    text-shadow: 0 1px 0 rgb(0 0 0 / 0.4);
+  }
+
+  .walk-lie--cover .walk-lie__title {
+    display: none;
+  }
+
+  /* Page edges at the open end of the book. */
+  .walk-lie__pages {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2;
+    width: 0.32rem;
+    background: repeating-linear-gradient(180deg, #efe3c4 0 2px, #d6c5a0 2px 3px);
+    box-shadow: inset 2px 0 0 rgb(0 0 0 / 0.2);
+  }
+
+  .walk-lie:hover,
+  .walk-lie:focus-visible {
+    outline: 2px solid var(--walk-outline);
+    outline-offset: 1px;
+    z-index: 5;
   }
 
   .walk-case--multi {
