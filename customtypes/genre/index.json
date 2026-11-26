@@ -27,6 +27,16 @@
           "label": "Description"
         },
         "type": "Text"
+      },
+      "parent": {
+        "config": {
+          "customtypes": [
+            "genre"
+          ],
+          "label": "Parent genre (top level)",
+          "select": "document"
+        },
+        "type": "Link"
       }
     }
   },
