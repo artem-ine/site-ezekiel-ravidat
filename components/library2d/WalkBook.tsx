@@ -27,7 +27,7 @@ export function WalkBook({ book, pose = "shelf" }: Props) {
   return (
     <Link
       href={`/books/${book.uid}`}
-      className={`walk-book${pose === "pile" ? " walk-book--pile" : ""}`}
+      className={`walk-book${pose === "pile" ? " walk-book--pile" : ""}${book.coverUrl ? " walk-book--cover" : ""}`}
       style={{
         width: `${width}rem`,
         height: `${height}rem`,
