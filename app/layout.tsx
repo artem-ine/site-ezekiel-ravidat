@@ -12,11 +12,12 @@ export const metadata: Metadata = {
   description: "A personal library.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children, book }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${garamond.variable} ${courier.variable}`}>
       <body className="bg-paper font-serif text-ink antialiased">
         {children}
+        {book}
         <PrismicPreview repositoryName={repositoryName} />
       </body>
     </html>

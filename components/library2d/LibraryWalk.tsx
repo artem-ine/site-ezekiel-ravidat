@@ -412,6 +412,8 @@ export function LibraryWalk({ books }: Props) {
     const onKeyDown = (event: KeyboardEvent) => {
       const el = scrollerRef.current;
       if (!el) return;
+      // An open book owns the keyboard (Space/arrows would walk behind it).
+      if (document.documentElement.dataset.bookOpen) return;
 
       if (event.key === "ArrowRight" || event.key === "d" || event.key === "D") {
         event.preventDefault();
