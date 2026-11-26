@@ -30,7 +30,8 @@ export const STATUS_MARK: Record<ReadStatus, string> = {
   "did-not-finish": "D",
 };
 
-function hash(text: string): number {
+/** Stable string hash — keeps "random" shelf variety identical on every render. */
+export function hash(text: string): number {
   let value = 0;
   for (let i = 0; i < text.length; i += 1) {
     value = (value * 31 + text.charCodeAt(i)) >>> 0;
