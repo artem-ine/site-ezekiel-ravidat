@@ -1,9 +1,7 @@
 import type { CSSProperties } from "react";
 import type { WalkBay } from "@/components/library2d/floorLayout";
+import { SCENES, type WindowKind } from "@/components/library2d/decorCatalog";
 import { hash } from "@/lib/spine-style";
-
-const KINDS = ["square", "arch", "round", "tall", "triple"] as const;
-export type WindowKind = (typeof KINDS)[number];
 
 /** Share of bays that get a window at all; the rest keep a plain wall. */
 const WINDOW_PERCENT = 55;
@@ -17,6 +15,8 @@ type Spec = {
   curtains: boolean;
   plant: boolean;
   night: boolean;
+  /** Sci-fi rooms look out on space rather than a sky. */
+  space: boolean;
 };
 
 /** Deterministic per bay, so a window never jumps between renders. */
@@ -24,7 +24,7 @@ export function windowSpec(bay: WalkBay): Spec | null {
   const h = hash(`${bay.id}-window`);
   if (h % 100 >= WINDOW_PERCENT) return null;
   return {
-    kind: KINDS[(h >>> 7) % KINDS.length]!,
+    kind: SCENES[bay.theme.id].windows[(h >>> 7) % SCENES[bay.theme.id].windows.length]!,
     // Clear of the section sign on the left.
     leftPercent: 44 + ((h >>> 11) % 27),
     topPercent: 7 + ((h >>> 16) % 6),
@@ -32,6 +32,7 @@ export function windowSpec(bay: WalkBay): Spec | null {
     curtains: (h >>> 20) % 3 === 0,
     plant: (h >>> 22) % 2 === 0,
     night: bay.theme.mood === "dark",
+    space: bay.theme.id === "scifi",
   };
 }
 
@@ -50,7 +51,7 @@ export function WallWindow({ bay }: { bay: WalkBay }) {
 
   return (
     <div
-      className={`walk-window-set walk-window-set--${spec.kind}${spec.night ? " is-night" : ""}`}
+      className={`walk-window-set walk-window-set--${spec.kind}${spec.night ? " is-night" : ""}${spec.space ? " is-space" : ""}`}
       style={varsFor(spec)}
     >
       <div className="walk-window">
@@ -77,7 +78,7 @@ export function WallWindowPatch({ bay }: { bay: WalkBay }) {
 
   return (
     <div
-      className={`walk-window-set walk-window-set--${spec.kind} walk-window-set--floor${spec.night ? " is-night" : ""}`}
+      className={`walk-window-set walk-window-set--${spec.kind} walk-window-set--floor${spec.night ? " is-night" : ""}${spec.space ? " is-space" : ""}`}
       style={varsFor(spec)}
       aria-hidden="true"
     >

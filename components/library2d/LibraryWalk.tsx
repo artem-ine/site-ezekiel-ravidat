@@ -13,6 +13,7 @@ import {
 } from "react";
 import type { LibraryBook } from "@/lib/books";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
+import { ThemeDecor } from "@/components/library2d/ThemeDecor";
 import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
 import {
   baysOnFloor,
@@ -618,7 +619,7 @@ export function LibraryWalk({ books }: Props) {
 
           <div className="walk-layer walk-layer--shelves">
             <EntranceCap />
-            {columns.map((column) => (
+            {columns.map((column, columnIndex) => (
               <Fragment key={column.slot}>
                 {column.wingStart && (
                   <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
@@ -632,8 +633,20 @@ export function LibraryWalk({ books }: Props) {
                     } as CSSProperties
                   }
                 >
-                  <LevelBay bay={column.upper} calm={preferReducedMotion} display={display} />
-                  <LevelBay bay={column.ground} calm={preferReducedMotion} display={display} />
+                  <LevelBay
+                    bay={column.upper}
+                    calm={preferReducedMotion}
+                    display={display}
+                    before={columns[columnIndex - 1]?.upper.theme}
+                    after={columns[columnIndex + 1]?.upper.theme}
+                  />
+                  <LevelBay
+                    bay={column.ground}
+                    calm={preferReducedMotion}
+                    display={display}
+                    before={columns[columnIndex - 1]?.ground.theme}
+                    after={columns[columnIndex + 1]?.ground.theme}
+                  />
                 </div>
               </Fragment>
             ))}
@@ -841,10 +854,15 @@ const LevelBay = memo(function LevelBay({
   bay,
   calm,
   display,
+  before,
+  after,
 }: {
   bay: WalkBay;
   calm: boolean;
   display: DisplayMode;
+  /** Themes of the bays either side on this floor, so the edges can blend into them. */
+  before?: SectionTheme;
+  after?: SectionTheme;
 }) {
   const caseW = caseWidthRem(bay);
   const style = {
@@ -855,7 +873,18 @@ const LevelBay = memo(function LevelBay({
     "--sec-floor-deep": bay.theme.floorDeep,
     "--sec-accent": bay.theme.accent,
     "--sec-light": bay.theme.light,
-    ...(caseW > 0 ? { "--walk-case-width": `${caseW}rem` } : null),
+    "--prev-sky": (before ?? bay.theme).sky,
+    "--prev-wall": (before ?? bay.theme).wall,
+    "--prev-floor": (before ?? bay.theme).floor,
+    "--next-sky": (after ?? bay.theme).sky,
+    "--next-wall": (after ?? bay.theme).wall,
+    "--next-floor": (after ?? bay.theme).floor,
+    ...(caseW > 0
+      ? {
+          "--walk-case-width": `${caseW}rem`,
+          "--walk-prop-left": `${caseW + 2.75}rem`,
+        }
+      : null),
   } as CSSProperties;
 
   const multi = bay.shelfRows.length > 1;
@@ -863,7 +892,7 @@ const LevelBay = memo(function LevelBay({
 
   return (
     <section
-      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-bay--${bay.theme.pattern}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}${display === "covers" ? " walk-bay--covers" : ""}${bay.shelfRows.length >= 3 ? " walk-bay--triple" : ""}`}
+      className={`walk-bay walk-bay--${bay.floor === 1 ? "upper" : "ground"} walk-bay--${bay.kit} walk-t-${bay.theme.id}${bay.empty ? " walk-bay--empty" : ""}${multi ? " walk-bay--multi" : ""}${bay.paired ? " walk-bay--paired" : ""}${display === "covers" ? " walk-bay--covers" : ""}${bay.shelfRows.length >= 3 ? " walk-bay--triple" : ""}`}
       data-section-id={bay.id}
       data-floor={bay.floor}
       data-shelf-rows={bay.shelfRows.length}
@@ -874,6 +903,8 @@ const LevelBay = memo(function LevelBay({
     >
       <div className="walk-bay__wall" aria-hidden="true">
         <div className="walk-bay__paper" />
+        <div className="walk-bay__pattern" />
+        <div className="walk-bay__trim" />
         <div className="walk-bay__glow" />
         {!calm && !bay.empty && <div className="walk-bay__motes" />}
         <WallWindow bay={bay} />
@@ -894,7 +925,7 @@ const LevelBay = memo(function LevelBay({
           ) : (
             <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
           )}
-          {!multi && <SectionDecor kit={bay.kit} index={bay.slot} />}
+          <ThemeDecor bay={bay} />
           {showLadder && <LibraryLadder />}
           <div
             className={`walk-rails${bay.table ? " walk-rails--table" : ""}`}
@@ -980,34 +1011,3 @@ function SectionTable() {
   );
 }
 
-function SectionDecor({ kit, index }: { kit: DecorKit; index: number }) {
-  return (
-    <div className="walk-decor" aria-hidden="true">
-      {(kit === "tall-hearth" || kit === "low-nook") && (
-        <div className="walk-hearth">
-          <div className="walk-hearth__glow" />
-        </div>
-      )}
-      {(kit === "low-nook" || kit === "plants-globe") && <div className="walk-sofa" />}
-      {(kit === "tall-hearth" || kit === "balcony-clock") && <div className="walk-chair" />}
-      {(kit === "ladder-desk" || kit === "mezzanine") && (
-        <div className="walk-lamp">
-          <div className="walk-lamp__glow" />
-        </div>
-      )}
-      {(kit === "plants-globe" || kit === "balcony-clock") && (
-        <>
-          <div className="walk-plant" />
-          <div className="walk-globe" />
-        </>
-      )}
-      {kit === "balcony-clock" && <div className="walk-clock" />}
-      <div className={`walk-rug walk-rug--${(index % 3) + 1}`} />
-      {index % 2 === 0 && (
-        <div className="walk-cat">
-          <div className="walk-cat__body" />
-        </div>
-      )}
-    </div>
-  );
-}

@@ -6,6 +6,7 @@ import {
   BAY_CHROME_REM,
   BAY_MAX_WIDTH_REM,
   BAY_MIN_WIDTH_REM,
+  DECOR_GUTTER_REM,
   CASE_SIDE_PAD_REM,
   LADDER_SPACE_REM,
   bayContentWidthRem,
@@ -26,6 +27,8 @@ type FaceItem = Extract<ShelfItem, { kind: "face" }>;
 import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
+import { themeForLabel } from "../components/library2d/sectionTheme";
+import { SCENES } from "../components/library2d/decorCatalog";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) {
@@ -190,7 +193,7 @@ for (const [name, input] of [
         caseWidthRem(bay) >= content + CASE_SIDE_PAD_REM * 2 - 0.001,
         `${bay.label}: case covers widest row`,
       );
-      const maxBay = BAY_MAX_WIDTH_REM + (bay.paired ? LADDER_SPACE_REM : 0) + 0.01;
+      const maxBay = BAY_MAX_WIDTH_REM + (bay.paired ? LADDER_SPACE_REM : 0) + DECOR_GUTTER_REM + 0.01;
       assert(
         bayRailWidthRem(bay) <= maxBay,
         `${bay.label} width within max (${bayRailWidthRem(bay).toFixed(1)})`,
@@ -360,6 +363,29 @@ for (const [name, input] of [
   const oneRowWidth = Math.max(...oneRow.map((b) => bayContentWidthRem(b)));
   assert(threeRowWidth < BAY_MAX_WIDTH_REM, "covers: three-row cabinets are narrower than the wall");
   assert(oneRowWidth > 0, "covers: one-row cabinets exist");
+}
+
+{
+  const expected: Record<string, string> = {
+    "Fantasy": "fantasy",
+    "Science Fiction": "scifi",
+    "Science & Nature": "nature",
+    "Young Adult": "ya",
+    "Horror": "horror",
+    "Historical Fiction": "history",
+    "Literary Fiction": "literary",
+    "True Crime & Organised Crime": "mystery",
+    "Race & Colonialism": "civic",
+    "Health, Mind & Grief": "mind",
+    "Gender, Sexuality & Feminism": "civic",
+  };
+  for (const [label, id] of Object.entries(expected)) {
+    assert(themeForLabel(label).id === id, `theme: "${label}" is the ${id} room`);
+  }
+  assert(
+    Object.values(SCENES).every((s) => s.floor.length >= 2 && s.wall.length >= 1 && s.windows.length >= 2),
+    "theme: every room has several floor props, a wall prop and window shapes",
+  );
 }
 
 if (process.exitCode) {

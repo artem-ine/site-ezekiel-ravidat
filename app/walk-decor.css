@@ -1,0 +1,729 @@
+/*
+ * Genre rooms for the library walk. Every genre has its own wall pattern, ceiling
+ * trim, floor, rug, furniture, wall piece, ambient light and sign. Rooms of one
+ * genre share these; neighbouring genres fade into each other across the
+ * --walk-blend strip at each bay edge (colours via --prev-* / --next-* in the base
+ * paper and deck rules, patterns via the edge mask below).
+ */
+
+.walk-bay {
+  --walk-fade: linear-gradient(
+    90deg,
+    transparent,
+    #000 var(--walk-blend),
+    #000 calc(100% - var(--walk-blend)),
+    transparent
+  );
+}
+
+.walk-bay__pattern,
+.walk-bay__trim,
+.walk-bay__deck::before {
+  position: absolute;
+  pointer-events: none;
+  -webkit-mask-image: var(--walk-fade);
+  mask-image: var(--walk-fade);
+}
+
+.walk-bay__pattern {
+  inset: 0;
+}
+
+.walk-bay__trim {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2rem;
+}
+
+.walk-bay__deck::before {
+  content: "";
+  inset: 0;
+}
+
+.walk-bay__trim::before,
+.walk-bay__trim::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.walk-decor {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.walk-rug {
+  position: absolute;
+  left: calc(var(--walk-prop-left) - 0.7rem);
+  bottom: calc(var(--walk-deck) - 0.2rem);
+  width: 5rem;
+  height: 0.8rem;
+  border: 2px solid var(--walk-wood-deep);
+  border-radius: 0.2rem;
+  opacity: 0.9;
+}
+
+.walk-prop {
+  position: absolute;
+  left: var(--walk-prop-left);
+  bottom: calc(var(--walk-deck) - 0.05rem);
+  width: 4rem;
+  height: 5rem;
+  image-rendering: pixelated;
+}
+
+.walk-prop i {
+  position: absolute;
+  display: block;
+}
+
+.walk-prop--wall {
+  bottom: auto;
+  top: 17%;
+  left: calc(var(--walk-prop-left) + 0.2rem);
+  height: auto;
+}
+
+/* —— Per-room materials: cabinets, frames and furniture outlines follow the genre —— */
+.walk-t-fantasy { --walk-wood: #5e4a3a; --walk-wood-deep: #2a1c18; --walk-shelf: #6a5240; }
+.walk-t-scifi { --walk-wood: #7a8ca0; --walk-wood-deep: #1c2836; --walk-shelf: #5a6a7e; }
+.walk-t-romance { --walk-wood: #e8d8c8; --walk-wood-deep: #8a5a50; --walk-shelf: #d8c2b0; }
+.walk-t-mystery { --walk-wood: #4a3a2e; --walk-wood-deep: #1c140e; --walk-shelf: #3e2f24; }
+.walk-t-horror { --walk-wood: #3e2c28; --walk-wood-deep: #140c0a; --walk-shelf: #30221e; }
+.walk-t-history { --walk-wood: #8a6238; --walk-wood-deep: #3a2610; --walk-shelf: #7a5430; }
+.walk-t-nature { --walk-wood: #b08a5a; --walk-wood-deep: #5a4220; --walk-shelf: #a07a4a; }
+.walk-t-ya { --walk-wood: #4fb6c6; --walk-wood-deep: #1f5a68; --walk-shelf: #3a9aaa; }
+.walk-t-civic { --walk-wood: #8a9098; --walk-wood-deep: #3a4048; --walk-shelf: #6e747c; }
+.walk-t-mind { --walk-wood: #cdb48a; --walk-wood-deep: #6a5238; --walk-shelf: #bda274; }
+
+/* —— Signs —— */
+.walk-t-fantasy .walk-sign { background: #e8d4a4; border-color: #6a4a22; box-shadow: 3px 3px 0 #2a1c18, inset 0 0 0 2px #c9a227; }
+.walk-t-scifi .walk-sign { background: #06161e; color: #7be8ff; border-color: #7be8ff; box-shadow: 0 0 0.7rem rgb(123 232 255 / 0.6); }
+.walk-t-romance .walk-sign { background: #ffe0e8; color: #8a2a48; border-radius: 0.8rem; border-color: #d63a58; }
+.walk-t-mystery .walk-sign { background: rgb(240 240 232 / 0.85); color: #14140f; border-color: #14140f; letter-spacing: 0.18em; }
+.walk-t-horror .walk-sign { background: #2a1c1c; color: #c0392b; border-color: #5a1010; box-shadow: 3px 3px 0 #000; }
+.walk-t-history .walk-sign { background: #c9a227; color: #3a2610; border-color: #6a4a10; box-shadow: inset 0 0 0 2px #e8cf6a; }
+.walk-t-nature .walk-sign { background: #8a6a40; color: #eaf4d4; border-color: #3a4a20; }
+.walk-t-ya .walk-sign { background: #e0527a; color: #fff; border-color: #fff; transform: rotate(-3deg); box-shadow: 3px 3px 0 #1f5a68; }
+.walk-t-civic .walk-sign { background: #c9a878; color: #1a1612; border-color: #3a3028; font-weight: 700; letter-spacing: 0.14em; }
+.walk-t-mind .walk-sign { background: #f4efe0; color: #4a5a50; border-color: #7a9a8a; border-radius: 0.2rem; }
+
+/* —— Walls —— */
+.walk-t-fantasy .walk-bay__pattern {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 2.2rem, rgb(20 10 40 / 0.3) 2.2rem calc(2.2rem + 2px)),
+    repeating-linear-gradient(90deg, transparent 0 4rem, rgb(20 10 40 / 0.22) 4rem calc(4rem + 2px)),
+    radial-gradient(circle, rgb(255 255 255 / 0.07) 1px, transparent 2px) 0 0 / 14px 14px;
+}
+.walk-t-scifi .walk-bay__pattern {
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 0.55) 1px, transparent 2px) 6.6rem 4.6rem / 7rem 5rem,
+    linear-gradient(90deg, transparent calc(100% - 2px), rgb(60 190 255 / 0.45) 0) 0 0 / 7rem 100%,
+    linear-gradient(0deg, transparent calc(100% - 2px), rgb(60 150 220 / 0.28) 0) 0 0 / 100% 5rem;
+}
+.walk-t-romance .walk-bay__pattern {
+  background:
+    linear-gradient(0deg, transparent 26%, rgb(130 40 60 / 0.4) 26% calc(26% + 3px), transparent calc(26% + 3px)),
+    linear-gradient(0deg, rgb(255 246 240 / 0.4) 0 26%, transparent 26%),
+    radial-gradient(circle, rgb(200 60 90 / 0.4) 2px, transparent 3px) 0.6rem 1rem / 2.4rem 2.2rem,
+    repeating-linear-gradient(90deg, transparent 0 1.2rem, rgb(255 255 255 / 0.22) 1.2rem 2.4rem);
+}
+.walk-t-mystery .walk-bay__pattern {
+  background:
+    linear-gradient(0deg, transparent 30%, rgb(0 0 0 / 0.55) 30% calc(30% + 3px), transparent calc(30% + 3px)),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.2) 0 2px, transparent 2px 2.4rem),
+    linear-gradient(0deg, rgb(0 0 0 / 0.18) 0 30%, transparent 30%);
+}
+.walk-t-horror .walk-bay__pattern {
+  background:
+    linear-gradient(115deg, transparent 48%, rgb(0 0 0 / 0.4) 48.4% 49.2%, transparent 49.6%) 0 0 / 11rem 100%,
+    linear-gradient(75deg, transparent 60%, rgb(0 0 0 / 0.35) 60.4% 61.2%, transparent 61.6%) 3rem 0 / 9rem 100%,
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.16) 0 1rem, transparent 1rem 2rem),
+    radial-gradient(ellipse at 50% -10%, rgb(0 0 0 / 0.5), transparent 70%);
+}
+.walk-t-literary .walk-bay__pattern {
+  background:
+    linear-gradient(0deg, transparent 32%, rgb(60 35 20 / 0.55) 32% calc(32% + 3px), transparent calc(32% + 3px)),
+    repeating-linear-gradient(90deg, rgb(90 55 30 / 0.34) 0 3.2rem, rgb(60 35 20 / 0.45) 3.2rem calc(3.2rem + 3px)) 0 100% / 100% 32% no-repeat,
+    radial-gradient(circle, rgb(120 90 50 / 0.16) 1.5px, transparent 2.5px) 0 0 / 1.6rem 1.6rem;
+}
+.walk-t-history .walk-bay__pattern {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 9.4rem,
+      rgb(120 90 50 / 0.5) 9.4rem 9.9rem,
+      rgb(250 235 200 / 0.4) 9.9rem 10.6rem,
+      rgb(120 90 50 / 0.5) 10.6rem 11.1rem,
+      transparent 11.1rem 11.6rem
+    ),
+    radial-gradient(ellipse 6rem 3rem at 30% 40%, rgb(120 80 30 / 0.15), transparent),
+    radial-gradient(ellipse 5rem 4rem at 75% 70%, rgb(120 80 30 / 0.13), transparent);
+}
+.walk-t-nature .walk-bay__pattern {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 0.9rem, rgb(110 80 40 / 0.34) 0.9rem 1rem) 0 100% / 100% 36% no-repeat,
+    repeating-linear-gradient(-45deg, transparent 0 0.9rem, rgb(110 80 40 / 0.34) 0.9rem 1rem) 0 100% / 100% 36% no-repeat,
+    radial-gradient(ellipse 5px 3px at 50% 50%, rgb(60 120 60 / 0.45), transparent 100%) 0 0 / 1.4rem 1.8rem,
+    repeating-linear-gradient(90deg, transparent 0 5.8rem, rgb(50 100 50 / 0.35) 5.8rem calc(5.8rem + 3px));
+}
+.walk-t-ya .walk-bay__pattern {
+  background:
+    radial-gradient(circle, rgb(224 82 122 / 0.55) 4px, transparent 5px) 1rem 1rem / 7rem 6rem,
+    linear-gradient(135deg, transparent 45%, rgb(60 170 190 / 0.5) 45% 55%, transparent 55%) 3rem 2rem / 3rem 3rem,
+    radial-gradient(circle, rgb(250 190 40 / 0.6) 3px, transparent 4px) 4.5rem 4rem / 7rem 6rem;
+}
+.walk-t-civic .walk-bay__pattern {
+  background:
+    linear-gradient(rgb(192 57 43 / 0.28) 0 0) 1.2rem 22% / 2.4rem 3.2rem no-repeat,
+    linear-gradient(rgb(255 255 255 / 0.35) 0 0) 4.6rem 38% / 2rem 2.6rem no-repeat,
+    linear-gradient(rgb(20 20 20 / 0.28) 0 0) 8rem 18% / 2.6rem 2rem no-repeat,
+    linear-gradient(90deg, transparent calc(100% - 2px), rgb(0 0 0 / 0.2) 0) 0 0 / 6rem 100%,
+    linear-gradient(0deg, transparent calc(100% - 2px), rgb(0 0 0 / 0.2) 0) 0 0 / 100% 3rem;
+}
+.walk-t-mind .walk-bay__pattern {
+  background:
+    linear-gradient(90deg, rgb(120 90 60 / 0.4) 2px, transparent 2px) 0 0 / 4.4rem 100%,
+    linear-gradient(0deg, rgb(120 90 60 / 0.4) 2px, transparent 2px) 0 0 / 100% 3.6rem,
+    linear-gradient(rgb(255 255 255 / 0.22), rgb(255 255 255 / 0.22));
+}
+
+/* —— Ceiling trim —— */
+.walk-t-fantasy .walk-bay__trim {
+  background:
+    radial-gradient(circle at 50% 0, #4a3a58 1.35rem, transparent 1.4rem) 0 0 / 2.8rem 1.4rem repeat-x,
+    linear-gradient(#3a2c48 0 0.4rem, transparent 0.4rem);
+}
+.walk-t-scifi .walk-bay__trim {
+  background:
+    linear-gradient(90deg, transparent, rgb(140 235 255 / 0.95) 12% 88%, transparent) 0 0.4rem / 100% 0.25rem no-repeat,
+    linear-gradient(#2c3d52 0 0.8rem, transparent 0.8rem);
+  animation: walk-strip 3.6s ease-in-out infinite alternate;
+}
+.walk-t-romance .walk-bay__trim {
+  background:
+    linear-gradient(#5a3a2a, #5a3a2a) 0 0.45rem / 100% 2px no-repeat,
+    radial-gradient(circle, #fff1b0 0 2.5px, rgb(255 200 120 / 0.5) 3.5px, transparent 7px) 0 0.2rem / 2.2rem 1.6rem repeat-x;
+}
+.walk-t-romance .walk-bay__trim::after {
+  inset: 0;
+  background: radial-gradient(circle, #ffd0e0 0 2.5px, rgb(255 150 190 / 0.5) 3.5px, transparent 7px) 1.1rem 0.2rem / 2.2rem 1.6rem repeat-x;
+  animation: walk-twinkle 2.4s ease-in-out infinite alternate;
+}
+.walk-t-mystery .walk-bay__trim {
+  background:
+    radial-gradient(ellipse 1.1rem 0.6rem at 50% 1.4rem, #2e5a48 98%, transparent) 0 0 / 14rem 100% repeat-x,
+    radial-gradient(ellipse 2.4rem 1.2rem at 50% 1.9rem, rgb(255 230 150 / 0.45), transparent) 0 0 / 14rem 100% repeat-x,
+    linear-gradient(90deg, transparent calc(50% - 1px), #222 calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)) 0 0 / 14rem 1.1rem repeat-x;
+}
+.walk-t-horror .walk-bay__trim {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+.walk-t-horror .walk-bay__trim::before {
+  left: 0;
+  top: 0;
+  width: 5.2rem;
+  height: 3.4rem;
+  background:
+    repeating-radial-gradient(circle at 0 0, transparent 0 0.7rem, rgb(255 255 255 / 0.28) 0.7rem calc(0.7rem + 1px)),
+    conic-gradient(from 90deg at 0 0, transparent 0 8deg, rgb(255 255 255 / 0.4) 8deg 9deg, transparent 9deg 34deg, rgb(255 255 255 / 0.4) 34deg 35deg, transparent 35deg 60deg, rgb(255 255 255 / 0.4) 60deg 61deg, transparent 61deg);
+  clip-path: polygon(0 0, 100% 0, 70% 40%, 40% 75%, 0 100%);
+}
+.walk-t-horror .walk-bay__trim::after {
+  right: 0;
+  top: 0;
+  width: 4rem;
+  height: 2.6rem;
+  background:
+    repeating-radial-gradient(circle at 100% 0, transparent 0 0.6rem, rgb(255 255 255 / 0.25) 0.6rem calc(0.6rem + 1px)),
+    conic-gradient(from 180deg at 100% 0, transparent 0 14deg, rgb(255 255 255 / 0.35) 14deg 15deg, transparent 15deg 44deg, rgb(255 255 255 / 0.35) 44deg 45deg, transparent 45deg);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 65% 60%, 30% 25%);
+}
+.walk-t-literary .walk-bay__trim {
+  background:
+    linear-gradient(rgb(80 50 30 / 0.5), rgb(80 50 30 / 0.5)) 0 1rem / 100% 2px no-repeat,
+    linear-gradient(#f5ead2 0 0.45rem, #c9ae82 0.45rem 0.65rem, transparent 0.65rem);
+}
+.walk-t-history .walk-bay__trim {
+  background:
+    linear-gradient(#e8cf6a, #e8cf6a) 0 1rem / 100% 0.2rem no-repeat,
+    repeating-linear-gradient(90deg, #c9a66a 0 0.6rem, #8a5a34 0.6rem 1.2rem) 0 0.1rem / 100% 0.85rem no-repeat;
+}
+.walk-t-nature .walk-bay__trim {
+  background:
+    radial-gradient(ellipse 0.9rem 1.3rem at 50% 0, rgb(70 130 70 / 0.9) 98%, transparent) 0 0 / 3rem 1.6rem repeat-x,
+    radial-gradient(ellipse 0.6rem 1rem at 50% 0, rgb(110 170 80 / 0.9) 98%, transparent) 1.5rem 0 / 3rem 1.2rem repeat-x;
+}
+.walk-t-ya .walk-bay__trim {
+  background:
+    linear-gradient(rgb(40 30 20 / 0.6), rgb(40 30 20 / 0.6)) 0 0.3rem / 100% 1px no-repeat,
+    radial-gradient(circle, #ff5d8f 0 3px, transparent 4px) 0 0.4rem / 5rem 1.4rem repeat-x,
+    radial-gradient(circle, #ffd23f 0 3px, transparent 4px) 1.25rem 0.4rem / 5rem 1.4rem repeat-x,
+    radial-gradient(circle, #3ec1d3 0 3px, transparent 4px) 2.5rem 0.4rem / 5rem 1.4rem repeat-x,
+    radial-gradient(circle, #8bd450 0 3px, transparent 4px) 3.75rem 0.4rem / 5rem 1.4rem repeat-x;
+  animation: walk-twinkle 1.8s ease-in-out infinite alternate;
+}
+.walk-t-civic .walk-bay__trim {
+  background:
+    radial-gradient(circle, #aab4be 1.5px, transparent 2px) 0.5rem 0.3rem / 3rem 0.6rem repeat-x,
+    linear-gradient(#6a7480 0 0.5rem, #4a5460 0.5rem 0.75rem, transparent 0.75rem);
+}
+.walk-t-mind .walk-bay__trim {
+  background:
+    repeating-linear-gradient(90deg, rgb(120 90 60 / 0.5) 0 2px, transparent 2px 1.8rem) 0 0.5rem / 100% 1rem no-repeat,
+    linear-gradient(#8a6a40 0 0.5rem, transparent 0.5rem);
+}
+
+/* —— Floors —— */
+.walk-t-fantasy .walk-bay__deck::before {
+  background:
+    linear-gradient(90deg, transparent calc(100% - 2px), rgb(30 15 40 / 0.5) 0) 0 0 / 5rem 100%,
+    linear-gradient(0deg, transparent 48%, rgb(30 15 40 / 0.45) 48% 52%, transparent 52%);
+}
+.walk-t-scifi .walk-bay__deck::before {
+  background:
+    linear-gradient(180deg, transparent 0.9rem, rgb(80 220 255 / 0.85) 0.9rem 1.05rem, transparent 1.05rem),
+    linear-gradient(90deg, transparent calc(100% - 2px), rgb(40 70 100 / 0.55) 0) 0 0 / 3.2rem 100%;
+}
+.walk-t-romance .walk-bay__deck::before {
+  background: conic-gradient(rgb(255 245 235 / 0.6) 25%, transparent 0 50%, rgb(255 245 235 / 0.6) 0 75%, transparent 0) 0 0 / 2.4rem 2.4rem;
+}
+.walk-t-mystery .walk-bay__deck::before {
+  background:
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.32) 0 2px, transparent 2px 1.6rem),
+    linear-gradient(0deg, transparent 48%, rgb(0 0 0 / 0.3) 48% 52%, transparent 52%);
+}
+.walk-t-horror .walk-bay__deck::before {
+  background:
+    radial-gradient(ellipse 2.5rem 0.7rem at 30% 70%, rgb(130 10 10 / 0.5), transparent) 0 0 / 19rem 100%,
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.45) 0 3px, transparent 3px 2.6rem);
+}
+.walk-t-literary .walk-bay__deck::before {
+  background:
+    repeating-linear-gradient(45deg, rgb(0 0 0 / 0.12) 0 0.6rem, transparent 0.6rem 1.2rem),
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.12) 0 0.6rem, transparent 0.6rem 1.2rem);
+}
+.walk-t-history .walk-bay__deck::before {
+  background:
+    radial-gradient(ellipse 0.8rem 0.35rem at 40% 60%, rgb(0 0 0 / 0.3), transparent) 0 0 / 11rem 100%,
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.3) 0 2px, transparent 2px 4.2rem);
+}
+.walk-t-nature .walk-bay__deck::before {
+  background:
+    radial-gradient(ellipse 0.5rem 0.7rem at 50% 0, #5a8a40 98%, transparent) 0 0 / 1rem 1rem repeat-x,
+    radial-gradient(circle, rgb(60 50 30 / 0.55) 2px, transparent 3px) 0 0.8rem / 2.2rem 1.2rem;
+}
+.walk-t-ya .walk-bay__deck::before {
+  background:
+    linear-gradient(180deg, transparent 0.9rem, rgb(224 82 122 / 0.6) 0.9rem 1.2rem, transparent 1.2rem),
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.24) 0 1.8rem, transparent 1.8rem 3.6rem);
+}
+.walk-t-civic .walk-bay__deck::before {
+  background:
+    repeating-linear-gradient(90deg, rgb(240 200 60 / 0.9) 0 2rem, transparent 2rem 3.4rem) 0 1rem / 100% 0.25rem no-repeat,
+    linear-gradient(90deg, transparent calc(100% - 2px), rgb(0 0 0 / 0.3) 0) 0 0 / 6rem 100%;
+}
+.walk-t-mind .walk-bay__deck::before {
+  background:
+    linear-gradient(90deg, transparent calc(100% - 3px), rgb(60 80 50 / 0.6) 0) 0 0 / 7rem 100%,
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 0.14) 0 2px, transparent 2px 5px);
+}
+
+/* —— Rugs —— */
+.walk-t-fantasy .walk-rug {
+  border-radius: 50%;
+  background: repeating-radial-gradient(ellipse, #3a2a58 0 4px, #6a4a98 4px 7px);
+}
+.walk-t-scifi .walk-rug {
+  height: 0.5rem;
+  border-radius: 0;
+  border-color: #7be8ff;
+  background: linear-gradient(90deg, #06161e, rgb(60 190 255 / 0.5), #06161e);
+}
+.walk-t-romance .walk-rug {
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #fff 0 1rem, #f5a0b8 1rem 1.6rem, #d63a58 1.6rem);
+}
+.walk-t-mystery .walk-rug {
+  background: repeating-linear-gradient(45deg, #6a2a2a 0 5px, #3a1616 5px 10px);
+}
+.walk-t-horror .walk-rug {
+  background: linear-gradient(90deg, #2a0808, #5a1010 50%, #2a0808);
+  border-color: #000;
+}
+.walk-t-literary .walk-rug {
+  background: repeating-linear-gradient(90deg, #7a3a2a 0 0.5rem, #d8bc7a 0.5rem 0.65rem);
+}
+.walk-t-history .walk-rug {
+  background: linear-gradient(90deg, #8a2a1a 0 0.5rem, #d8bc7a 0.5rem 0.65rem, #5a1a10 0.65rem calc(100% - 0.65rem), #d8bc7a calc(100% - 0.65rem) calc(100% - 0.5rem), #8a2a1a 0);
+}
+.walk-t-nature .walk-rug {
+  height: 0.9rem;
+  border-radius: 50%;
+  border-color: #3a4a20;
+  background: radial-gradient(ellipse, #6aaa50, #3f7a3a);
+}
+.walk-t-ya .walk-rug {
+  border-radius: 0.5rem;
+  background:
+    radial-gradient(circle, #ffd23f 3px, transparent 4px) 0 0 / 1.2rem 100%,
+    linear-gradient(#3ec1d3, #3ec1d3);
+}
+.walk-t-civic .walk-rug {
+  height: 0.5rem;
+  background: repeating-linear-gradient(45deg, #1a1612 0 6px, #e8c03a 6px 12px);
+}
+.walk-t-mind .walk-rug {
+  height: 0.7rem;
+  border-radius: 50%;
+  border-color: #6a5238;
+  background: radial-gradient(ellipse, #f4efe0 0 1.4rem, #b8c4b0 1.4rem);
+}
+
+/* —— Ambient —— */
+.walk-t-fantasy .walk-bay__motes {
+  background-image:
+    radial-gradient(circle, #ffe9a0 0 1px, transparent 2px),
+    radial-gradient(circle, #cdb8ff 0 1px, transparent 2px);
+  opacity: 0.75;
+}
+.walk-t-scifi .walk-bay__motes {
+  background-image: radial-gradient(circle, rgb(120 230 255 / 0.9) 0 1px, transparent 2px);
+  background-size: 90px 130px;
+}
+.walk-t-scifi .walk-bay__glow {
+  background: linear-gradient(90deg, transparent, rgb(120 230 255 / 0.3), transparent) 0 0 / 12rem 100% repeat-x;
+  mix-blend-mode: screen;
+  animation: walk-scan 7s linear infinite;
+}
+.walk-t-romance .walk-bay__motes {
+  background-image: radial-gradient(ellipse 3px 2px, #ff9ab8 98%, transparent);
+  background-size: 120px 90px;
+  opacity: 0.6;
+}
+.walk-t-mystery .walk-bay__glow {
+  inset: 0 0 20%;
+  background: repeating-linear-gradient(160deg, rgb(255 255 255 / 0.12) 0 0.5rem, transparent 0.5rem 1.2rem);
+  -webkit-mask-image: radial-gradient(ellipse at 30% 10%, #000, transparent 70%);
+  mask-image: radial-gradient(ellipse at 30% 10%, #000, transparent 70%);
+  mix-blend-mode: soft-light;
+}
+.walk-t-mystery .walk-bay__motes { opacity: 0.2; }
+.walk-t-horror .walk-bay__glow {
+  inset: 40% 0 0;
+  background: linear-gradient(0deg, rgb(200 190 215 / 0.38), transparent);
+  mix-blend-mode: screen;
+  animation: walk-fog 9s ease-in-out infinite alternate;
+}
+.walk-t-horror .walk-bay__motes {
+  background-image: radial-gradient(circle, rgb(190 180 190 / 0.7) 0 1px, transparent 2px);
+  opacity: 0.35;
+}
+.walk-t-literary .walk-bay__motes {
+  background-image: radial-gradient(circle, rgb(255 225 160 / 0.9) 0 1px, transparent 2px);
+}
+.walk-t-nature .walk-bay__motes {
+  background-image: radial-gradient(circle, #f4ff9a 0 1.5px, rgb(220 255 120 / 0.4) 2px, transparent 4px);
+  background-size: 180px 120px;
+  opacity: 0.85;
+  animation: walk-firefly 6s ease-in-out infinite alternate;
+}
+.walk-t-ya .walk-bay__motes {
+  background-image:
+    radial-gradient(circle, #ff5d8f 0 2px, transparent 3px),
+    radial-gradient(circle, #3ec1d3 0 2px, transparent 3px),
+    radial-gradient(circle, #ffd23f 0 2px, transparent 3px);
+  background-size: 140px 100px, 190px 130px, 230px 160px;
+  opacity: 0.55;
+}
+.walk-t-civic .walk-bay__motes { opacity: 0.2; }
+.walk-t-mind .walk-bay__motes {
+  background-image: radial-gradient(circle, rgb(255 255 255 / 0.9) 0 3px, transparent 5px);
+  background-size: 260px 190px;
+  opacity: 0.4;
+}
+
+/* —— Sprites —— */
+
+/* Fantasy */
+.walk-prop--crystal { width: 3rem; height: 5rem; }
+.walk-prop--crystal i:nth-child(1) { left: 0.2rem; bottom: 0; width: 2.6rem; height: 1.6rem; background: linear-gradient(180deg, #9a90a8, #5e5472); border: 2px solid #2e2440; }
+.walk-prop--crystal i:nth-child(2) { left: 0.6rem; bottom: 1.6rem; width: 1.8rem; height: 3rem; clip-path: polygon(50% 0, 100% 28%, 84% 100%, 16% 100%, 0 28%); background: linear-gradient(120deg, #e6dcff, #9a78e8 50%, #5a3aa8); }
+.walk-prop--crystal i:nth-child(3) { left: -0.6rem; bottom: 0.6rem; width: 4.2rem; height: 4.6rem; background: radial-gradient(ellipse at 50% 55%, rgb(180 140 255 / 0.55), transparent 65%); mix-blend-mode: screen; animation: walk-glow 3s ease-in-out infinite alternate; }
+
+.walk-prop--cauldron { width: 3.4rem; height: 4.4rem; }
+.walk-prop--cauldron i:nth-child(1) { left: 0.2rem; bottom: 0.5rem; width: 3rem; height: 2.2rem; border: 2px solid #14141a; border-radius: 40% 40% 45% 45% / 20% 20% 70% 70%; background: linear-gradient(90deg, #1e1e26, #3a3a46 40%, #1e1e26); }
+.walk-prop--cauldron i:nth-child(2) { left: 0.55rem; bottom: 2.35rem; width: 2.3rem; height: 0.6rem; border-radius: 50%; background: radial-gradient(ellipse, #b4ff9a, #3aa84a); box-shadow: 0 0 1.2rem rgb(120 255 120 / 0.4); animation: walk-glow 2s ease-in-out infinite alternate; }
+.walk-prop--cauldron i:nth-child(3) { left: 0.6rem; bottom: 0; width: 2.2rem; height: 0.6rem; background: linear-gradient(90deg, #14141a 0.4rem, transparent 0.4rem calc(100% - 0.4rem), #14141a 0); }
+.walk-prop--cauldron i:nth-child(4) { left: 1.2rem; bottom: 2.8rem; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: rgb(190 255 170 / 0.85); animation: walk-bubble 2.2s ease-in infinite; }
+
+.walk-prop--hearth { width: 5rem; height: 5rem; }
+.walk-prop--hearth i:nth-child(1) { left: 0; bottom: 0; width: 4.6rem; height: 4.2rem; border: 3px solid #2e2440; background: linear-gradient(0deg, transparent calc(100% - 2px), rgb(30 15 40 / 0.4) 0) 0 0 / 100% 1rem, linear-gradient(90deg, transparent calc(100% - 2px), rgb(30 15 40 / 0.4) 0) 0 0 / 1.6rem 100%, #7a7088; }
+.walk-prop--hearth i:nth-child(2) { left: 1rem; bottom: 0; width: 2.6rem; height: 2.6rem; border-radius: 1.3rem 1.3rem 0 0; background: #140c10; }
+.walk-prop--hearth i:nth-child(3) { left: 1.5rem; bottom: 0.1rem; width: 1.6rem; height: 1.7rem; border-radius: 50% 50% 20% 20%; background: radial-gradient(ellipse at 50% 70%, #ffd060, #ff7a20 55%, #c0301a); animation: walk-hearth-flicker 1.6s ease-in-out infinite alternate; }
+.walk-prop--hearth i:nth-child(4) { left: -0.3rem; bottom: 4.1rem; width: 5.2rem; height: 0.55rem; border: 2px solid #2e2440; background: #6a5a78; }
+
+.walk-prop--torch { width: 1.8rem; height: 3.6rem; }
+.walk-prop--torch i:nth-child(1) { left: 0.7rem; top: 1.3rem; width: 0.4rem; height: 2.2rem; background: #4a3020; }
+.walk-prop--torch i:nth-child(2) { left: 0.2rem; top: 0.9rem; width: 1.4rem; height: 0.6rem; background: #2a2a32; border: 2px solid #14141a; }
+.walk-prop--torch i:nth-child(3) { left: 0.2rem; top: -0.2rem; width: 1.4rem; height: 1.6rem; border-radius: 50% 50% 20% 20%; background: radial-gradient(ellipse at 50% 70%, #ffd060, #ff7a20 55%, #c0301a); animation: walk-hearth-flicker 1.2s ease-in-out infinite alternate; }
+.walk-prop--torch i:nth-child(4) { left: -1.2rem; top: -1.2rem; width: 4.2rem; height: 4.2rem; background: radial-gradient(circle, rgb(255 170 60 / 0.4), transparent 65%); mix-blend-mode: screen; animation: walk-glow 1.4s ease-in-out infinite alternate; }
+
+/* Sci-fi */
+.walk-prop--console { width: 4rem; height: 3.8rem; }
+.walk-prop--console i:nth-child(1) { left: 0.2rem; bottom: 0; width: 3.6rem; height: 1.8rem; border: 2px solid #1a2430; background: linear-gradient(#5a6a7e, #2e3a4a); }
+.walk-prop--console i:nth-child(2) { left: 0.5rem; bottom: 1.8rem; width: 3rem; height: 1.7rem; border: 3px solid #9fb4c8; background: repeating-linear-gradient(0deg, rgb(80 230 255 / 0.6) 0 2px, transparent 2px 5px), #06161e; animation: walk-screen 1.4s linear infinite; }
+.walk-prop--console i:nth-child(3) { left: 0.4rem; bottom: 0.4rem; width: 3.2rem; height: 0.5rem; background: repeating-linear-gradient(90deg, #9fb4c8 0 0.3rem, #2e3a4a 0.3rem 0.45rem); }
+.walk-prop--console i:nth-child(4) { right: 0.4rem; bottom: 1rem; width: 0.35rem; height: 0.35rem; border-radius: 50%; background: #ff5a5a; animation: walk-twinkle 1s steps(2) infinite; }
+
+.walk-prop--robot { width: 3rem; height: 4.4rem; animation: walk-bob 2.6s ease-in-out infinite alternate; }
+.walk-prop--robot i:nth-child(1) { left: 0.6rem; bottom: 0.8rem; width: 1.8rem; height: 1.7rem; border: 2px solid #1a2430; background: linear-gradient(#cfd8e2, #7e8ea2); }
+.walk-prop--robot i:nth-child(2) { left: 0.8rem; bottom: 2.5rem; width: 1.4rem; height: 1.1rem; border: 2px solid #1a2430; background: linear-gradient(90deg, #e2e9f0 0 15%, #3af 15% 85%, #e2e9f0 85%) 0 50% / 100% 0.3rem no-repeat, #e2e9f0; }
+.walk-prop--robot i:nth-child(3) { left: 1.4rem; bottom: 3.6rem; width: 0.12rem; height: 0.6rem; background: #1a2430; }
+.walk-prop--robot i:nth-child(3)::before { content: ""; position: absolute; left: -0.18rem; top: -0.3rem; width: 0.45rem; height: 0.45rem; border-radius: 50%; background: #ff5a5a; animation: walk-twinkle 1.1s steps(2) infinite; }
+.walk-prop--robot i:nth-child(4) { left: 0.4rem; bottom: 0; width: 2.2rem; height: 0.8rem; border-radius: 0.4rem; background: #2e3a4a; border: 2px solid #1a2430; }
+
+.walk-prop--screen { width: 4.4rem; height: 3rem; }
+.walk-prop--screen i:nth-child(1) { inset: 0; border: 3px solid #1a2430; background: #06161e; box-shadow: 0 0 1rem rgb(80 230 255 / 0.35); }
+.walk-prop--screen i:nth-child(2) { inset: 0.4rem; background: repeating-linear-gradient(0deg, rgb(80 230 255 / 0.5) 0 2px, transparent 2px 6px); animation: walk-screen 1.8s linear infinite; }
+.walk-prop--screen i:nth-child(3) { left: 0.6rem; bottom: 0.6rem; width: 1.8rem; height: 0.9rem; background: linear-gradient(135deg, transparent 45%, rgb(120 255 160 / 0.9) 45% 55%, transparent 55%); }
+.walk-prop--screen i:nth-child(4) { right: 0.7rem; top: 0.7rem; width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid rgb(255 120 120 / 0.9); }
+
+/* Romance */
+.walk-prop--loveseat { width: 5rem; height: 3.2rem; }
+.walk-prop--loveseat i:nth-child(1) { left: 0.2rem; bottom: 0.9rem; width: 4.6rem; height: 1.9rem; border: 3px solid #5a1f30; border-radius: 1rem 1rem 0 0; background: linear-gradient(#c9546e, #9a3a50); }
+.walk-prop--loveseat i:nth-child(2) { left: 0; bottom: 0.4rem; width: 5rem; height: 1.1rem; border: 3px solid #5a1f30; border-radius: 0.5rem; background: #b04560; }
+.walk-prop--loveseat i:nth-child(3) { left: 0.3rem; bottom: 0; width: 4.4rem; height: 0.5rem; background: linear-gradient(90deg, #4a2f1c 0.4rem, transparent 0.4rem calc(100% - 0.4rem), #4a2f1c 0); }
+.walk-prop--loveseat i:nth-child(4) { left: 3.1rem; bottom: 1.3rem; width: 1.1rem; height: 1rem; background: #ffd1dc; clip-path: polygon(50% 100%, 0 38%, 0 18%, 20% 0, 50% 22%, 80% 0, 100% 18%, 100% 38%); }
+
+.walk-prop--vase { width: 2.8rem; height: 4.8rem; }
+.walk-prop--vase i:nth-child(1) { left: 0; bottom: 1.6rem; width: 2.8rem; height: 0.5rem; border: 2px solid #4a2f1c; border-radius: 0.3rem; background: #8a5a34; }
+.walk-prop--vase i:nth-child(2) { left: 1.2rem; bottom: 0; width: 0.4rem; height: 1.6rem; background: #4a2f1c; }
+.walk-prop--vase i:nth-child(3) { left: 0.85rem; bottom: 2.1rem; width: 1.1rem; height: 1.3rem; border: 2px solid #8a7aa0; border-radius: 40% 40% 45% 45%; background: #e8e0f0; }
+.walk-prop--vase i:nth-child(4) { left: 0.3rem; bottom: 3.1rem; width: 2.2rem; height: 1.6rem; background: radial-gradient(circle at 30% 60%, #d63a58 0.4rem, transparent 0.45rem), radial-gradient(circle at 70% 55%, #e85a78 0.4rem, transparent 0.45rem), radial-gradient(circle at 50% 25%, #c92a48 0.45rem, transparent 0.5rem), radial-gradient(circle at 50% 75%, #3a7a40 0.5rem, transparent 0.55rem); }
+
+.walk-prop--bunting { width: 5rem; height: 2.4rem; }
+.walk-prop--bunting i:nth-child(1) { left: 0; top: 0.3rem; width: 5rem; height: 2px; background: #5a3a2a; }
+.walk-prop--bunting i:nth-child(n + 2) { width: 1.4rem; height: 1.3rem; clip-path: polygon(50% 100%, 0 38%, 0 18%, 20% 0, 50% 22%, 80% 0, 100% 18%, 100% 38%); }
+.walk-prop--bunting i:nth-child(2) { left: 0.3rem; top: 0.6rem; background: #e85a78; }
+.walk-prop--bunting i:nth-child(3) { left: 1.8rem; top: 1rem; background: #f4a0b8; }
+.walk-prop--bunting i:nth-child(4) { left: 3.4rem; top: 0.6rem; background: #d63a58; }
+
+/* Mystery */
+.walk-prop--hatstand { width: 3rem; height: 5.4rem; }
+.walk-prop--hatstand i:nth-child(1) { left: 1.3rem; bottom: 0; width: 0.3rem; height: 5.2rem; background: #3a2a1e; }
+.walk-prop--hatstand i:nth-child(2) { left: 0.6rem; bottom: 0; width: 1.7rem; height: 0.4rem; border-radius: 0.2rem; background: #3a2a1e; }
+.walk-prop--hatstand i:nth-child(3) { left: 0.3rem; bottom: 1.4rem; width: 2.2rem; height: 2.6rem; background: linear-gradient(90deg, #8a7a5a, #5e4f36); clip-path: polygon(25% 0, 75% 0, 100% 35%, 92% 100%, 8% 100%, 0 35%); }
+.walk-prop--hatstand i:nth-child(4) { left: 0.2rem; bottom: 4.5rem; width: 2.4rem; height: 0.9rem; border-radius: 50% 50% 0.2rem 0.2rem; background: #3a3226; border-bottom: 0.25rem solid #2a241a; }
+
+.walk-prop--desk { width: 5.2rem; height: 3.8rem; }
+.walk-prop--desk i:nth-child(1) { left: 0; bottom: 0; width: 5rem; height: 2.1rem; border: 2px solid #2a1c10; background: linear-gradient(90deg, transparent 52%, rgb(0 0 0 / 0.4) 52% 54%, transparent 54%), linear-gradient(180deg, #6a4a30 0 0.35rem, #4e3622 0.35rem); }
+.walk-prop--desk i:nth-child(2) { left: 0.6rem; bottom: 2.1rem; width: 0.9rem; height: 0.3rem; background: #2e5a48; }
+.walk-prop--desk i:nth-child(3) { left: 0.4rem; bottom: 2.35rem; width: 1.3rem; height: 1rem; border-radius: 50% 50% 0 0; background: #2e8a68; box-shadow: 0 0.5rem 1.2rem rgb(255 230 150 / 0.5); }
+.walk-prop--desk i:nth-child(4) { left: 2.4rem; bottom: 2.1rem; width: 1.6rem; height: 0.25rem; background: #efe6cf; box-shadow: 0.4rem -0.25rem 0 #e0d4b4; }
+
+.walk-prop--corkboard { width: 4.6rem; height: 3.2rem; }
+.walk-prop--corkboard i:nth-child(1) { inset: 0; border: 3px solid #5a3a22; background: radial-gradient(circle, rgb(90 60 30 / 0.35) 1px, transparent 2px) 0 0 / 6px 6px, #b5885a; }
+.walk-prop--corkboard i:nth-child(2) { left: 0.5rem; top: 0.5rem; width: 3.6rem; height: 2rem; background: linear-gradient(#f4e9a8, #f4e9a8) 0 0 / 1rem 1.2rem no-repeat, linear-gradient(#fff, #fff) 1.4rem 0.3rem / 1.1rem 1.2rem no-repeat, linear-gradient(#cfe8f4, #cfe8f4) 2.8rem 0 / 0.8rem 1rem no-repeat, linear-gradient(#f4c8c8, #f4c8c8) 0.8rem 1.1rem / 1.1rem 0.9rem no-repeat, linear-gradient(#fff, #fff) 2.4rem 1.2rem / 1.2rem 0.8rem no-repeat; }
+.walk-prop--corkboard i:nth-child(3) { left: 0.5rem; top: 0.5rem; width: 3.6rem; height: 2rem; background: linear-gradient(20deg, transparent 48%, #c0272d 48% 52%, transparent 52%), linear-gradient(-30deg, transparent 49%, #c0272d 49% 51%, transparent 51%); }
+.walk-prop--corkboard i:nth-child(4) { left: 0.5rem; top: 0.5rem; width: 3.6rem; height: 2rem; background: radial-gradient(circle, #c0272d 3px, transparent 4px) 0.4rem 0.1rem / 1rem 1rem no-repeat, radial-gradient(circle, #c0272d 3px, transparent 4px) 1.9rem 0.3rem / 1rem 1rem no-repeat, radial-gradient(circle, #c0272d 3px, transparent 4px) 1.2rem 1.4rem / 1rem 1rem no-repeat; }
+
+/* Horror */
+.walk-prop--candelabra { width: 3.8rem; height: 4.8rem; }
+.walk-prop--candelabra i:nth-child(1) { left: 1.2rem; bottom: 0; width: 1.4rem; height: 0.4rem; border-radius: 0.2rem; background: #8a7a3a; }
+.walk-prop--candelabra i:nth-child(2) { left: 1.8rem; bottom: 0.3rem; width: 0.25rem; height: 2.4rem; background: #8a7a3a; }
+.walk-prop--candelabra i:nth-child(3) { left: 0.4rem; bottom: 2.5rem; width: 3rem; height: 0.9rem; border: 0.2rem solid #8a7a3a; border-top: 0; border-radius: 0 0 50% 50%; }
+.walk-prop--candelabra i:nth-child(4) { left: 0.4rem; bottom: 3.3rem; width: 3rem; height: 1.4rem; background: radial-gradient(ellipse 0.25rem 0.45rem at 8% 25%, #ffd060, #ff7a20 60%, transparent 70%), radial-gradient(ellipse 0.25rem 0.45rem at 50% 15%, #ffd060, #ff7a20 60%, transparent 70%), radial-gradient(ellipse 0.25rem 0.45rem at 92% 25%, #ffd060, #ff7a20 60%, transparent 70%), linear-gradient(#efe6cf, #efe6cf) 0 100% / 0.3rem 0.8rem no-repeat, linear-gradient(#efe6cf, #efe6cf) 50% 100% / 0.3rem 0.9rem no-repeat, linear-gradient(#efe6cf, #efe6cf) 100% 100% / 0.3rem 0.8rem no-repeat; animation: walk-hearth-flicker 1.1s ease-in-out infinite alternate; }
+
+.walk-prop--grandclock { width: 2.6rem; height: 6rem; }
+.walk-prop--grandclock i:nth-child(1) { left: 0; bottom: 0; width: 2.6rem; height: 5.8rem; border: 3px solid #1c1008; border-radius: 0.8rem 0.8rem 0 0; background: linear-gradient(90deg, #3a2418, #5a3a26, #3a2418); }
+.walk-prop--grandclock i:nth-child(2) { left: 0.45rem; bottom: 3.9rem; width: 1.7rem; height: 1.7rem; border: 2px solid #1c1008; border-radius: 50%; background: linear-gradient(#1c1008, #1c1008) 50% 18% / 2px 0.55rem no-repeat, linear-gradient(#1c1008, #1c1008) 50% 18% / 0.45rem 2px no-repeat, #e8dcc0; }
+.walk-prop--grandclock i:nth-child(3) { left: 0.55rem; bottom: 0.8rem; width: 1.5rem; height: 2.6rem; border: 2px solid #1c1008; background: #140c08; }
+.walk-prop--grandclock i:nth-child(4) { left: 1.25rem; bottom: 1rem; width: 0.18rem; height: 2rem; background: #c9a227; transform-origin: 50% 0; transform: translateY(0); animation: walk-swing 2.4s ease-in-out infinite alternate; }
+
+.walk-prop--portrait { width: 2.8rem; height: 3.6rem; }
+.walk-prop--portrait i:nth-child(1) { inset: 0; border: 3px solid #2a1c08; background: linear-gradient(135deg, #a07a32, #7a5a22); }
+.walk-prop--portrait i:nth-child(2) { inset: 0.4rem; background: radial-gradient(ellipse at 50% 38%, #3a2430 0 25%, #1a1018 60%); }
+.walk-prop--portrait i:nth-child(3) { left: 0.75rem; top: 1.1rem; width: 1.3rem; height: 0.3rem; background: radial-gradient(circle at 25% 50%, #ff6a4a 0.16rem, transparent 0.2rem), radial-gradient(circle at 75% 50%, #ff6a4a 0.16rem, transparent 0.2rem); animation: walk-blink 5s steps(1) infinite; }
+
+/* Literary */
+.walk-prop--armchair { width: 5rem; height: 4.6rem; }
+.walk-prop--armchair i:nth-child(1) { left: 0.2rem; bottom: 0.9rem; width: 2.4rem; height: 2.4rem; border: 3px solid #3a1c14; border-radius: 1rem 1rem 0 0; background: #6b3a2e; }
+.walk-prop--armchair i:nth-child(2) { left: 0; bottom: 0.3rem; width: 2.8rem; height: 1.3rem; border: 3px solid #3a1c14; border-radius: 0.5rem; background: #7a4434; }
+.walk-prop--armchair i:nth-child(3) { left: 3.6rem; bottom: 0; width: 0.15rem; height: 4rem; background: #3a2a1e; }
+.walk-prop--armchair i:nth-child(3)::before { content: ""; position: absolute; left: -0.55rem; top: -0.3rem; width: 1.25rem; height: 0.9rem; background: #f0dca0; clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); }
+.walk-prop--armchair i:nth-child(4) { left: 2.4rem; bottom: 1.4rem; width: 2.8rem; height: 3.2rem; background: radial-gradient(ellipse at 50% 20%, rgb(255 220 140 / 0.38), transparent 65%); mix-blend-mode: screen; animation: walk-glow 3.2s ease-in-out infinite alternate; }
+
+.walk-prop--bust { width: 2.6rem; height: 4.6rem; }
+.walk-prop--bust i:nth-child(1) { left: 0.4rem; bottom: 0; width: 1.8rem; height: 2.2rem; border: 2px solid #6a6458; background: linear-gradient(90deg, #e8e4dc, #b8b0a0); }
+.walk-prop--bust i:nth-child(2) { left: 0.3rem; bottom: 2.2rem; width: 2rem; height: 1rem; border-radius: 1rem 1rem 0 0; background: #efe9dd; }
+.walk-prop--bust i:nth-child(3) { left: 0.7rem; bottom: 3rem; width: 1.2rem; height: 1.4rem; border-radius: 50%; background: #f4eee2; box-shadow: inset -0.2rem 0 0 rgb(0 0 0 / 0.1); }
+
+.walk-prop--catbasket { width: 3.6rem; height: 2.2rem; }
+.walk-prop--catbasket i:nth-child(1) { left: 0; bottom: 0; width: 3.4rem; height: 1.2rem; border: 2px solid #5a3a1c; border-radius: 0.4rem 0.4rem 0.8rem 0.8rem; background: repeating-linear-gradient(90deg, #c49a5a 0 0.3rem, #a07a3e 0.3rem 0.45rem); z-index: 1; }
+.walk-prop--catbasket i:nth-child(2) { left: 0.5rem; bottom: 0.7rem; width: 2.2rem; height: 1.1rem; border-radius: 50%; background: #d08a4a; animation: walk-breathe 2.8s ease-in-out infinite; transform-origin: 50% 100%; }
+.walk-prop--catbasket i:nth-child(3) { left: 0.3rem; bottom: 1.1rem; width: 0.9rem; height: 0.8rem; border-radius: 50%; background: #d08a4a; }
+.walk-prop--catbasket i:nth-child(4) { left: 2.3rem; bottom: 0.9rem; width: 1rem; height: 0.4rem; border-radius: 0 50% 50% 0; background: #b87438; }
+
+.walk-prop--portraits { width: 5.6rem; height: 3rem; }
+.walk-prop--portraits i { border: 3px solid #7a5a22; }
+.walk-prop--portraits i:nth-child(1) { left: 0; top: 0.4rem; width: 1.6rem; height: 2.2rem; background: linear-gradient(160deg, #cdb88a, #8a6a3a); }
+.walk-prop--portraits i:nth-child(2) { left: 1.9rem; top: 0; width: 1.9rem; height: 2.8rem; background: linear-gradient(160deg, #b8c4cd, #5a6a7a); }
+.walk-prop--portraits i:nth-child(3) { left: 4.1rem; top: 0.5rem; width: 1.4rem; height: 2rem; background: linear-gradient(160deg, #d8c0a8, #7a5a4a); }
+
+/* History */
+.walk-prop--armor { width: 3.2rem; height: 5.8rem; }
+.walk-prop--armor i:nth-child(1) { left: 0.6rem; bottom: 0; width: 1.8rem; height: 1.6rem; border: 2px solid #2a2f36; background: linear-gradient(90deg, #7e8894 0 46%, #2a2f36 46% 54%, #c0c8d2 54%); }
+.walk-prop--armor i:nth-child(2) { left: 0.3rem; bottom: 1.6rem; width: 2.4rem; height: 2.1rem; border: 2px solid #2a2f36; border-radius: 0.5rem 0.5rem 0.3rem 0.3rem; background: linear-gradient(90deg, #7e8894, #c0c8d2 45%, #7e8894); }
+.walk-prop--armor i:nth-child(3) { left: 0.8rem; bottom: 3.7rem; width: 1.4rem; height: 1.5rem; border: 2px solid #2a2f36; border-radius: 50% 50% 0.2rem 0.2rem; background: linear-gradient(transparent 40%, #14181d 40% 55%, transparent 55%), linear-gradient(90deg, #7e8894, #c0c8d2 45%, #7e8894); }
+.walk-prop--armor i:nth-child(4) { left: 2.8rem; bottom: 0; width: 0.2rem; height: 5.2rem; background: #8a6a40; }
+.walk-prop--armor i:nth-child(4)::before { content: ""; position: absolute; left: -0.25rem; top: -0.7rem; width: 0.7rem; height: 0.9rem; background: #c0c8d2; clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+
+.walk-prop--globe { width: 3rem; height: 4.2rem; }
+.walk-prop--globe i:nth-child(1) { left: 0.4rem; bottom: 0; width: 2.2rem; height: 0.6rem; border-radius: 0.3rem; background: #5a3a22; }
+.walk-prop--globe i:nth-child(2) { left: 1.4rem; bottom: 0.5rem; width: 0.22rem; height: 1.2rem; background: #5a3a22; }
+.walk-prop--globe i:nth-child(3) { left: 0.3rem; bottom: 1.5rem; width: 2.4rem; height: 2.4rem; border-radius: 50%; background: radial-gradient(ellipse 0.7rem 0.5rem at 60% 40%, #6aa860 98%, transparent), radial-gradient(ellipse 0.5rem 0.8rem at 30% 62%, #6aa860 98%, transparent), radial-gradient(circle at 35% 30%, #d8ecf8, #3a7ca5 50%, #1a3a5a); }
+.walk-prop--globe i:nth-child(4) { left: 0; bottom: 1.2rem; width: 3rem; height: 3rem; border: 0.18rem solid #c9a227; border-radius: 50%; border-left-color: transparent; border-right-color: transparent; transform: rotate(-18deg); }
+
+.walk-prop--map { width: 5rem; height: 3.2rem; }
+.walk-prop--map i:nth-child(1) { inset: 0; border: 2px solid #6a4a22; background: radial-gradient(ellipse at 30% 40%, #e8d6a0, #c9ae6a 90%); clip-path: polygon(2% 0, 98% 3%, 100% 96%, 4% 100%, 0 60%); }
+.walk-prop--map i:nth-child(2) { inset: 0.3rem; background: radial-gradient(ellipse 1rem 0.7rem at 30% 40%, #8a9a5a, transparent 70%), radial-gradient(ellipse 0.8rem 1.2rem at 68% 55%, #8a9a5a, transparent 70%); }
+.walk-prop--map i:nth-child(3) { left: 1rem; top: 1rem; width: 2.4rem; height: 1rem; border-top: 2px dashed #8a2a1a; border-radius: 50%; }
+.walk-prop--map i:nth-child(4) { left: 3.4rem; top: 1.5rem; width: 0.7rem; height: 0.7rem; background: linear-gradient(45deg, transparent 42%, #b0201a 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, #b0201a 42% 58%, transparent 58%); }
+
+/* Nature */
+.walk-prop--planter { width: 4.4rem; height: 5.2rem; }
+.walk-prop--planter i:nth-child(1) { left: 1.1rem; bottom: 0; width: 2.2rem; height: 1.5rem; background: #b5683a; clip-path: polygon(8% 0, 92% 0, 80% 100%, 20% 100%); z-index: 1; }
+.walk-prop--planter i:nth-child(n + 2) { bottom: 1.2rem; border-radius: 100% 0; transform-origin: 50% 100%; animation: walk-sway 4s ease-in-out infinite alternate; }
+.walk-prop--planter i:nth-child(2) { left: 0.2rem; width: 2rem; height: 3.2rem; background: #3f8a4a; transform: rotate(-25deg); }
+.walk-prop--planter i:nth-child(3) { left: 2.2rem; width: 2rem; height: 3rem; background: #4aa056; transform: rotate(25deg) scaleX(-1); }
+.walk-prop--planter i:nth-child(4) { left: 1.2rem; width: 1.8rem; height: 3.8rem; background: #5ab868; transform: rotate(3deg); }
+
+.walk-prop--bench { width: 5.2rem; height: 3rem; }
+.walk-prop--bench i:nth-child(1) { left: 0; bottom: 1.1rem; width: 5rem; height: 0.5rem; border: 2px solid #4a2f1c; background: #9a6a3a; }
+.walk-prop--bench i:nth-child(2) { left: 0.1rem; bottom: 1.7rem; width: 4.8rem; height: 1.1rem; background: repeating-linear-gradient(180deg, #9a6a3a 0 0.3rem, transparent 0.3rem 0.5rem); }
+.walk-prop--bench i:nth-child(3) { left: 0.3rem; bottom: 0; width: 4.4rem; height: 1.1rem; background: linear-gradient(90deg, #4a2f1c 0.35rem, transparent 0.35rem calc(100% - 0.35rem), #4a2f1c 0); }
+.walk-prop--bench i:nth-child(4) { left: 3.6rem; bottom: 1.6rem; width: 0.8rem; height: 0.6rem; background: #c06a40; }
+.walk-prop--bench i:nth-child(4)::before { content: ""; position: absolute; left: 0.1rem; top: -0.5rem; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #f48ab0; }
+
+.walk-prop--hangplant { width: 3rem; height: 5.2rem; transform-origin: 50% 0; animation: walk-sway 5s ease-in-out infinite alternate; }
+.walk-prop--hangplant i:nth-child(1) { left: 1.4rem; top: 0; width: 2px; height: 1.6rem; background: #8a6a40; }
+.walk-prop--hangplant i:nth-child(2) { left: 0.7rem; top: 1.6rem; width: 1.6rem; height: 1.1rem; background: #c06a40; clip-path: polygon(0 0, 100% 0, 85% 100%, 15% 100%); }
+.walk-prop--hangplant i:nth-child(3) { left: 0.2rem; top: 1.1rem; width: 2.6rem; height: 1.2rem; background: radial-gradient(circle at 25% 60%, #4aa056 0.6rem, transparent 0.65rem), radial-gradient(circle at 50% 40%, #5ab868 0.65rem, transparent 0.7rem), radial-gradient(circle at 75% 60%, #4aa056 0.6rem, transparent 0.65rem); }
+.walk-prop--hangplant i:nth-child(4) { left: 0.5rem; top: 2.6rem; width: 2rem; height: 2.4rem; background: linear-gradient(#3f8a4a, #3f8a4a) 10% 0 / 2px 70% no-repeat, linear-gradient(#3f8a4a, #3f8a4a) 50% 0 / 2px 100% no-repeat, linear-gradient(#3f8a4a, #3f8a4a) 90% 0 / 2px 55% no-repeat, radial-gradient(circle, #5ab868 0.22rem, transparent 0.26rem) 10% 40% / 1rem 1rem, radial-gradient(circle, #5ab868 0.22rem, transparent 0.26rem) 50% 60% / 1rem 1rem; }
+
+/* YA */
+.walk-prop--beanbag { width: 4.2rem; height: 3.4rem; }
+.walk-prop--beanbag i:nth-child(1) { left: 0; bottom: 0; width: 3.8rem; height: 2.2rem; border: 3px solid #8a2040; border-radius: 55% 55% 40% 40% / 70% 70% 30% 30%; background: linear-gradient(135deg, #ff6a8a, #e0527a); }
+.walk-prop--beanbag i:nth-child(2) { left: 0.8rem; bottom: 1.2rem; width: 1.4rem; height: 0.6rem; border-radius: 50%; background: rgb(255 255 255 / 0.3); }
+.walk-prop--beanbag i:nth-child(3) { left: 3.5rem; bottom: 0; width: 0.6rem; height: 3.1rem; border-radius: 0.3rem; background: linear-gradient(#3ec1d3 0 70%, #1f5a68 70%); transform: rotate(8deg); transform-origin: 50% 100%; }
+.walk-prop--beanbag i:nth-child(4) { left: 3.2rem; bottom: 0; width: 1.1rem; height: 0.4rem; background: radial-gradient(circle at 20% 50%, #14141a 0.2rem, transparent 0.25rem), radial-gradient(circle at 80% 50%, #14141a 0.2rem, transparent 0.25rem); }
+
+.walk-prop--stereo { width: 4.4rem; height: 3.6rem; }
+.walk-prop--stereo i:nth-child(1) { left: 0; bottom: 0; width: 4.2rem; height: 2.2rem; border: 3px solid #0e0e14; border-radius: 0.3rem; background: linear-gradient(90deg, transparent 42%, #7be8ff 42% 58%, transparent 58%) 0 0.35rem / 100% 0.35rem no-repeat, linear-gradient(#3a3a46, #1e1e28); }
+.walk-prop--stereo i:nth-child(2), .walk-prop--stereo i:nth-child(3) { bottom: 0.35rem; width: 1.4rem; height: 1.4rem; border-radius: 50%; background: radial-gradient(circle, #101018 0.2rem, #3a3a46 0.25rem 0.55rem, #101018 0.6rem); animation: walk-pulse 0.7s ease-in-out infinite alternate; }
+.walk-prop--stereo i:nth-child(2) { left: 0.4rem; }
+.walk-prop--stereo i:nth-child(3) { left: 2.5rem; }
+.walk-prop--stereo i:nth-child(4) { left: 0.7rem; bottom: 2.1rem; width: 2.8rem; height: 0.8rem; border: 3px solid #0e0e14; border-bottom: 0; border-radius: 0.6rem 0.6rem 0 0; }
+
+.walk-prop--posters { width: 5.6rem; height: 3.6rem; }
+.walk-prop--posters i { border: 3px solid #f8f4e8; box-shadow: 2px 2px 0 rgb(0 0 0 / 0.25); }
+.walk-prop--posters i:nth-child(1) { left: 0; top: 0.3rem; width: 1.7rem; height: 2.4rem; background: linear-gradient(160deg, #ff6a8a, #ffd23f); transform: rotate(-4deg); }
+.walk-prop--posters i:nth-child(2) { left: 1.9rem; top: 0; width: 1.6rem; height: 2.1rem; background: linear-gradient(#3ec1d3 50%, #2a5aa8 50%); transform: rotate(3deg); }
+.walk-prop--posters i:nth-child(3) { left: 3.7rem; top: 0.5rem; width: 1.8rem; height: 2.6rem; background: radial-gradient(circle at 50% 40%, #ffd23f 0.6rem, #e0527a 0.65rem 1.1rem, #3ec1d3 1.15rem); transform: rotate(-2deg); }
+.walk-prop--posters i:nth-child(4) { left: 1.6rem; top: 2.3rem; width: 0.9rem; height: 0.9rem; border: 0; background: #fff27a; transform: rotate(8deg); }
+
+/* Civic */
+.walk-prop--podium { width: 3.4rem; height: 4.8rem; }
+.walk-prop--podium i:nth-child(1) { left: 0.3rem; bottom: 0; width: 2.6rem; height: 3rem; border: 3px solid #2e241a; background: radial-gradient(circle, #c0392b 0.6rem, transparent 0.65rem) 50% 40% no-repeat, linear-gradient(90deg, #6a5a48, #8a7860, #6a5a48); }
+.walk-prop--podium i:nth-child(2) { left: 0; bottom: 2.9rem; width: 3.2rem; height: 0.5rem; border: 2px solid #2e241a; background: #9a8870; }
+.walk-prop--podium i:nth-child(3) { left: 1.7rem; bottom: 3.4rem; width: 0.12rem; height: 1.1rem; background: #1e1e24; transform: rotate(12deg); }
+.walk-prop--podium i:nth-child(3)::before { content: ""; position: absolute; left: -0.18rem; top: -0.4rem; width: 0.45rem; height: 0.55rem; border-radius: 50%; background: #3a3a44; }
+.walk-prop--podium i:nth-child(4) { left: 0.5rem; bottom: 3.4rem; width: 0.9rem; height: 0.25rem; background: #fff; border-bottom: 2px solid #c0392b; }
+
+.walk-prop--placards { width: 4.6rem; height: 4.8rem; }
+.walk-prop--placards i:nth-child(n + 1):nth-child(-n + 3) { bottom: 0.5rem; width: 0.15rem; height: 3.8rem; background: #8a6a40; }
+.walk-prop--placards i:nth-child(n + 1):nth-child(-n + 3)::before { content: ""; position: absolute; left: -0.8rem; top: -1.2rem; width: 1.7rem; height: 1.3rem; border: 2px solid #2a2018; }
+.walk-prop--placards i:nth-child(1) { left: 0.3rem; transform: rotate(-6deg); }
+.walk-prop--placards i:nth-child(1)::before { background: #c0392b; }
+.walk-prop--placards i:nth-child(2) { left: 2rem; transform: rotate(4deg); }
+.walk-prop--placards i:nth-child(2)::before { background: linear-gradient(#fff 0 0.2rem, transparent 0.2rem calc(100% - 0.2rem), #fff 0), #1a1612; }
+.walk-prop--placards i:nth-child(3) { left: 3.5rem; transform: rotate(-3deg); }
+.walk-prop--placards i:nth-child(3)::before { background: #f0c030; }
+.walk-prop--placards i:nth-child(4) { left: 0.4rem; bottom: 0; width: 3.8rem; height: 0.9rem; border: 2px solid #4a3a20; background: repeating-linear-gradient(90deg, #9a7a50 0 0.5rem, #7a5a30 0.5rem 0.65rem); }
+
+.walk-prop--noticeboard { width: 5rem; height: 3.2rem; }
+.walk-prop--noticeboard i:nth-child(1) { inset: 0; border: 4px solid #5a4a38; background: #a67c52; }
+.walk-prop--noticeboard i:nth-child(2) { left: 0.5rem; top: 0.9rem; width: 4rem; height: 1.8rem; background: linear-gradient(#fff, #fff) 0 0 / 1.1rem 1.4rem no-repeat, linear-gradient(#f4e9a8, #f4e9a8) 1.4rem 0.3rem / 1.1rem 1.4rem no-repeat, linear-gradient(#fff, #fff) 2.8rem 0 / 1.1rem 1.1rem no-repeat; }
+.walk-prop--noticeboard i:nth-child(3) { left: 0.5rem; top: 0.4rem; width: 4rem; height: 0.35rem; background: #c0392b; }
+.walk-prop--noticeboard i:nth-child(4) { left: 0.5rem; top: 0.9rem; width: 4rem; height: 1.8rem; background: radial-gradient(circle, #1a1a1a 2px, transparent 3px) 0.4rem 0 / 1rem 1rem no-repeat, radial-gradient(circle, #1a1a1a 2px, transparent 3px) 1.8rem 0.3rem / 1rem 1rem no-repeat, radial-gradient(circle, #1a1a1a 2px, transparent 3px) 3.2rem 0 / 1rem 1rem no-repeat; }
+
+/* Mind */
+.walk-prop--bonsai { width: 3.6rem; height: 4.6rem; }
+.walk-prop--bonsai i:nth-child(1) { left: 0; bottom: 0.9rem; width: 3.4rem; height: 0.45rem; border: 2px solid #4a2f1c; background: #8a6a40; }
+.walk-prop--bonsai i:nth-child(2) { left: 0.3rem; bottom: 0; width: 2.8rem; height: 0.9rem; background: linear-gradient(90deg, #4a2f1c 0.3rem, transparent 0.3rem calc(100% - 0.3rem), #4a2f1c 0); }
+.walk-prop--bonsai i:nth-child(3) { left: 1.2rem; bottom: 1.35rem; width: 1rem; height: 0.5rem; background: #4a6a8a; }
+.walk-prop--bonsai i:nth-child(3)::before { content: ""; position: absolute; left: 0.35rem; bottom: 0.4rem; width: 0.3rem; height: 1.4rem; background: #5a3a22; transform: rotate(12deg); }
+.walk-prop--bonsai i:nth-child(4) { left: 0.5rem; bottom: 2.2rem; width: 2.6rem; height: 1.6rem; background: radial-gradient(circle at 30% 60%, #4aa056 0.65rem, transparent 0.7rem), radial-gradient(circle at 60% 35%, #5ab868 0.7rem, transparent 0.75rem), radial-gradient(circle at 78% 65%, #4aa056 0.6rem, transparent 0.65rem); }
+
+.walk-prop--cushion { width: 3.4rem; height: 3rem; }
+.walk-prop--cushion i:nth-child(1) { left: 0.2rem; bottom: 0; width: 2.2rem; height: 1rem; border: 2px solid #3a5448; border-radius: 50% 50% 45% 45% / 70% 70% 30% 30%; background: #7a9a8a; }
+.walk-prop--cushion i:nth-child(2) { left: 2.5rem; bottom: 0; width: 0.5rem; height: 1rem; border: 2px solid #8a7a58; background: #f4ecd8; }
+.walk-prop--cushion i:nth-child(3) { left: 2.62rem; bottom: 1rem; width: 0.26rem; height: 0.5rem; clip-path: polygon(50% 0, 100% 70%, 50% 100%, 0 70%); background: #ffd060; animation: walk-hearth-flicker 1.4s ease-in-out infinite alternate; }
+.walk-prop--cushion i:nth-child(4) { left: 1.5rem; bottom: 0.2rem; width: 3rem; height: 2.6rem; background: radial-gradient(ellipse at 70% 60%, rgb(255 210 120 / 0.38), transparent 65%); mix-blend-mode: screen; animation: walk-glow 2.6s ease-in-out infinite alternate; }
+
+.walk-prop--lantern { width: 2.6rem; height: 5.2rem; transform-origin: 50% 0; animation: walk-sway 6s ease-in-out infinite alternate; }
+.walk-prop--lantern i:nth-child(1) { left: 1.25rem; top: 0; width: 2px; height: 2.6rem; background: #4a3a2a; }
+.walk-prop--lantern i:nth-child(2) { left: 0.3rem; top: 2.5rem; width: 2rem; height: 2.4rem; border: 2px solid #8a4a2a; border-radius: 50%; background: repeating-linear-gradient(0deg, transparent 0 0.35rem, rgb(140 80 40 / 0.5) 0.35rem 0.45rem), radial-gradient(circle, #fff4c8, #f0c870 70%); }
+.walk-prop--lantern i:nth-child(3) { left: -0.8rem; top: 2rem; width: 4.2rem; height: 3.4rem; background: radial-gradient(circle, rgb(255 210 120 / 0.5), transparent 65%); mix-blend-mode: screen; animation: walk-glow 3s ease-in-out infinite alternate; }
+.walk-prop--lantern i:nth-child(4) { left: 1.1rem; top: 4.9rem; width: 0.4rem; height: 0.8rem; clip-path: polygon(50% 0, 100% 100%, 0 100%); background: #c0392b; }
+
+/* —— Motion —— */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes walk-glow { from { opacity: 0.55; } to { opacity: 1; } }
+  @keyframes walk-twinkle { from { opacity: 0.35; } to { opacity: 1; } }
+  @keyframes walk-strip { from { opacity: 0.6; } to { opacity: 1; } }
+  @keyframes walk-scan { from { background-position: -12rem 0; } to { background-position: 12rem 0; } }
+  @keyframes walk-screen { from { background-position: 0 0; } to { background-position: 0 -6px; } }
+  @keyframes walk-fog { from { transform: translateX(-1.2rem); opacity: 0.7; } to { transform: translateX(1.2rem); opacity: 1; } }
+  @keyframes walk-firefly { from { opacity: 0.35; background-position: 0 0; } to { opacity: 0.95; background-position: 18px -14px; } }
+  @keyframes walk-bubble { 0% { transform: translateY(0); opacity: 0.9; } 100% { transform: translateY(-1.4rem); opacity: 0; } }
+  @keyframes walk-bob { from { transform: translateY(0); } to { transform: translateY(-0.3rem); } }
+  @keyframes walk-swing { from { transform: rotate(-9deg); } to { transform: rotate(9deg); } }
+  @keyframes walk-sway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+  @keyframes walk-pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+  @keyframes walk-breathe { from { transform: scaleY(1); } to { transform: scaleY(1.1); } }
+  @keyframes walk-blink { 0%, 92% { opacity: 1; } 93%, 100% { opacity: 0; } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .walk-prop,
+  .walk-prop i,
+  .walk-bay__trim,
+  .walk-bay__trim::after,
+  .walk-bay__glow,
+  .walk-bay__motes {
+    animation: none !important;
+  }
+}
+
+.walk--calm .walk-prop,
+.walk--calm .walk-prop i,
+.walk--calm .walk-bay__trim,
+.walk--calm .walk-bay__trim::after,
+.walk--calm .walk-bay__glow,
+.walk--calm .walk-bay__motes {
+  animation: none !important;
+}
+
+/* Sci-fi rooms look out at a planet and stars instead of a sky. */
+.walk-window-set.is-space .walk-window__glass {
+  background:
+    radial-gradient(circle at 72% 32%, #f4d8ff 0 0.3rem, #b07ad8 0.32rem 0.5rem, transparent 0.55rem),
+    radial-gradient(circle, rgb(255 255 255 / 0.9) 0 1px, transparent 2px) 0 0 / 0.9rem 0.8rem,
+    linear-gradient(#08102c, #2a1a5a);
+}

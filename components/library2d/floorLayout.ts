@@ -24,6 +24,8 @@ export const BAY_CHROME_REM = 3.5;
 export const CASE_SIDE_PAD_REM = 0.55;
 /** Extra bay width reserved for a decorative ladder when the loft has books. */
 export const LADDER_SPACE_REM = 2.4;
+/** Floor beside every cabinet where the genre's furniture stands. */
+export const DECOR_GUTTER_REM = 5.5;
 
 /** How books sit on the shelves: standing spines, or every cover facing out. */
 export type DisplayMode = "spines" | "covers";
@@ -589,8 +591,8 @@ export function bayRailWidthRem(bay: WalkBay): number {
   const caseW = caseWidthRem(bay);
   const ladder = bay.paired ? LADDER_SPACE_REM : 0;
   // Case + bay padding/margins; ladder sits beside the cabinet.
-  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + ladder;
-  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + ladder, needed));
+  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + ladder + DECOR_GUTTER_REM;
+  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + ladder + DECOR_GUTTER_REM, needed));
 }
 
 /** Column width: wide enough for the fuller of ground / upper rails. */
