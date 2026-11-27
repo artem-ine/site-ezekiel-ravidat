@@ -1232,35 +1232,18 @@
     mask-image: linear-gradient(90deg, transparent, #000 5rem);
   }
 
-  /* Fog rolling in over the last shelves: a dim, grey-brown haze that thickens in a long ramp toward the door. */
+  /* Fog on the end wall only: the blur fades in from the cap's left edge toward the door. */
   .walk-fog {
-    --fog: 96 88 84;
-    position: relative;
-    flex: 0 0 auto;
-    width: 40rem;
-    height: 100%;
-    margin-left: -40rem;
-    z-index: 6;
-    pointer-events: none;
-    background: linear-gradient(
-      90deg,
-      rgb(var(--fog) / 0) 0%,
-      rgb(var(--fog) / 0.12) 30%,
-      rgb(var(--fog) / 0.3) 62%,
-      rgb(var(--fog) / 0.5) 100%
-    );
-  }
-
-  /*
-   * The fog's blur is built from stacked bands. Each band blurs the fog from its own clip edge
-   * rightward, so the blur adds up gradually toward the cap, which uses the same total.
-   */
-  .walk-fog__band {
     position: absolute;
     inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.4) 45%, #000 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.4) 45%, #000 100%);
   }
 
-  /* The fog carries on over the end cap and thickens toward the door, which stays clear above it. */
   .walk-cap--end::after {
     --fog: 96 88 84;
     content: "";
@@ -1268,9 +1251,13 @@
     inset: 0;
     z-index: 6;
     pointer-events: none;
-    background: linear-gradient(90deg, rgb(var(--fog) / 0.5), rgb(var(--fog) / 0.78));
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: linear-gradient(
+      90deg,
+      rgb(var(--fog) / 0.05) 0%,
+      rgb(var(--fog) / 0.3) 40%,
+      rgb(var(--fog) / 0.6) 75%,
+      rgb(var(--fog) / 0.8) 100%
+    );
   }
 
   .walk-cap__exit-sign {
