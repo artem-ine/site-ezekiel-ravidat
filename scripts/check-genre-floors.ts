@@ -61,6 +61,7 @@ function fakeBook(
     yearRead: null,
     readStatus: "read",
     description: null,
+    descriptionRichText: null,
     format: null,
     ...extra,
   };

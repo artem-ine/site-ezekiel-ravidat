@@ -1,5 +1,6 @@
 import Image from "next/image";
 import type { LibraryBook } from "@/lib/books";
+import { BookDescription } from "@/components/BookDescription";
 import { STATUS_LABEL } from "@/lib/spine-style";
 
 export function BookCover({ book, priority = false }: { book: LibraryBook; priority?: boolean }) {
@@ -82,10 +83,10 @@ export function BookCopy({ book, titleId }: { book: LibraryBook; titleId?: strin
         )}
       </dl>
 
-      {book.description && (
+      {book.descriptionRichText && (
         <div className="book-detail__blurb mt-8">
           <h2 className="label mb-3">Description</h2>
-          <p className="whitespace-pre-wrap text-ink-soft">{book.description}</p>
+          <BookDescription field={book.descriptionRichText} className="text-ink-soft" />
         </div>
       )}
     </div>
