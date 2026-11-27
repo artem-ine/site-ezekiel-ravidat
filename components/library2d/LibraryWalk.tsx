@@ -19,8 +19,7 @@ import { PixelSprite } from "@/components/library2d/PixelSprite";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
-import { ThemeDecor } from "@/components/library2d/ThemeDecor";
-import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
+import { Interlude } from "@/components/library2d/Interlude";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -658,8 +657,10 @@ export function LibraryWalk({ books }: Props) {
             <EntranceCap reading={reading} stats={stats} />
             {columns.map((column, columnIndex) => (
               <Fragment key={column.slot}>
-                {column.wingStart && (
+                {column.wingStart ? (
                   <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
+                ) : (
+                  columnIndex > 0 && <Interlude slot={column.slot} />
                 )}
                 <div
                   className="walk-column"
@@ -670,20 +671,8 @@ export function LibraryWalk({ books }: Props) {
                     } as CSSProperties
                   }
                 >
-                  <LevelBay
-                    bay={column.upper}
-                    calm={preferReducedMotion}
-                    display={display}
-                    before={columns[columnIndex - 1]?.upper.theme}
-                    after={columns[columnIndex + 1]?.upper.theme}
-                  />
-                  <LevelBay
-                    bay={column.ground}
-                    calm={preferReducedMotion}
-                    display={display}
-                    before={columns[columnIndex - 1]?.ground.theme}
-                    after={columns[columnIndex + 1]?.ground.theme}
-                  />
+                  <LevelBay bay={column.upper} display={display} />
+                  <LevelBay bay={column.ground} display={display} />
                 </div>
               </Fragment>
             ))}
@@ -1060,17 +1049,10 @@ function EndingCap() {
 
 const LevelBay = memo(function LevelBay({
   bay,
-  calm,
   display,
-  before,
-  after,
 }: {
   bay: WalkBay;
-  calm: boolean;
   display: DisplayMode;
-  /** Themes of the bays either side on this floor, so the edges can blend into them. */
-  before?: SectionTheme;
-  after?: SectionTheme;
 }) {
   const caseW = caseWidthRem(bay);
   const style = {
@@ -1081,18 +1063,7 @@ const LevelBay = memo(function LevelBay({
     "--sec-floor-deep": bay.theme.floorDeep,
     "--sec-accent": bay.theme.accent,
     "--sec-light": bay.theme.light,
-    "--prev-sky": (before ?? bay.theme).sky,
-    "--prev-wall": (before ?? bay.theme).wall,
-    "--prev-floor": (before ?? bay.theme).floor,
-    "--next-sky": (after ?? bay.theme).sky,
-    "--next-wall": (after ?? bay.theme).wall,
-    "--next-floor": (after ?? bay.theme).floor,
-    ...(caseW > 0
-      ? {
-          "--walk-case-width": `${caseW}rem`,
-          "--walk-prop-left": `${caseW + 2.75}rem`,
-        }
-      : null),
+    ...(caseW > 0 ? { "--walk-case-width": `${caseW}rem` } : null),
   } as CSSProperties;
 
   const multi = bay.shelfRows.length > 1;
@@ -1114,12 +1085,9 @@ const LevelBay = memo(function LevelBay({
         <div className="walk-bay__pattern" />
         <div className="walk-bay__trim" />
         <div className="walk-bay__glow" />
-        {!calm && !bay.empty && <div className="walk-bay__motes" />}
-        <WallWindow bay={bay} />
       </div>
 
       <div className="walk-bay__deck" aria-hidden="true" />
-      <WallWindowPatch bay={bay} />
 
       <div className="walk-sign" aria-hidden="true">
         <span>{bay.label}</span>
@@ -1133,7 +1101,6 @@ const LevelBay = memo(function LevelBay({
           ) : (
             <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
           )}
-          <ThemeDecor bay={bay} />
           {showLadder && <LibraryLadder />}
           <div
             className={`walk-rails${bay.table ? " walk-rails--table" : ""}`}

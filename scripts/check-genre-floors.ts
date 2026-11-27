@@ -28,7 +28,7 @@ import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
 import { themeForLabel } from "../components/library2d/sectionTheme";
-import { SCENES } from "../components/library2d/decorCatalog";
+import { INTERLUDE_ORDER, INTERLUDE_SCENES, interludeKind } from "../components/library2d/Interlude";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) {
@@ -382,9 +382,26 @@ for (const [name, input] of [
   for (const [label, id] of Object.entries(expected)) {
     assert(themeForLabel(label).id === id, `theme: "${label}" is the ${id} room`);
   }
+  const scenes = Object.values(INTERLUDE_SCENES);
   assert(
-    Object.values(SCENES).every((s) => s.floor.length >= 2 && s.wall.length >= 1 && s.windows.length >= 2),
-    "theme: every room has several floor props, a wall prop and window shapes",
+    scenes.every((s) => Boolean(s.upper.window) || Boolean(s.ground.window)),
+    "interlude: every room has a window, and windows only live in interludes",
+  );
+  assert(
+    scenes.every((s) => Boolean(s.upper.fixture) || (s.upper.props?.length ?? 0) >= 2),
+    "interlude: every upper floor is furnished",
+  );
+  assert(
+    scenes.every((s) => Boolean(s.ground.fixture) || (s.ground.props?.length ?? 0) >= 2),
+    "interlude: every ground floor is furnished",
+  );
+  assert(
+    Array.from({ length: 40 }, (_, slot) => interludeKind(slot) !== interludeKind(slot + 1)).every(Boolean),
+    "interlude: neighbouring rooms never repeat",
+  );
+  assert(
+    new Set(INTERLUDE_ORDER).size === INTERLUDE_ORDER.length,
+    "interlude: every kind appears once in the rotation",
   );
 }
 

@@ -24,8 +24,8 @@ export const BAY_CHROME_REM = 3.5;
 export const CASE_SIDE_PAD_REM = 0.55;
 /** Extra bay width reserved for a decorative ladder when the loft has books. */
 export const LADDER_SPACE_REM = 2.4;
-/** Floor beside every cabinet where the genre's furniture stands. */
-export const DECOR_GUTTER_REM = 5.5;
+/** Breathing room on the floor beside every cabinet, before the next room's pilaster. */
+export const DECOR_GUTTER_REM = 1.5;
 
 /** How books sit on the shelves: standing spines, or every cover facing out. */
 export type DisplayMode = "spines" | "covers";
