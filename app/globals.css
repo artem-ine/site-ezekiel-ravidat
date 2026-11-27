@@ -1637,6 +1637,67 @@
     height: min(72%, 14rem);
   }
 
+  /* Three rows of covers: a tall, narrow cabinet. Boards sit in the gaps between rows. */
+  .walk-case--triple {
+    bottom: calc(var(--walk-deck) + 0.15rem);
+    height: min(calc(100% - var(--walk-deck) - 0.5rem), 18.6rem);
+    overflow: hidden;
+  }
+
+  /* On short screens the three rows of covers shrink to fit the bay. */
+  .walk-bay--triple {
+    container-type: size;
+  }
+
+  .walk-bay--triple .walk-rails .walk-rail .walk-book.walk-book--face {
+    height: min(5.4rem, calc((100cqh - 4.4rem) / 3)) !important;
+  }
+
+  .walk-case--triple .walk-case__board:nth-child(1) { bottom: 0; height: 0.4rem; }
+  .walk-case--triple .walk-case__board:nth-child(2) { bottom: 5.6rem; }
+  .walk-case--triple .walk-case__board:nth-child(3) { bottom: 11.45rem; }
+  .walk-case--triple .walk-case__board:nth-child(4) { bottom: 17.3rem; }
+
+  /* The floor sign moves up so it clears the top shelf of covers. */
+  .walk-bay:has(.walk-case--triple) .walk-sign { top: 2%; }
+
+  /* A display table for a few books: the rails stand on its top. */
+  .walk-rails--table {
+    margin-bottom: calc(var(--walk-deck) + 2.75rem);
+  }
+
+  .walk-table {
+    position: absolute;
+    left: 0.55rem;
+    bottom: var(--walk-deck);
+    z-index: 2;
+    width: var(--walk-case-width);
+    height: 2.75rem;
+    pointer-events: none;
+  }
+
+  .walk-table__top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0.55rem;
+    border: 2px solid var(--walk-wood-deep);
+    background: var(--walk-wood);
+    box-shadow: inset 0 2px 0 rgb(255 230 180 / 0.35);
+  }
+
+  .walk-table__leg {
+    position: absolute;
+    top: 0.55rem;
+    bottom: 0;
+    width: 0.45rem;
+    background: var(--walk-wood-deep);
+  }
+
+  .walk-table__leg--l { left: 0.6rem; }
+  .walk-table__leg--r { right: 0.6rem; }
+
   /* Decorative library ladder — pure chrome, never interactive. */
   .walk-ladder {
     --walk-case-left: 0.55rem;

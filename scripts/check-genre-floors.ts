@@ -18,7 +18,11 @@ import {
   itemBooks,
   itemsWidthRem,
   packShelfRows,
+  SHELF_MIN_BOOKS,
+  type ShelfItem,
 } from "../components/library2d/floorLayout";
+
+type FaceItem = Extract<ShelfItem, { kind: "face" }>;
 import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
@@ -250,6 +254,7 @@ for (const [name, input] of [
     ...Array.from({ length: 4 }, (_, i) => inGenre(`p-${i}`, "Politics", "Nonfiction")),
     ...Array.from({ length: 4 }, (_, i) => inGenre(`m-${i}`, "Memoir", "Nonfiction")),
     ...Array.from({ length: 3 }, (_, i) => inGenre(`c-${i}`, "Crime", "Nonfiction")),
+    ...Array.from({ length: 2 }, (_, i) => inGenre(`po-${i}`, "Poetry", "Nonfiction")),
     ...Array.from({ length: 5 }, (_, i) => inGenre(`l-${i}`, "History", null)),
   ];
 
@@ -278,17 +283,26 @@ for (const [name, input] of [
     "a wing never mixes into the next without a gate",
   );
 
-  const nonfiction = cols.filter((c) => c.parent === "Nonfiction");
+  const tables = plan.bays.filter((b) => b.table);
   assert(
-    nonfiction.length === 2 &&
-      !nonfiction[0]!.upper.empty &&
-      nonfiction[0]!.ground.label !== nonfiction[0]!.upper.label,
-    "small subgenres share a column, one per floor",
+    tables.length === 1 && tables[0]!.label === "Poetry" && tables[0]!.books.length === 2,
+    "a subgenre with two books gets a display table",
+  );
+  assert(
+    plan.bays.filter((b) => !b.table && !b.empty).every((b) => b.books.length >= SHELF_MIN_BOOKS),
+    "no shelf holds fewer than three books",
   );
   const placed = plan.bays.flatMap((b) => b.books.map((book) => book.uid));
   assert(
     placed.length === mixedLibrary.length && new Set(placed).size === mixedLibrary.length,
     "every book is shelved exactly once across wings",
+  );
+
+  const audiobook = fakeBook("audio-1", 300, "Fantasy", { format: "audio", authors: ["Zed"] });
+  const withAudio = buildFloorPlan([...mixedLibrary, audiobook]);
+  assert(
+    !withAudio.bays.some((b) => b.books.some((book) => book.uid === "audio-1")),
+    "audiobooks are not displayed",
   );
 
   // Reading order within a split subgenre runs ground then loft, top row first.
@@ -312,30 +326,40 @@ for (const [name, input] of [
   for (const display of ["spines", "covers"] as const) {
     const plan = buildFloorPlan(big, display);
     const cols = duplexColumns(plan);
+    const maxRows = display === "covers" ? 3 : 2;
     assert(
-      plan.bays.every((b) => b.shelfRows.length <= 2),
-      `${display}: no bay holds more than two rows`,
+      plan.bays.every((b) => b.shelfRows.length <= maxRows),
+      `${display}: no cabinet holds more than ${maxRows} rows`,
     );
+    assert(cols.length > 1, `${display}: a long genre spreads over several columns`);
     assert(
-      cols.every((c) => c.ground.shelfRows.length >= c.upper.shelfRows.length),
-      `${display}: the ground floor is never lighter than the loft`,
-    );
-    assert(
-      cols.length > 1 && cols.every((c) => c.ground.label.startsWith("Fantasy · ")),
-      `${display}: a long genre continues across labelled columns`,
+      plan.bays.filter((b) => !b.empty).every((b) => b.label.includes(" · ")),
+      `${display}: every cabinet of a long genre is labelled with its authors`,
     );
     const ids = plan.bays.map((b) => b.id);
     assert(new Set(ids).size === ids.length, `${display}: bay ids are unique`);
     const placed = plan.bays.flatMap((b) => b.books.map((book) => book.uid));
     assert(new Set(placed).size === big.length, `${display}: every book is shelved once`);
-    if (display === "covers") {
-      const items = plan.bays.flatMap((b) => b.shelfRows.flat());
-      assert(
-        items.every((item) => item.kind === "face" && item.widthRem > 0),
-        "covers: every book faces the reader",
-      );
-    }
   }
+
+  const covers = buildFloorPlan(big, "covers");
+  const cabinetRows = new Set(covers.bays.map((b) => b.shelfRows.length));
+  assert(cabinetRows.has(3) && cabinetRows.has(2) && cabinetRows.has(1), "covers: cabinets of one, two and three rows");
+  const faces = covers.bays.flatMap((b) => b.shelfRows.flat()).filter((item): item is FaceItem => item.kind === "face");
+  assert(
+    new Set(faces.map((item) => item.widthRem)).size === 1,
+    "covers: every cover is the same width",
+  );
+  assert(
+    covers.bays.filter((b) => !b.table && !b.empty).every((b) => b.books.length >= SHELF_MIN_BOOKS),
+    "covers: no cabinet holds a lone book",
+  );
+  const threeRow = covers.bays.filter((b) => b.shelfRows.length === 3);
+  const oneRow = covers.bays.filter((b) => b.shelfRows.length === 1);
+  const threeRowWidth = Math.max(...threeRow.map((b) => bayContentWidthRem(b)));
+  const oneRowWidth = Math.max(...oneRow.map((b) => bayContentWidthRem(b)));
+  assert(threeRowWidth < BAY_MAX_WIDTH_REM, "covers: three-row cabinets are narrower than the wall");
+  assert(oneRowWidth > 0, "covers: one-row cabinets exist");
 }
 
 if (process.exitCode) {
