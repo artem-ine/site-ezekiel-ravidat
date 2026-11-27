@@ -822,30 +822,14 @@ function EntranceCap() {
 /** Right end of the walk: reading nook / end of the shelves. */
 function EndingCap() {
   return (
-    <aside className="walk-cap walk-cap--end" aria-label="End of the shelves">
-      <div className="walk-cap__storey walk-cap__storey--upper" aria-hidden="true">
-        <div className="walk-cap__paper walk-cap__paper--loft" />
-        <div className="walk-cap__window walk-cap__window--wide" />
-        <div className="walk-cap__case walk-cap__case--loft" />
-        <div className="walk-cap__deck" />
-        <p className="walk-cap__plaque">Attic quiet</p>
-        <div className="walk-cap__chair" />
-        <div className="walk-cap__rug walk-cap__rug--loft" />
-        <div className="walk-cap__plant walk-cap__plant--loft-end" />
-      </div>
-      <div className="walk-cap__storey walk-cap__storey--ground">
+    <aside className="walk-cap walk-cap--end" aria-label="The backrooms">
+      <div className="walk-cap__storey walk-cap__storey--upper">
         <div className="walk-cap__paper" aria-hidden="true" />
-        <div className="walk-cap__window walk-cap__window--end" aria-hidden="true" />
-        <div className="walk-cap__case walk-cap__case--end" aria-hidden="true" />
-        <div className="walk-cap__lamp" aria-hidden="true">
-          <span className="walk-cap__lamp-glow" />
-        </div>
-        <div className="walk-cap__plant walk-cap__plant--end" aria-hidden="true" />
-        <div className="walk-cap__nook" aria-hidden="true" />
-        <div className="walk-cap__table" aria-hidden="true" />
-        <div className="walk-cap__rug walk-cap__rug--end" aria-hidden="true" />
         <div className="walk-cap__deck" aria-hidden="true" />
-        <p className="walk-cap__end-sign">End of the shelves</p>
+      </div>
+      <div className="walk-cap__storey walk-cap__storey--ground" aria-hidden="true">
+        <div className="walk-cap__paper" />
+        <div className="walk-cap__deck" />
       </div>
       <Link
         href="/cozy"
