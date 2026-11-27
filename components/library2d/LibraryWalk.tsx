@@ -699,7 +699,15 @@ export function LibraryWalk({ books }: Props) {
                 </div>
               </Fragment>
             ))}
-            <div className="walk-fog" aria-hidden="true" />
+            <div className="walk-fog" aria-hidden="true">
+              {FOG_BLUR_BANDS.map(([start, blur]) => (
+                <span
+                  key={start}
+                  className="walk-fog__band"
+                  style={{ clipPath: `inset(0 0 0 ${start}%)`, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` }}
+                />
+              ))}
+            </div>
             <EndingCap />
           </div>
         </div>
@@ -1042,6 +1050,21 @@ function ReadingPane({ books }: { books: LibraryBook[] }) {
     </section>
   );
 }
+
+/**
+ * Stacked blur bands for the end fog: [left edge in % of the fog, blur in px]. Blur grows from
+ * nearly sharp at the shelves to the cap's 14px, in steps small enough to read as one ramp.
+ */
+const FOG_BLUR_BANDS: ReadonlyArray<readonly [number, number]> = [
+  [0, 0.6],
+  [12.5, 2.19],
+  [25, 3.23],
+  [37.5, 4],
+  [50, 4.65],
+  [62.5, 5.22],
+  [75, 5.73],
+  [87.5, 6.2],
+];
 
 /** Right end of the walk: reading nook / end of the shelves. */
 function EndingCap() {

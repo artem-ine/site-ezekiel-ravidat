@@ -1251,14 +1251,13 @@
     );
   }
 
-  .walk-fog::before {
-    content: "";
+  /*
+   * The fog's blur is built from stacked bands. Each band blurs the fog from its own clip edge
+   * rightward, so the blur adds up gradually toward the cap, which uses the same total.
+   */
+  .walk-fog__band {
     position: absolute;
     inset: 0;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.2) 30%, rgb(0 0 0 / 0.6) 62%, #000 100%);
-    mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.2) 30%, rgb(0 0 0 / 0.6) 62%, #000 100%);
   }
 
   /* The fog carries on over the end cap and thickens toward the door, which stays clear above it. */
