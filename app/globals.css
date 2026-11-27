@@ -859,12 +859,6 @@
 
   .walk-stats__table .is-latest .walk-stats__bar span { background: #c0463d; }
 
-  .walk-stats__table .is-muted th,
-  .walk-stats__table .is-muted .walk-stats__bar span {
-    color: #6b6f78;
-    background: #a9adb5;
-  }
-
   .walk-stats__count {
     width: 2em;
     padding: 0.05em 0;

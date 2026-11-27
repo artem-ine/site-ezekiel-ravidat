@@ -820,7 +820,7 @@ const STATS_YEARS_SHOWN = 6;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
 
-type StatRow = { label: string; count: number; latest?: boolean; muted?: boolean };
+type StatRow = { label: string; count: number; latest?: boolean };
 type StatGroup = { rows: StatRow[]; max: number };
 type ReadingStats = { years: StatGroup; formats: StatRow[]; total: number; since: number | null };
 
@@ -834,20 +834,22 @@ function statGroup(rows: StatRow[]): StatGroup {
   return { rows, max: Math.max(1, ...rows.map((row) => row.count)) };
 }
 
+/** Read books with no year read are counted under this year. */
+const UNDATED_READS_YEAR = 2021;
+
 /**
- * Books marked read: per year read (most recent years, plus the undated ones),
- * per format, and the total across all of them.
+ * Books marked read: per year read (most recent years), per format, and the
+ * total across all of them.
  */
 function readingStats(books: LibraryBook[]): ReadingStats | null {
   const perYear = new Map<number, number>();
   const perFormat = new Map<string, number>();
-  let undated = 0;
   let total = 0;
   for (const book of books) {
     if (book.readStatus !== "read") continue;
     total += 1;
-    if (book.yearRead == null) undated += 1;
-    else perYear.set(book.yearRead, (perYear.get(book.yearRead) ?? 0) + 1);
+    const year = book.yearRead ?? UNDATED_READS_YEAR;
+    perYear.set(year, (perYear.get(year) ?? 0) + 1);
     const format = STAT_FORMATS.find((option) => option.value === book.format)?.label ?? "Other";
     perFormat.set(format, (perFormat.get(format) ?? 0) + 1);
   }
@@ -861,7 +863,6 @@ function readingStats(books: LibraryBook[]): ReadingStats | null {
       count: perYear.get(year)!,
       latest: index === shown.length - 1,
     }));
-  if (undated > 0) yearRows.push({ label: "others", count: undated, muted: true });
 
   const formatRows: StatRow[] = [...STAT_FORMATS.map((option) => option.label), "Other"]
     .map((label) => ({ label, count: perFormat.get(label) ?? 0 }))
@@ -980,9 +981,9 @@ function StatsNotes({ stats }: { stats: ReadingStats }) {
 }
 
 function StatLine({ row, max }: { row: StatRow; max: number }) {
-  const className = [row.latest && "is-latest", row.muted && "is-muted"].filter(Boolean).join(" ");
+  const className = row.latest ? "is-latest" : undefined;
   return (
-    <tr className={className || undefined}>
+    <tr className={className}>
       <th scope="row">{row.label}</th>
       <td className="walk-stats__bar">
         <span aria-hidden="true" style={{ width: `${(row.count / max) * 100}%` }} />
