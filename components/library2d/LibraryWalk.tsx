@@ -136,6 +136,7 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const stats = useMemo(() => readingStats(books), [books]);
   const reading = useMemo(
     () => books.filter((book) => book.readStatus === "currently-reading").slice(0, READING_SHOWN),
     [books],
@@ -654,7 +655,7 @@ export function LibraryWalk({ books }: Props) {
           </div>
 
           <div className="walk-layer walk-layer--shelves">
-            <EntranceCap reading={reading} />
+            <EntranceCap reading={reading} stats={stats} />
             {columns.map((column, columnIndex) => (
               <Fragment key={column.slot}>
                 {column.wingStart && (
@@ -815,15 +816,72 @@ function WingGate({ wing }: { wing: WingInfo | undefined }) {
 }
 
 const BUNTING_FLAGS = 48;
+const STATS_YEARS_SHOWN = 6;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
+
+type StatRow = { label: string; count: number; latest?: boolean };
+type StatGroup = { rows: StatRow[]; max: number };
+type ReadingStats = { years: StatGroup; formats: StatRow[]; total: number; since: number | null };
+
+const STAT_FORMATS = [
+  { label: "Hardback", value: "hardcover" },
+  { label: "Paperback", value: "paperback" },
+  { label: "Audio", value: "audio" },
+] as const;
+
+function statGroup(rows: StatRow[]): StatGroup {
+  return { rows, max: Math.max(1, ...rows.map((row) => row.count)) };
+}
+
+/** Read books with no year read are counted under this year. */
+const UNDATED_READS_YEAR = 2021;
+
+/**
+ * Books marked read: per year read (most recent years), per format, and the
+ * total across all of them.
+ */
+function readingStats(books: LibraryBook[]): ReadingStats | null {
+  const perYear = new Map<number, number>();
+  const perFormat = new Map<string, number>();
+  let total = 0;
+  for (const book of books) {
+    if (book.readStatus !== "read") continue;
+    total += 1;
+    const year = book.yearRead ?? UNDATED_READS_YEAR;
+    perYear.set(year, (perYear.get(year) ?? 0) + 1);
+    const format = STAT_FORMATS.find((option) => option.value === book.format)?.label ?? "Other";
+    perFormat.set(format, (perFormat.get(format) ?? 0) + 1);
+  }
+  if (total === 0) return null;
+
+  const years = [...perYear.keys()].sort((a, b) => a - b);
+  const yearRows: StatRow[] = years
+    .slice(-STATS_YEARS_SHOWN)
+    .map((year, index, shown) => ({
+      label: String(year),
+      count: perYear.get(year)!,
+      latest: index === shown.length - 1,
+    }));
+
+  const formatRows: StatRow[] = [...STAT_FORMATS.map((option) => option.label), "Other"]
+    .map((label) => ({ label, count: perFormat.get(label) ?? 0 }))
+    .filter((row) => row.count > 0);
+
+  return {
+    years: statGroup(yearRows),
+    formats: formatRows,
+    total,
+    since: years[0] ?? null,
+  };
+}
 
 /**
  * Left end of the walk. The walker never reaches it, so it is a stage set:
  * a banner and the current reads upstairs, the house cat and dog explaining
  * the controls downstairs.
  */
-function EntranceCap({ reading }: { reading: LibraryBook[] }) {
+function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: ReadingStats | null }) {
   return (
     <aside className="walk-cap walk-cap--start" aria-label="Library entrance">
       <div className="walk-cap__storey walk-cap__storey--upper">
@@ -835,7 +893,6 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
         </div>
         <div className="walk-loft">
           <div className="walk-banner">
-            <span className="walk-banner__rod" aria-hidden="true" />
             <div className="walk-banner__cloth">
               <p className="walk-banner__kicker">Welcome to</p>
               <h1 className="walk-banner__title">
@@ -845,7 +902,14 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
               <span className="walk-banner__rule" aria-hidden="true" />
             </div>
           </div>
-          {reading.length > 0 && <ReadingBoard books={reading} />}
+          {(reading.length > 0 || stats) && (
+            <div className="walk-loft__row">
+              <section className="walk-board" aria-label="Reading board">
+                {reading.length > 0 && <ReadingPane books={reading} />}
+                {stats && <StatsNotes stats={stats} />}
+              </section>
+            </div>
+          )}
         </div>
         <div className="walk-cap__deck" aria-hidden="true" />
       </div>
@@ -882,10 +946,57 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
   );
 }
 
-/** Cork board with the books Ezekiel is reading right now, pinned cover-out. */
-function ReadingBoard({ books }: { books: LibraryBook[] }) {
+/** Sticky notes pinned to the cork: books read per year, by format, and the total. */
+function StatsNotes({ stats }: { stats: ReadingStats }) {
   return (
-    <section className="walk-board" aria-label="Currently reading">
+    <div className="walk-notes">
+      <section className="walk-note walk-note--years" aria-label="Books read per year">
+        <p className="walk-note__title">Books read</p>
+        <table className="walk-stats__table">
+          <caption className="walk-sr-only">Books read per year</caption>
+          <tbody>
+            {stats.years.rows.map((row) => (
+              <StatLine key={row.label} row={row} max={stats.years.max} />
+            ))}
+          </tbody>
+        </table>
+      </section>
+      <section className="walk-note walk-note--formats" aria-label="Books read by format">
+        <p className="walk-note__title">By format</p>
+        <ul className="walk-stats__formats">
+          {stats.formats.map((row) => (
+            <li key={row.label} className={`walk-stats__format walk-stats__format--${row.label.toLowerCase()}`}>
+              <span>{row.label}</span>
+              <strong>{row.count}</strong>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="walk-note walk-note--total" aria-label="Total books read">
+        <p className="walk-note__total">{stats.total}</p>
+        <p className="walk-note__since">{stats.since != null ? `read since ${stats.since}` : "read in total"}</p>
+      </section>
+    </div>
+  );
+}
+
+function StatLine({ row, max }: { row: StatRow; max: number }) {
+  const className = row.latest ? "is-latest" : undefined;
+  return (
+    <tr className={className}>
+      <th scope="row">{row.label}</th>
+      <td className="walk-stats__bar">
+        <span aria-hidden="true" style={{ width: `${(row.count / max) * 100}%` }} />
+      </td>
+      <td className="walk-stats__count">{row.count}</td>
+    </tr>
+  );
+}
+
+/** The books Ezekiel is reading right now, pinned cover-out on the cork. */
+function ReadingPane({ books }: { books: LibraryBook[] }) {
+  return (
+    <section className="walk-board__pane" aria-label="Currently reading">
       <p className="walk-board__label">Currently reading</p>
       <ul className="walk-board__books">
         {books.map((book, index) => {
