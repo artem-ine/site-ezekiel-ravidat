@@ -1,6 +1,6 @@
 import type { Sprite } from "@/components/library2d/PixelSprite";
 
-/** The grey and white cat: tabby-grey face, white muzzle, chest and paws. */
+/** The grey and white cat: tabby-grey coat, white muzzle, chest and paws. */
 export const CAT_SPRITE: Sprite = {
   palette: {
     o: "#3a3440",
@@ -43,7 +43,7 @@ export const CAT_SPRITE: Sprite = {
   ],
 };
 
-/** The dark brindle dog: white blaze and chest, folded ears, blue harness. */
+/** The dark dog: white blaze and chest, folded ears. */
 export const DOG_SPRITE: Sprite = {
   palette: {
     k: "#14111a",
@@ -52,8 +52,6 @@ export const DOG_SPRITE: Sprite = {
     w: "#f2eee8",
     s: "#cfc9c4",
     p: "#e48a98",
-    u: "#9cc3d6",
-    U: "#6f98b0",
     e: "#8a6444",
   },
   half: [
@@ -71,10 +69,10 @@ export const DOG_SPRITE: Sprite = {
     "...kdddddwwwpp",
     "....kddddwwwww",
     ".....kkddwwwww",
-    "....kdddduuuuu",
-    "...kddddduuUww",
-    "...kdddddduUww",
-    "..kddddddddUww",
+    "....kddddddddd",
+    "...kddddddddww",
+    "...kddddddddww",
+    "..kddddddddddw",
     "..kdddddddwwww",
     "..kddddddddwww",
     "..kdddddddddww",

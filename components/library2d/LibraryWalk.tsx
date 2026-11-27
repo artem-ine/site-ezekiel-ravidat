@@ -9,7 +9,9 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
 } from "react";
 import Link from "next/link";
 import type { LibraryBook } from "@/lib/books";
@@ -44,6 +46,7 @@ type Props = {
   books: LibraryBook[];
 };
 
+const DRAG_THRESHOLD_PX = 6;
 const DISPLAY_KEY = "walk-display";
 const DISPLAY_EVENT = "walk-display-change";
 
@@ -81,7 +84,8 @@ function writeDisplay(mode: DisplayMode) {
 export function LibraryWalk({ books }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const youMarkerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ id: number; x: number; left: number } | null>(null);
+  const dragRef = useRef<{ id: number; x: number; left: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
   const lastScrollRef = useRef(0);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -553,25 +557,46 @@ export function LibraryWalk({ books }: Props) {
     if (event.button !== 0) return;
     const el = scrollerRef.current;
     if (!el) return;
-    const target = event.target as HTMLElement;
-    if (target.closest("a, button")) return;
-    dragRef.current = { id: event.pointerId, x: event.clientX, left: el.scrollLeft };
+    suppressClickRef.current = false;
+    dragRef.current = { id: event.pointerId, x: event.clientX, left: el.scrollLeft, moved: false };
     swipeYRef.current = event.clientY;
-    el.setPointerCapture(event.pointerId);
   };
 
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     const el = scrollerRef.current;
     if (!drag || drag.id !== event.pointerId || !el) return;
-    el.scrollLeft = drag.left - (event.clientX - drag.x);
+    const dx = event.clientX - drag.x;
+    if (!drag.moved) {
+      if (Math.abs(dx) < DRAG_THRESHOLD_PX) return;
+      drag.moved = true;
+      el.setPointerCapture(event.pointerId);
+      el.classList.add("is-dragging");
+    }
+    el.scrollLeft = drag.left - dx;
+  };
+
+  const onClickCapture = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!suppressClickRef.current) return;
+    suppressClickRef.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  const onWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    const el = scrollerRef.current;
+    if (!el || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+    el.scrollLeft += event.deltaY;
   };
 
   const onPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (dragRef.current?.id !== event.pointerId) return;
     const startY = swipeYRef.current;
+    const moved = dragRef.current?.moved ?? false;
     dragRef.current = null;
     swipeYRef.current = null;
+    suppressClickRef.current = moved;
+    scrollerRef.current?.classList.remove("is-dragging");
     if (startY == null) return;
     const dy = event.clientY - startY;
     if (Math.abs(dy) > 70) jump();
@@ -619,6 +644,9 @@ export function LibraryWalk({ books }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onClickCapture={onClickCapture}
+        onWheel={onWheel}
+        onDragStart={(event) => event.preventDefault()}
       >
         <div className="walk-scene">
           <div className="walk-layer walk-layer--parallax" aria-hidden="true">
