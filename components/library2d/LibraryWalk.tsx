@@ -20,6 +20,7 @@ import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
 import { Interlude, assignInterludeKinds } from "@/components/library2d/Interlude";
+import { readingStats, type ReadingStats, type StatRow } from "@/components/library2d/readingStats";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -829,65 +830,8 @@ function WingGate({ wing }: { wing: WingInfo | undefined }) {
 }
 
 const BUNTING_FLAGS = 48;
-const STATS_YEARS_SHOWN = 6;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
-
-type StatRow = { label: string; count: number; latest?: boolean };
-type StatGroup = { rows: StatRow[]; max: number };
-type ReadingStats = { years: StatGroup; formats: StatRow[]; total: number; since: number | null };
-
-const STAT_FORMATS = [
-  { label: "Hardback", value: "hardcover" },
-  { label: "Paperback", value: "paperback" },
-  { label: "Audio", value: "audio" },
-] as const;
-
-function statGroup(rows: StatRow[]): StatGroup {
-  return { rows, max: Math.max(1, ...rows.map((row) => row.count)) };
-}
-
-/** Read books with no year read are counted under this year. */
-const UNDATED_READS_YEAR = 2021;
-
-/**
- * Books marked read: per year read (most recent years), per format, and the
- * total across all of them.
- */
-function readingStats(books: LibraryBook[]): ReadingStats | null {
-  const perYear = new Map<number, number>();
-  const perFormat = new Map<string, number>();
-  let total = 0;
-  for (const book of books) {
-    if (book.readStatus !== "read") continue;
-    total += 1;
-    const year = book.yearRead ?? UNDATED_READS_YEAR;
-    perYear.set(year, (perYear.get(year) ?? 0) + 1);
-    const format = STAT_FORMATS.find((option) => option.value === book.format)?.label ?? "Other";
-    perFormat.set(format, (perFormat.get(format) ?? 0) + 1);
-  }
-  if (total === 0) return null;
-
-  const years = [...perYear.keys()].sort((a, b) => a - b);
-  const yearRows: StatRow[] = years
-    .slice(-STATS_YEARS_SHOWN)
-    .map((year, index, shown) => ({
-      label: String(year),
-      count: perYear.get(year)!,
-      latest: index === shown.length - 1,
-    }));
-
-  const formatRows: StatRow[] = [...STAT_FORMATS.map((option) => option.label), "Other"]
-    .map((label) => ({ label, count: perFormat.get(label) ?? 0 }))
-    .filter((row) => row.count > 0);
-
-  return {
-    years: statGroup(yearRows),
-    formats: formatRows,
-    total,
-    since: years[0] ?? null,
-  };
-}
 
 /**
  * Left end of the walk. The walker never reaches it, so it is a stage set:
