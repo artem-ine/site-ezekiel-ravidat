@@ -822,11 +822,7 @@ function EntranceCap() {
 /** Right end of the walk: reading nook / end of the shelves. */
 function EndingCap() {
   return (
-    <aside className="walk-cap walk-cap--end" aria-label="End of the walk">
-      <div className="walk-cap__storey walk-cap__storey--upper" aria-hidden="true">
-        <div className="walk-cap__paper walk-cap__paper--loft" />
-        <div className="walk-cap__deck" />
-      </div>
+    <aside className="walk-cap walk-cap--end" aria-label="The backrooms">
       <div className="walk-cap__storey walk-cap__storey--ground" aria-hidden="true">
         <div className="walk-cap__paper" />
         <div className="walk-cap__deck" />
