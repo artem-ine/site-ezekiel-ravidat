@@ -1,0 +1,234 @@
+/*
+ * Interludes: a small furnished room between two genre columns, two storeys tall.
+ * Pilasters on both sides give the neighbouring genres a hard edge; the furniture,
+ * stairs and windows live here so the genre bays stay quiet.
+ */
+
+/* A half-floor interlude: one storey, sitting in the row of the floor whose genre changes. */
+.walk-gap {
+  --gap-wall: #e6d7b6;
+  --gap-panel: color-mix(in srgb, var(--gap-wall) 70%, #6a4a26);
+  --gap-floor: #cfa86f;
+  --sec-sky: #cfe1ee;
+  --sec-light: rgb(255 244 205 / 0.5);
+  --sec-accent: #a4553f;
+  position: relative;
+  flex: 0 0 auto;
+  width: 12rem;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+.walk-gap__storey {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+
+.walk-gap__storey--upper {
+  border-bottom: 3px solid var(--walk-wood-deep);
+}
+
+.walk-gap__storey::before,
+.walk-gap__storey::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0.55rem;
+  z-index: 7;
+  background: var(--walk-wood-deep);
+  box-shadow: inset -2px 0 0 rgb(255 220 160 / 0.15);
+}
+
+.walk-gap__storey::before { left: 0; }
+.walk-gap__storey::after { right: 0; }
+
+.walk-gap__wall {
+  position: absolute;
+  inset: 0 0 var(--walk-deck);
+  z-index: 0;
+  background:
+    linear-gradient(rgb(0 0 0 / 0.14) 0 0.35rem, transparent 0.35rem),
+    var(--gap-wall);
+}
+
+/* Wainscot: a panelled lower wall with a chair rail. */
+.walk-gap__wall::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28%;
+  border-top: 3px solid var(--walk-wood);
+  background:
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.14) 0 2px, transparent 2px 2.2rem),
+    var(--gap-panel);
+}
+
+.walk-gap__deck {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--walk-deck);
+  z-index: 5;
+  background: var(--gap-floor);
+  box-shadow:
+    inset 0 3px 0 var(--walk-wood-deep),
+    0 -1px 0 rgb(255 230 180 / 0.25);
+}
+
+.walk-gap .walk-prop,
+.walk-gap .walk-fix {
+  z-index: 3;
+}
+
+.walk-fix {
+  position: absolute;
+  bottom: calc(var(--walk-deck) - 0.05rem);
+  image-rendering: pixelated;
+}
+
+.walk-fix i {
+  position: absolute;
+  display: block;
+}
+
+/* —— Stairs: eight treads climbing from the left up through the floor above —— */
+.walk-fix--stairs {
+  left: 1.4rem;
+  width: 8.6rem;
+  height: calc(100% - var(--walk-deck));
+  filter:
+    drop-shadow(2px 0 0 var(--walk-wood-deep))
+    drop-shadow(-2px 0 0 var(--walk-wood-deep))
+    drop-shadow(0 -2px 0 var(--walk-wood-deep));
+}
+
+.walk-fix--stairs i:nth-child(1) {
+  inset: 0;
+  clip-path: polygon(
+    0 100%, 0 87.5%, 12.5% 87.5%, 12.5% 75%, 25% 75%, 25% 62.5%, 37.5% 62.5%, 37.5% 50%,
+    50% 50%, 50% 37.5%, 62.5% 37.5%, 62.5% 25%, 75% 25%, 75% 12.5%, 87.5% 12.5%, 87.5% 0,
+    100% 0, 100% 100%
+  );
+  background:
+    repeating-linear-gradient(0deg, transparent 0 calc(12.5% - 3px), rgb(255 226 170 / 0.45) calc(12.5% - 3px) 12.5%),
+    repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 2px), rgb(0 0 0 / 0.3) calc(12.5% - 2px) 12.5%),
+    linear-gradient(90deg, #8a5e36, #a8794a);
+}
+
+/* —— Landing: the balustrade at the edge of the stairwell, on the floor above —— */
+.walk-fix--landing {
+  right: 5rem;
+  width: 4.4rem;
+  height: 3.4rem;
+}
+
+.walk-fix--landing i:nth-child(1) {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 0.4rem;
+  border: 2px solid var(--walk-wood-deep);
+  background: var(--walk-wood);
+}
+
+.walk-fix--landing i:nth-child(2) {
+  left: 0.2rem;
+  right: 0.2rem;
+  top: 0.4rem;
+  bottom: 0;
+  background: repeating-linear-gradient(90deg, var(--walk-wood-deep) 0 0.22rem, transparent 0.22rem 0.7rem);
+}
+
+.walk-fix--landing i:nth-child(3),
+.walk-fix--landing i:nth-child(4) {
+  top: -0.5rem;
+  bottom: 0;
+  width: 0.6rem;
+  border: 2px solid var(--walk-wood-deep);
+  background: var(--walk-wood);
+}
+
+.walk-fix--landing i:nth-child(3) { left: 0; }
+.walk-fix--landing i:nth-child(4) { right: 0; }
+
+/* —— Reading table: a round table, a lamp and a chair either side —— */
+.walk-fix--table {
+  left: 1.4rem;
+  width: 9rem;
+  height: 5.2rem;
+}
+
+.walk-fix--table i:nth-child(1) {
+  left: 2rem;
+  bottom: 2.3rem;
+  width: 5rem;
+  height: 0.55rem;
+  border: 2px solid var(--walk-wood-deep);
+  border-radius: 50%;
+  background: var(--walk-wood);
+}
+
+.walk-fix--table i:nth-child(2) {
+  left: 4.35rem;
+  bottom: 0.3rem;
+  width: 0.4rem;
+  height: 2.1rem;
+  background: var(--walk-wood-deep);
+}
+
+.walk-fix--table i:nth-child(3) {
+  left: 3.3rem;
+  bottom: 0;
+  width: 2.5rem;
+  height: 0.4rem;
+  border-radius: 0.2rem;
+  background: var(--walk-wood-deep);
+}
+
+.walk-fix--table i:nth-child(4) {
+  left: 2.7rem;
+  bottom: 2.85rem;
+  width: 1.1rem;
+  height: 0.8rem;
+  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+  background: #f0dca0;
+  box-shadow: 0 0.7rem 1.6rem 0.8rem rgb(255 220 140 / 0.35);
+}
+
+.walk-fix--table::before,
+.walk-fix--table::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  width: 1.5rem;
+  height: 3rem;
+  border: 2px solid var(--walk-wood-deep);
+  background:
+    linear-gradient(var(--walk-wood), var(--walk-wood)) 0 100% / 100% 1.1rem no-repeat,
+    linear-gradient(90deg, var(--walk-wood) 0 0.35rem, transparent 0.35rem);
+}
+
+.walk-fix--table::before { left: 0; }
+.walk-fix--table::after { right: 0; transform: scaleX(-1); }
+
+/* The stairwell: the upper deck opens over the stairs' top step, which climbs into it. */
+.walk-gap__storey--stairwell .walk-gap__deck {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 5rem), transparent calc(100% - 5rem));
+  mask-image: linear-gradient(90deg, #000 calc(100% - 5rem), transparent calc(100% - 5rem));
+}
+
+.walk-gap__well {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 5rem;
+  height: var(--walk-deck);
+  z-index: 4;
+  background: linear-gradient(180deg, #3a2614, #120b06);
+}

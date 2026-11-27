@@ -22,10 +22,10 @@ export const BAY_MIN_WIDTH_REM = 22;
 export const BAY_CHROME_REM = 3.5;
 /** Wood frame on each side of the book row inside the cabinet. */
 export const CASE_SIDE_PAD_REM = 0.55;
-/** Extra bay width reserved for a decorative ladder when the loft has books. */
-export const LADDER_SPACE_REM = 2.4;
-/** Floor beside every cabinet where the genre's furniture stands. */
-export const DECOR_GUTTER_REM = 5.5;
+/** Breathing room on the floor beside every cabinet, before the next room's pilaster. */
+export const DECOR_GUTTER_REM = 1.5;
+/** Width of a half-floor interlude, where a genre changes on that floor. */
+export const INTERLUDE_WIDTH_REM = 12;
 
 /** How books sit on the shelves: standing spines, or every cover facing out. */
 export type DisplayMode = "spines" | "covers";
@@ -45,6 +45,8 @@ export const SHELF_MIN_BOOKS = 3;
  */
 const COVER_ROW_PATTERN = [3, 2, 3, 1, 2] as const;
 const SPINE_ROW_PATTERN = [2, 1, 2] as const;
+/** Cost of changing a cabinet's row count when pairing it with its loft partner, in rem. */
+const PAIR_ROW_SHIFT_REM = 2;
 /** Series longer than this stand together as a tight set instead of stacking. */
 const STACK_MAX_SERIES = 6;
 const STACK_MAX_HIGH = 3;
@@ -88,7 +90,7 @@ export type WalkBay = {
   /** Shared column — both levels always share the same slot count. */
   slot: number;
   empty: boolean;
-  /** The other floor of this column has books too, so a ladder links them. */
+  /** The other floor of this column has books too. */
   paired: boolean;
   /** A small display table of books rather than a shelf. */
   table: boolean;
@@ -119,6 +121,9 @@ export type WalkColumn = {
   upper: WalkBay;
   parent: string;
   wingStart: boolean;
+  /** A half-floor interlude stands before the upper / ground bay where its genre changes. */
+  interludeUpper: boolean;
+  interludeGround: boolean;
 };
 
 export function itemBooks(item: ShelfItem): LibraryBook[] {
@@ -369,6 +374,48 @@ function narrowestRows(items: ShelfItem[], rows: number, maxInnerRem: number): S
  * and is as narrow as that allows, so a three-row cabinet is tall and short. A
  * cabinet never ends up with fewer than SHELF_MIN_BOOKS by borrowing from the one before.
  */
+/**
+ * Pair each ground cabinet with its loft partner by choosing row counts so their widths
+ * match. A column is only as wide as its wider floor, so mismatched cabinets leave bare wall.
+ */
+function matchPairWidths(pieces: Piece[], maxInnerRem: number, maxRows: number): void {
+  for (let i = 0; i + 1 < pieces.length; i += 2) {
+    const ground = pieces[i]!;
+    const upper = pieces[i + 1]!;
+    if (ground.table || upper.table) continue;
+    const groundOptions = cabinetOptions(ground.rows.flat(), maxRows, maxInnerRem);
+    const upperOptions = cabinetOptions(upper.rows.flat(), maxRows, maxInnerRem);
+    let best: { cost: number; ground: CabinetOption; upper: CabinetOption } | null = null;
+    for (const g of groundOptions) {
+      for (const u of upperOptions) {
+        const cost =
+          Math.abs(g.widthRem - u.widthRem) +
+          PAIR_ROW_SHIFT_REM *
+            (Math.abs(g.rows.length - ground.rows.length) + Math.abs(u.rows.length - upper.rows.length));
+        if (!best || cost < best.cost) best = { cost, ground: g, upper: u };
+      }
+    }
+    if (best) {
+      ground.rows = best.ground.rows;
+      upper.rows = best.upper.rows;
+    }
+  }
+}
+
+type CabinetOption = { rows: ShelfItem[][]; widthRem: number };
+
+function cabinetOptions(items: ShelfItem[], maxRows: number, maxInnerRem: number): CabinetOption[] {
+  const options: CabinetOption[] = [];
+  for (let rows = 1; rows <= maxRows; rows += 1) {
+    const packed = narrowestRows(items, rows, maxInnerRem);
+    options.push({
+      rows: packed,
+      widthRem: Math.max(...packed.map((row) => itemsWidthRem(row))),
+    });
+  }
+  return options;
+}
+
 function groupIntoCabinets(
   items: ShelfItem[],
   pattern: readonly number[],
@@ -417,7 +464,7 @@ function emptyBay(
 ): WalkBay {
   return {
     id: `empty-f${floor}-s${slot}`,
-    label: floor === 0 ? "Hall" : "Landing",
+    label: floor === 0 ? "Hall" : "",
     books: [],
     shelfRows: [],
     theme,
@@ -510,6 +557,8 @@ export function buildFloorPlan(allBooks: LibraryBook[], display: DisplayMode = "
       }
     }
 
+    matchPairWidths(pieces, maxInner, Math.max(...pattern));
+
     const startSlot = slot;
     pieces.forEach((piece, index) => {
       const column = startSlot + Math.floor(index / 2);
@@ -577,25 +626,43 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
       upper,
       parent: ground.parent,
       wingStart: ground.wingStart,
+      interludeUpper: false,
+      interludeGround: false,
     });
   }
+  columns.forEach((column, i) => {
+    const previous = columns[i - 1];
+    if (!previous || column.wingStart) return;
+    column.interludeUpper = genreChanges(previous.upper, column.upper);
+    column.interludeGround = genreChanges(previous.ground, column.ground);
+  });
   return columns;
+}
+
+/** A change of genre on a floor gets a half-floor interlude there; empty bays never do. */
+function genreChanges(previous: WalkBay, bay: WalkBay): boolean {
+  return !bay.empty && previous.theme.id !== bay.theme.id;
 }
 
 /**
  * Width needed so every shelf row sits in a single line (no wrap),
- * including case chrome and optional ladder space for loft pairs.
+ * including case chrome.
  */
 export function bayRailWidthRem(bay: WalkBay): number {
   if (bay.empty || bay.shelfRows.length === 0) return BAY_MIN_WIDTH_REM;
   const caseW = caseWidthRem(bay);
-  const ladder = bay.paired ? LADDER_SPACE_REM : 0;
-  // Case + bay padding/margins; ladder sits beside the cabinet.
-  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + ladder + DECOR_GUTTER_REM;
-  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + ladder + DECOR_GUTTER_REM, needed));
+  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + DECOR_GUTTER_REM;
+  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + DECOR_GUTTER_REM, needed));
 }
 
-/** Column width: wide enough for the fuller of ground / upper rails. */
+/** Column width: wide enough for the fuller of ground / upper floors, interlude included. */
 export function columnWidthRem(column: WalkColumn): number {
-  return Math.max(bayRailWidthRem(column.ground), bayRailWidthRem(column.upper));
+  return Math.max(
+    floorWidthRem(column.ground, column.interludeGround),
+    floorWidthRem(column.upper, column.interludeUpper),
+  );
+}
+
+function floorWidthRem(bay: WalkBay, interlude: boolean): number {
+  return bayRailWidthRem(bay) + (interlude ? INTERLUDE_WIDTH_REM : 0);
 }

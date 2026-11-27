@@ -19,8 +19,7 @@ import { PixelSprite } from "@/components/library2d/PixelSprite";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
-import { ThemeDecor } from "@/components/library2d/ThemeDecor";
-import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
+import { Interlude, assignInterludeKinds } from "@/components/library2d/Interlude";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -136,6 +135,13 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const interludeKinds = useMemo(() => {
+    const rooms = columns.filter((column) => column.interludeUpper || column.interludeGround);
+    const kinds = assignInterludeKinds(
+      rooms.map((column) => ({ bothFloors: column.interludeUpper && column.interludeGround })),
+    );
+    return new Map(rooms.map((column, i) => [column.slot, kinds[i]!]));
+  }, [columns]);
   const stats = useMemo(() => readingStats(books), [books]);
   const reading = useMemo(
     () => books.filter((book) => book.readStatus === "currently-reading").slice(0, READING_SHOWN),
@@ -656,7 +662,7 @@ export function LibraryWalk({ books }: Props) {
 
           <div className="walk-layer walk-layer--shelves">
             <EntranceCap reading={reading} stats={stats} />
-            {columns.map((column, columnIndex) => (
+            {columns.map((column) => (
               <Fragment key={column.slot}>
                 {column.wingStart && (
                   <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
@@ -670,23 +676,30 @@ export function LibraryWalk({ books }: Props) {
                     } as CSSProperties
                   }
                 >
-                  <LevelBay
-                    bay={column.upper}
-                    calm={preferReducedMotion}
-                    display={display}
-                    before={columns[columnIndex - 1]?.upper.theme}
-                    after={columns[columnIndex + 1]?.upper.theme}
-                  />
-                  <LevelBay
-                    bay={column.ground}
-                    calm={preferReducedMotion}
-                    display={display}
-                    before={columns[columnIndex - 1]?.ground.theme}
-                    after={columns[columnIndex + 1]?.ground.theme}
-                  />
+                  <div className="walk-row walk-row--upper">
+                    {column.interludeUpper && (
+                      <Interlude
+                        id={`gap-${column.slot}`}
+                        kind={interludeKinds.get(column.slot)!}
+                        upper
+                      />
+                    )}
+                    <LevelBay bay={column.upper} display={display} />
+                  </div>
+                  <div className="walk-row walk-row--ground">
+                    {column.interludeGround && (
+                      <Interlude
+                        id={`gap-${column.slot}`}
+                        kind={interludeKinds.get(column.slot)!}
+                        upper={false}
+                      />
+                    )}
+                    <LevelBay bay={column.ground} display={display} />
+                  </div>
                 </div>
               </Fragment>
             ))}
+            <div className="walk-fog" aria-hidden="true" />
             <EndingCap />
           </div>
         </div>
@@ -1060,17 +1073,10 @@ function EndingCap() {
 
 const LevelBay = memo(function LevelBay({
   bay,
-  calm,
   display,
-  before,
-  after,
 }: {
   bay: WalkBay;
-  calm: boolean;
   display: DisplayMode;
-  /** Themes of the bays either side on this floor, so the edges can blend into them. */
-  before?: SectionTheme;
-  after?: SectionTheme;
 }) {
   const caseW = caseWidthRem(bay);
   const style = {
@@ -1081,22 +1087,10 @@ const LevelBay = memo(function LevelBay({
     "--sec-floor-deep": bay.theme.floorDeep,
     "--sec-accent": bay.theme.accent,
     "--sec-light": bay.theme.light,
-    "--prev-sky": (before ?? bay.theme).sky,
-    "--prev-wall": (before ?? bay.theme).wall,
-    "--prev-floor": (before ?? bay.theme).floor,
-    "--next-sky": (after ?? bay.theme).sky,
-    "--next-wall": (after ?? bay.theme).wall,
-    "--next-floor": (after ?? bay.theme).floor,
-    ...(caseW > 0
-      ? {
-          "--walk-case-width": `${caseW}rem`,
-          "--walk-prop-left": `${caseW + 2.75}rem`,
-        }
-      : null),
+    ...(caseW > 0 ? { "--walk-case-width": `${caseW}rem` } : null),
   } as CSSProperties;
 
   const multi = bay.shelfRows.length > 1;
-  const showLadder = bay.paired && !bay.empty;
 
   return (
     <section
@@ -1114,17 +1108,18 @@ const LevelBay = memo(function LevelBay({
         <div className="walk-bay__pattern" />
         <div className="walk-bay__trim" />
         <div className="walk-bay__glow" />
-        {!calm && !bay.empty && <div className="walk-bay__motes" />}
-        <WallWindow bay={bay} />
       </div>
 
       <div className="walk-bay__deck" aria-hidden="true" />
-      <WallWindowPatch bay={bay} />
 
-      <div className="walk-sign" aria-hidden="true">
-        <span>{bay.label}</span>
-      </div>
-      <h3 className="walk-sr-only">{bay.label}</h3>
+      {bay.label && (
+        <>
+          <div className="walk-sign" aria-hidden="true">
+            <span>{bay.label}</span>
+          </div>
+          <h3 className="walk-sr-only">{bay.label}</h3>
+        </>
+      )}
 
       {!bay.empty && (
         <>
@@ -1133,8 +1128,6 @@ const LevelBay = memo(function LevelBay({
           ) : (
             <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
           )}
-          <ThemeDecor bay={bay} />
-          {showLadder && <LibraryLadder />}
           <div
             className={`walk-rails${bay.table ? " walk-rails--table" : ""}`}
             data-rows={bay.shelfRows.length}
@@ -1164,23 +1157,6 @@ const LevelBay = memo(function LevelBay({
     </section>
   );
 });
-
-function LibraryLadder() {
-  const rungs = [12, 28, 44, 60, 76];
-  return (
-    <div className="walk-ladder" aria-hidden="true">
-      <span className="walk-ladder__rail walk-ladder__rail--l" />
-      <span className="walk-ladder__rail walk-ladder__rail--r" />
-      {rungs.map((top) => (
-        <span
-          key={top}
-          className="walk-ladder__rung"
-          style={{ top: `${top}%` }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function SectionShelves({
   kit,

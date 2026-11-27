@@ -8,13 +8,13 @@ import {
   BAY_MIN_WIDTH_REM,
   DECOR_GUTTER_REM,
   CASE_SIDE_PAD_REM,
-  LADDER_SPACE_REM,
   bayContentWidthRem,
   bayRailWidthRem,
   buildFloorPlan,
   buildShelfItems,
   caseWidthRem,
   duplexColumns,
+  type WalkColumn,
   fitRowCount,
   itemBooks,
   itemsWidthRem,
@@ -28,7 +28,7 @@ import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
 import { themeForLabel } from "../components/library2d/sectionTheme";
-import { SCENES } from "../components/library2d/decorCatalog";
+import { INTERLUDE_ORDER, INTERLUDE_SCENES, assignInterludeKinds } from "../components/library2d/Interlude";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) {
@@ -193,7 +193,7 @@ for (const [name, input] of [
         caseWidthRem(bay) >= content + CASE_SIDE_PAD_REM * 2 - 0.001,
         `${bay.label}: case covers widest row`,
       );
-      const maxBay = BAY_MAX_WIDTH_REM + (bay.paired ? LADDER_SPACE_REM : 0) + DECOR_GUTTER_REM + 0.01;
+      const maxBay = BAY_MAX_WIDTH_REM + DECOR_GUTTER_REM + 0.01;
       assert(
         bayRailWidthRem(bay) <= maxBay,
         `${bay.label} width within max (${bayRailWidthRem(bay).toFixed(1)})`,
@@ -284,6 +284,26 @@ for (const [name, input] of [
   assert(
     cols.every((c, i) => i === 0 || c.parent === cols[i - 1]!.parent || c.wingStart),
     "a wing never mixes into the next without a gate",
+  );
+  const floorChanges = (prev: WalkColumn, cur: WalkColumn, floor: "upper" | "ground") =>
+    !cur[floor].empty && prev[floor].theme.id !== cur[floor].theme.id;
+  const expectedUpper = cols.map((c, i) => (i > 0 && !c.wingStart ? floorChanges(cols[i - 1]!, c, "upper") : false));
+  const expectedGround = cols.map((c, i) => (i > 0 && !c.wingStart ? floorChanges(cols[i - 1]!, c, "ground") : false));
+  assert(
+    cols.every((c, i) => c.interludeUpper === expectedUpper[i] && c.interludeGround === expectedGround[i]),
+    "a half-floor interlude stands on each floor exactly where its genre changes",
+  );
+  assert(
+    expectedUpper.some(Boolean) && expectedUpper.some((v, i) => !v && i > 0) && expectedGround.some(Boolean),
+    "the mixed library has both changing and same-genre boundaries",
+  );
+  assert(
+    cols.every((c, i) => i === 0 || c.wingStart || c.interludeUpper || c.upper.empty || cols[i - 1]!.upper.theme.id === c.upper.theme.id),
+    "no two genres share the upper floor without an interlude",
+  );
+  assert(
+    cols.every((c, i) => i === 0 || c.wingStart || c.interludeGround || c.ground.empty || cols[i - 1]!.ground.theme.id === c.ground.theme.id),
+    "no two genres share the ground floor without an interlude",
   );
 
   const tables = plan.bays.filter((b) => b.table);
@@ -382,9 +402,32 @@ for (const [name, input] of [
   for (const [label, id] of Object.entries(expected)) {
     assert(themeForLabel(label).id === id, `theme: "${label}" is the ${id} room`);
   }
+  const scenes = Object.values(INTERLUDE_SCENES);
   assert(
-    Object.values(SCENES).every((s) => s.floor.length >= 2 && s.wall.length >= 1 && s.windows.length >= 2),
-    "theme: every room has several floor props, a wall prop and window shapes",
+    scenes.every((s) => Boolean(s.upper.window) || Boolean(s.ground.window)),
+    "interlude: every room has a window, and windows only live in interludes",
+  );
+  assert(
+    scenes.every((s) => Boolean(s.upper.fixture) || (s.upper.props?.length ?? 0) >= 2),
+    "interlude: every upper floor is furnished",
+  );
+  assert(
+    scenes.every((s) => Boolean(s.ground.fixture) || (s.ground.props?.length ?? 0) >= 2),
+    "interlude: every ground floor is furnished",
+  );
+  const rooms = Array.from({ length: 40 }, (_, i) => ({ bothFloors: i % 3 !== 1 }));
+  const kinds = assignInterludeKinds(rooms);
+  assert(
+    kinds.every((kind, i) => i === 0 || kind !== kinds[i - 1]),
+    "interlude: neighbouring rooms never repeat",
+  );
+  assert(
+    rooms.every((room, i) => room.bothFloors || kinds[i] !== "stairs"),
+    "interlude: stairs only where both floors change, so they reach a landing",
+  );
+  assert(
+    new Set(INTERLUDE_ORDER).size === INTERLUDE_ORDER.length,
+    "interlude: every kind appears once in the rotation",
   );
 }
 
