@@ -19,7 +19,7 @@ import { PixelSprite } from "@/components/library2d/PixelSprite";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
-import { Interlude } from "@/components/library2d/Interlude";
+import { Interlude, assignInterludeKinds } from "@/components/library2d/Interlude";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -135,13 +135,12 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
-  const interludeIndex = useMemo(() => {
-    const index = new Map<string, number>();
-    for (const column of columns) {
-      if (column.interludeUpper) index.set(`${column.slot}-upper`, index.size);
-      if (column.interludeGround) index.set(`${column.slot}-ground`, index.size);
-    }
-    return index;
+  const interludeKinds = useMemo(() => {
+    const rooms = columns.filter((column) => column.interludeUpper || column.interludeGround);
+    const kinds = assignInterludeKinds(
+      rooms.map((column) => ({ bothFloors: column.interludeUpper && column.interludeGround })),
+    );
+    return new Map(rooms.map((column, i) => [column.slot, kinds[i]!]));
   }, [columns]);
   const stats = useMemo(() => readingStats(books), [books]);
   const reading = useMemo(
@@ -679,13 +678,21 @@ export function LibraryWalk({ books }: Props) {
                 >
                   <div className="walk-row walk-row--upper">
                     {column.interludeUpper && (
-                      <Interlude index={interludeIndex.get(`${column.slot}-upper`)!} upper />
+                      <Interlude
+                        id={`gap-${column.slot}`}
+                        kind={interludeKinds.get(column.slot)!}
+                        upper
+                      />
                     )}
                     <LevelBay bay={column.upper} display={display} />
                   </div>
                   <div className="walk-row walk-row--ground">
                     {column.interludeGround && (
-                      <Interlude index={interludeIndex.get(`${column.slot}-ground`)!} upper={false} />
+                      <Interlude
+                        id={`gap-${column.slot}`}
+                        kind={interludeKinds.get(column.slot)!}
+                        upper={false}
+                      />
                     )}
                     <LevelBay bay={column.ground} display={display} />
                   </div>

@@ -36,6 +36,8 @@ type StoreyScene = {
   window?: WindowKind;
   fixture?: Fixture;
   props?: Placed[];
+  /** The deck opens here, so the stairs come up through the floor. */
+  stairwell?: boolean;
 };
 
 /**
@@ -49,9 +51,10 @@ export const INTERLUDE_SCENES: Record<InterludeKind, { upper: StoreyScene; groun
     upper: {
       window: "tall",
       fixture: "landing",
+      stairwell: true,
       props: [
         { kind: "lantern", x: 1.3, wall: true },
-        { kind: "vase", x: 8.7 },
+        { kind: "vase", x: 0.9 },
       ],
     },
   },
@@ -116,9 +119,24 @@ export const INTERLUDE_SCENES: Record<InterludeKind, { upper: StoreyScene; groun
 
 export const INTERLUDE_ORDER: InterludeKind[] = ["stairs", "table", "hearth", "globe", "garden"];
 
-/** Consecutive slots always differ, so no two neighbouring interludes look the same. */
-export function interludeKind(slot: number): InterludeKind {
-  return INTERLUDE_ORDER[slot % INTERLUDE_ORDER.length]!;
+/** Stairs need a landing on the floor above, so they only go where both floors change genre. */
+const HALF_FLOOR_KINDS = INTERLUDE_ORDER.filter((kind) => kind !== "stairs");
+
+/** One kind per room along the walk; neighbouring rooms never match. */
+export function assignInterludeKinds(rooms: { bothFloors: boolean }[]): InterludeKind[] {
+  const kinds: InterludeKind[] = [];
+  let cursor = 0;
+  rooms.forEach((room, i) => {
+    const pool = room.bothFloors ? INTERLUDE_ORDER : HALF_FLOOR_KINDS;
+    let kind = pool[cursor % pool.length]!;
+    cursor += 1;
+    while (kind === kinds[i - 1]) {
+      kind = pool[cursor % pool.length]!;
+      cursor += 1;
+    }
+    kinds.push(kind);
+  });
+  return kinds;
 }
 
 /** One CSS-drawn sprite; its parts are the numbered children styled per kind. */
@@ -158,25 +176,27 @@ function Storey({
 }) {
   const win = scene.window ? windowSpec(id, scene.window) : null;
   return (
-    <div className={`walk-gap__storey walk-gap__storey--${upper ? "upper" : "ground"}`}>
+    <div
+      className={`walk-gap__storey walk-gap__storey--${upper ? "upper" : "ground"}${scene.stairwell ? " walk-gap__storey--stairwell" : ""}`}
+    >
       <div className="walk-gap__wall">{win && <WallWindow spec={win} />}</div>
       {scene.fixture && <FixtureView fixture={scene.fixture} />}
       {scene.props?.map((prop) => (
         <Prop key={`${prop.kind}-${prop.x}`} {...prop} />
       ))}
+      {scene.stairwell && <div className="walk-gap__well" aria-hidden="true" />}
       <div className="walk-gap__deck" />
       {win && <WallWindowPatch spec={win} />}
     </div>
   );
 }
 
-/** A half-floor room where the genre changes on one floor; `index` counts the rooms along the walk. */
-export function Interlude({ index, upper }: { index: number; upper: boolean }) {
-  const kind = interludeKind(index);
+/** A room where the genre changes on one floor (half-floor) or on both; one storey of it is drawn here. */
+export function Interlude({ id, kind, upper }: { id: string; kind: InterludeKind; upper: boolean }) {
   const scene = INTERLUDE_SCENES[kind];
   return (
     <div className={`walk-gap walk-gap--${kind}`} aria-hidden="true">
-      <Storey id={`gap-${index}-${upper ? "up" : "down"}`} upper={upper} scene={upper ? scene.upper : scene.ground} />
+      <Storey id={`${id}-${upper ? "up" : "down"}`} upper={upper} scene={upper ? scene.upper : scene.ground} />
     </div>
   );
 }

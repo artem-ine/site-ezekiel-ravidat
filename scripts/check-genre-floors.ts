@@ -28,7 +28,7 @@ import type { LibraryBook } from "../lib/books";
 import { authorSortKey } from "../lib/author-sort";
 import { groupIntoWings, sortByAuthor } from "../components/library2d/wings";
 import { themeForLabel } from "../components/library2d/sectionTheme";
-import { INTERLUDE_ORDER, INTERLUDE_SCENES, interludeKind } from "../components/library2d/Interlude";
+import { INTERLUDE_ORDER, INTERLUDE_SCENES, assignInterludeKinds } from "../components/library2d/Interlude";
 
 function assert(cond: boolean, msg: string) {
   if (!cond) {
@@ -415,9 +415,15 @@ for (const [name, input] of [
     scenes.every((s) => Boolean(s.ground.fixture) || (s.ground.props?.length ?? 0) >= 2),
     "interlude: every ground floor is furnished",
   );
+  const rooms = Array.from({ length: 40 }, (_, i) => ({ bothFloors: i % 3 !== 1 }));
+  const kinds = assignInterludeKinds(rooms);
   assert(
-    Array.from({ length: 40 }, (_, slot) => interludeKind(slot) !== interludeKind(slot + 1)).every(Boolean),
+    kinds.every((kind, i) => i === 0 || kind !== kinds[i - 1]),
     "interlude: neighbouring rooms never repeat",
+  );
+  assert(
+    rooms.every((room, i) => room.bothFloors || kinds[i] !== "stairs"),
+    "interlude: stairs only where both floors change, so they reach a landing",
   );
   assert(
     new Set(INTERLUDE_ORDER).size === INTERLUDE_ORDER.length,
