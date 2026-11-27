@@ -823,6 +823,10 @@ function EntranceCap() {
 function EndingCap() {
   return (
     <aside className="walk-cap walk-cap--end" aria-label="The backrooms">
+      <div className="walk-cap__storey walk-cap__storey--upper">
+        <div className="walk-cap__paper" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+      </div>
       <div className="walk-cap__storey walk-cap__storey--ground" aria-hidden="true">
         <div className="walk-cap__paper" />
         <div className="walk-cap__deck" />

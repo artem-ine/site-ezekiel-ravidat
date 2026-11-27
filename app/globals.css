@@ -845,43 +845,38 @@
   }
 
 
-  /* The backrooms door: one screen-tall door near the entrance of the end room. */
-  .walk-cap--end .walk-cap__storey--ground {
-    flex: 1 1 100%;
-    height: 100%;
-  }
-
-  .walk-cap--end .walk-cap__paper,
-  .walk-cap--end .walk-cap__deck {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 7rem);
-    mask-image: linear-gradient(90deg, transparent, #000 7rem);
-  }
-
-  .walk-cap--end .walk-cap__paper {
-    background: linear-gradient(180deg, #2a1d14 0%, #120c08 100%);
-  }
-
-  .walk-cap--end .walk-cap__deck {
-    background: linear-gradient(180deg, #2a1d14, #0d0906);
-    box-shadow: inset 0 3px 0 #050302;
-  }
-
+  /* The backrooms door: a tall dark door in the far corner of the second floor. */
   .walk-cap__exit {
     position: absolute;
     top: 0;
-    bottom: var(--walk-deck);
-    left: 0.9rem;
+    bottom: calc(50% + var(--walk-deck) + 3px);
+    right: 1.1rem;
     z-index: 7;
     width: 9.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.45rem;
-    padding-top: 12%;
+    padding-top: 10%;
     pointer-events: auto;
     text-decoration: none;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .walk-cap--end .walk-cap__paper {
+    background: linear-gradient(180deg, #ecdcbc 0%, #d6bc92 100%);
+  }
+
+  .walk-cap--end .walk-cap__deck {
+    background: linear-gradient(180deg, #b58a5c, #8a6038);
+    box-shadow: inset 0 3px 0 #5a3a22;
+  }
+
+  .walk-cap--end .walk-cap__paper,
+  .walk-cap--end .walk-cap__deck {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 5rem);
+    mask-image: linear-gradient(90deg, transparent, #000 5rem);
   }
 
   .walk-cap__exit-sign {
