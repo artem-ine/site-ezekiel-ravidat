@@ -906,7 +906,7 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
             <div className="walk-loft__row">
               <section className="walk-board" aria-label="Reading board">
                 {reading.length > 0 && <ReadingPane books={reading} />}
-                {stats && <StatsWhiteboard stats={stats} />}
+                {stats && <StatsNotes stats={stats} />}
               </section>
             </div>
           )}
@@ -946,17 +946,12 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
   );
 }
 
-/** Little whiteboard: books read per year and by format, with the running total. */
-function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
+/** Sticky notes pinned to the cork: books read per year, by format, and the total. */
+function StatsNotes({ stats }: { stats: ReadingStats }) {
   return (
-    <section className="walk-stats" aria-label="Reading stats">
-      <div className="walk-stats__head">
-        <p className="walk-stats__title">Books read</p>
-        <p className="walk-stats__total">
-          <strong>{stats.total}</strong> <span>{stats.since != null ? `since ${stats.since}` : "all time"}</span>
-        </p>
-      </div>
-      <div className="walk-stats__cols">
+    <div className="walk-notes">
+      <section className="walk-note walk-note--years" aria-label="Books read per year">
+        <p className="walk-note__title">Books read</p>
         <table className="walk-stats__table">
           <caption className="walk-sr-only">Books read per year</caption>
           <tbody>
@@ -965,18 +960,23 @@ function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
             ))}
           </tbody>
         </table>
-        <div className="walk-stats__formats">
-          <ul>
-            {stats.formats.map((row) => (
-              <li key={row.label} className={`walk-stats__format walk-stats__format--${row.label.toLowerCase()}`}>
-                <span>{row.label}</span>
-                <strong>{row.count}</strong>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-    </section>
+      </section>
+      <section className="walk-note walk-note--formats" aria-label="Books read by format">
+        <p className="walk-note__title">By format</p>
+        <ul className="walk-stats__formats">
+          {stats.formats.map((row) => (
+            <li key={row.label} className={`walk-stats__format walk-stats__format--${row.label.toLowerCase()}`}>
+              <span>{row.label}</span>
+              <strong>{row.count}</strong>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section className="walk-note walk-note--total" aria-label="Total books read">
+        <p className="walk-note__total">{stats.total}</p>
+        <p className="walk-note__since">{stats.since != null ? `read since ${stats.since}` : "read in total"}</p>
+      </section>
+    </div>
   );
 }
 
