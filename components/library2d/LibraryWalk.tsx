@@ -820,26 +820,59 @@ const STATS_YEARS_SHOWN = 6;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
 
-type ReadingStats = {
-  rows: { year: number; count: number }[];
-  max: number;
-  total: number;
-  since: number;
-};
+type StatRow = { label: string; count: number; latest?: boolean; muted?: boolean };
+type StatGroup = { rows: StatRow[]; max: number };
+type ReadingStats = { years: StatGroup; formats: StatRow[]; total: number; since: number | null };
 
-/** Books marked read with a year read, per year (most recent years), and the total since the oldest record. */
+const STAT_FORMATS = [
+  { label: "Hardback", value: "hardcover" },
+  { label: "Paperback", value: "paperback" },
+  { label: "Audio", value: "audio" },
+] as const;
+
+function statGroup(rows: StatRow[]): StatGroup {
+  return { rows, max: Math.max(1, ...rows.map((row) => row.count)) };
+}
+
+/**
+ * Books marked read: per year read (most recent years, plus the undated ones),
+ * per format, and the total across all of them.
+ */
 function readingStats(books: LibraryBook[]): ReadingStats | null {
   const perYear = new Map<number, number>();
+  const perFormat = new Map<string, number>();
+  let undated = 0;
+  let total = 0;
   for (const book of books) {
-    if (book.readStatus !== "read" || book.yearRead == null) continue;
-    perYear.set(book.yearRead, (perYear.get(book.yearRead) ?? 0) + 1);
+    if (book.readStatus !== "read") continue;
+    total += 1;
+    if (book.yearRead == null) undated += 1;
+    else perYear.set(book.yearRead, (perYear.get(book.yearRead) ?? 0) + 1);
+    const format = STAT_FORMATS.find((option) => option.value === book.format)?.label ?? "Other";
+    perFormat.set(format, (perFormat.get(format) ?? 0) + 1);
   }
-  if (perYear.size === 0) return null;
+  if (total === 0) return null;
 
   const years = [...perYear.keys()].sort((a, b) => a - b);
-  const rows = years.slice(-STATS_YEARS_SHOWN).map((year) => ({ year, count: perYear.get(year)! }));
-  const total = [...perYear.values()].reduce((sum, count) => sum + count, 0);
-  return { rows, max: Math.max(...rows.map((row) => row.count)), total, since: years[0]! };
+  const yearRows: StatRow[] = years
+    .slice(-STATS_YEARS_SHOWN)
+    .map((year, index, shown) => ({
+      label: String(year),
+      count: perYear.get(year)!,
+      latest: index === shown.length - 1,
+    }));
+  if (undated > 0) yearRows.push({ label: "(no year)", count: undated, muted: true });
+
+  const formatRows: StatRow[] = [...STAT_FORMATS.map((option) => option.label), "Other"]
+    .map((label) => ({ label, count: perFormat.get(label) ?? 0 }))
+    .filter((row) => row.count > 0);
+
+  return {
+    years: statGroup(yearRows),
+    formats: formatRows,
+    total,
+    since: years[0] ?? null,
+  };
 }
 
 /**
@@ -911,31 +944,50 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
   );
 }
 
-/** Little whiteboard: books read per year and the running total. */
+/** Little whiteboard: books read per year and by format, with the running total. */
 function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
-  const latest = stats.rows[stats.rows.length - 1]!.year;
   return (
     <section className="walk-stats" aria-label="Reading stats">
       <p className="walk-stats__title">Books read</p>
-      <table className="walk-stats__table">
-        <caption className="walk-sr-only">Books read per year</caption>
-        <tbody>
-          {stats.rows.map((row) => (
-            <tr key={row.year} className={row.year === latest ? "is-latest" : undefined}>
-              <th scope="row">{row.year}</th>
-              <td className="walk-stats__bar">
-                <span aria-hidden="true" style={{ width: `${(row.count / stats.max) * 100}%` }} />
-              </td>
-              <td className="walk-stats__count">{row.count}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="walk-stats__cols">
+        <table className="walk-stats__table">
+          <caption className="walk-sr-only">Books read per year</caption>
+          <tbody>
+            {stats.years.rows.map((row) => (
+              <StatLine key={row.label} row={row} max={stats.years.max} />
+            ))}
+          </tbody>
+        </table>
+        <div className="walk-stats__formats">
+          <ul>
+            {stats.formats.map((row) => (
+              <li key={row.label} className={`walk-stats__format walk-stats__format--${row.label.toLowerCase()}`}>
+                <span>{row.label}</span>
+                <strong>{row.count}</strong>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
       <p className="walk-stats__total">
-        <span>Since {stats.since}</span> <strong>{stats.total}</strong>
+        <span>{stats.since != null ? `Since ${stats.since}` : "All time"}</span>{" "}
+        <strong>{stats.total}</strong>
       </p>
       <span className="walk-stats__tray" aria-hidden="true" />
     </section>
+  );
+}
+
+function StatLine({ row, max }: { row: StatRow; max: number }) {
+  const className = [row.latest && "is-latest", row.muted && "is-muted"].filter(Boolean).join(" ");
+  return (
+    <tr className={className || undefined}>
+      <th scope="row">{row.label}</th>
+      <td className="walk-stats__bar">
+        <span aria-hidden="true" style={{ width: `${(row.count / max) * 100}%` }} />
+      </td>
+      <td className="walk-stats__count">{row.count}</td>
+    </tr>
   );
 }
 
