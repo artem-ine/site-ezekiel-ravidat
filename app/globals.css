@@ -658,27 +658,6 @@
     font-size: var(--u);
   }
 
-  .walk-bunting {
-    position: absolute;
-    inset: 0 0 auto 0;
-    z-index: 3;
-    display: flex;
-    height: 1.4em;
-    overflow: hidden;
-    background: linear-gradient(var(--walk-wood-deep) 0 3px, transparent 3px);
-  }
-
-  .walk-bunting__flag {
-    flex: 0 0 2.4em;
-    height: 1.2em;
-    margin-top: 3px;
-    background: #b5473f;
-    clip-path: polygon(0 0, 100% 0, 50% 100%);
-  }
-
-  .walk-bunting__flag:nth-child(3n + 2) { background: #d9a93f; }
-  .walk-bunting__flag:nth-child(3n) { background: #4f7f74; }
-
   .walk-loft {
     position: absolute;
     z-index: 4;
@@ -735,7 +714,7 @@
     font-size: 0.7em;
     font-weight: 500;
     letter-spacing: 0.18em;
-    text-transform: uppercase;
+    text-transform: none;
   }
 
   .walk-banner__title {
@@ -759,7 +738,7 @@
     font-size: 1.45em;
     font-weight: 700;
     letter-spacing: 0.04em;
-    text-transform: uppercase;
+    text-transform: none;
     text-shadow: 0.12em 0.12em 0 #3b1412;
   }
 

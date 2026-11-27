@@ -829,7 +829,6 @@ function WingGate({ wing }: { wing: WingInfo | undefined }) {
   );
 }
 
-const BUNTING_FLAGS = 48;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
 
@@ -843,18 +842,13 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
     <aside className="walk-cap walk-cap--start" aria-label="Library entrance">
       <div className="walk-cap__storey walk-cap__storey--upper">
         <div className="walk-cap__paper walk-cap__paper--loft" aria-hidden="true" />
-        <div className="walk-bunting" aria-hidden="true">
-          {Array.from({ length: BUNTING_FLAGS }, (_, i) => (
-            <span key={i} className="walk-bunting__flag" />
-          ))}
-        </div>
         <div className="walk-loft">
           <div className="walk-banner">
             <div className="walk-banner__cloth">
-              <p className="walk-banner__kicker">Welcome to</p>
+              <p className="walk-banner__kicker">welcome to</p>
               <h1 className="walk-banner__title">
-                <span className="walk-banner__owner">Ezekiel&rsquo;s</span>
-                <span className="walk-banner__name">Personal Library</span>
+                <span className="walk-banner__owner">ezekiel&rsquo;s</span>
+                <span className="walk-banner__name">home shelves</span>
               </h1>
               <span className="walk-banner__rule" aria-hidden="true" />
             </div>
