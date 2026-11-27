@@ -904,8 +904,10 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
           </div>
           {(reading.length > 0 || stats) && (
             <div className="walk-loft__row">
-              {reading.length > 0 && <ReadingBoard books={reading} />}
-              {stats && <StatsWhiteboard stats={stats} />}
+              <section className="walk-board" aria-label="Reading board">
+                {reading.length > 0 && <ReadingPane books={reading} />}
+                {stats && <StatsWhiteboard stats={stats} />}
+              </section>
             </div>
           )}
         </div>
@@ -948,7 +950,12 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
 function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
   return (
     <section className="walk-stats" aria-label="Reading stats">
-      <p className="walk-stats__title">Books read</p>
+      <div className="walk-stats__head">
+        <p className="walk-stats__title">Books read</p>
+        <p className="walk-stats__total">
+          <strong>{stats.total}</strong> <span>{stats.since != null ? `since ${stats.since}` : "all time"}</span>
+        </p>
+      </div>
       <div className="walk-stats__cols">
         <table className="walk-stats__table">
           <caption className="walk-sr-only">Books read per year</caption>
@@ -969,11 +976,6 @@ function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
           </ul>
         </div>
       </div>
-      <p className="walk-stats__total">
-        <span>{stats.since != null ? `Since ${stats.since}` : "All time"}</span>{" "}
-        <strong>{stats.total}</strong>
-      </p>
-      <span className="walk-stats__tray" aria-hidden="true" />
     </section>
   );
 }
@@ -991,10 +993,10 @@ function StatLine({ row, max }: { row: StatRow; max: number }) {
   );
 }
 
-/** Cork board with the books Ezekiel is reading right now, pinned cover-out. */
-function ReadingBoard({ books }: { books: LibraryBook[] }) {
+/** The books Ezekiel is reading right now, pinned cover-out on the cork. */
+function ReadingPane({ books }: { books: LibraryBook[] }) {
   return (
-    <section className="walk-board" aria-label="Currently reading">
+    <section className="walk-board__pane" aria-label="Currently reading">
       <p className="walk-board__label">Currently reading</p>
       <ul className="walk-board__books">
         {books.map((book, index) => {

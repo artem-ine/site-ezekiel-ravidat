@@ -797,15 +797,14 @@
     max-width: 100%;
   }
 
-  /* A little dry-erase board in the bubbles' pixel type. */
+  /* A pinned paper note on the cork, in the bubbles' pixel type. */
   .walk-stats {
     --ink: #2b1c12;
     position: relative;
     flex: 0 0 auto;
     width: 26em;
     max-width: 100%;
-    margin-bottom: 0.6em;
-    padding: 0.6em 0.85em 0.55em;
+    padding: 0.5em 0.85em 0.45em;
     background:
       linear-gradient(135deg, rgb(255 255 255 / 0.7) 0 18%, transparent 18% 100%),
       #f7f7f1;
@@ -813,21 +812,39 @@
     font-family: var(--font-mono);
     font-size: max(9px, calc(0.85 * var(--u)));
     line-height: 1.2;
-    box-shadow:
-      0 -0.3em 0 0 #a9adb5,
-      0 0.3em 0 0 #a9adb5,
-      -0.3em 0 0 0 #a9adb5,
-      0.3em 0 0 0 #a9adb5,
-      0.55em 0.55em 0 0 rgb(0 0 0 / 0.22);
+    box-shadow: 0.25em 0.3em 0 rgb(0 0 0 / 0.3);
+  }
+
+  .walk-stats::before {
+    content: "";
+    position: absolute;
+    top: -0.5em;
+    left: 50%;
+    z-index: 2;
+    width: 0.8em;
+    height: 0.8em;
+    border: 2px solid #4d1812;
+    border-radius: 50%;
+    background: #3f7fb5;
+    transform: translateX(-50%);
+  }
+
+  .walk-stats__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.8em;
+    margin-bottom: 0.3em;
+    padding-bottom: 0.2em;
+    border-bottom: 0.2em solid #3f6fb5;
   }
 
   .walk-stats__title {
-    margin: 0 0 0.3em;
-    padding-bottom: 0.2em;
-    border-bottom: 0.2em solid #3f6fb5;
+    margin: 0;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    white-space: nowrap;
   }
 
   .walk-stats__cols {
@@ -914,41 +931,24 @@
   }
 
   .walk-stats__total {
-    display: flex;
-    justify-content: space-between;
-    margin: 0.3em 0 0;
-    padding-top: 0.2em;
-    border-top: 0.2em solid #3f6fb5;
+    margin: 0;
     font-weight: 700;
+    white-space: nowrap;
   }
 
-  .walk-stats__tray {
-    position: absolute;
-    left: 6%;
-    right: 6%;
-    bottom: -1.05em;
-    height: 0.45em;
-    background: #a9adb5;
-    box-shadow: 0.2em 0.2em 0 rgb(0 0 0 / 0.2);
+  .walk-stats__total span {
+    font-weight: 400;
+    font-size: 0.85em;
   }
-
-  .walk-stats__tray::before,
-  .walk-stats__tray::after {
-    content: "";
-    position: absolute;
-    bottom: 100%;
-    width: 1.9em;
-    height: 0.4em;
-  }
-
-  .walk-stats__tray::before { left: 14%; background: #3f6fb5; }
-  .walk-stats__tray::after { left: 44%; background: #c0463d; }
 
   .walk-board {
+    display: flex;
+    align-items: center;
+    gap: 1.2em;
     position: relative;
     flex: 0 0 auto;
     max-width: 100%;
-    padding: 1.35em 1.1em 0.9em;
+    padding: 1.25em 1em 0.8em;
     border: 0.3em solid #6a4426;
     background:
       radial-gradient(circle at 20% 30%, rgb(70 35 10 / 0.3) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
@@ -957,6 +957,11 @@
     box-shadow:
       inset 0 0 0 2px #8a6238,
       0.25em 0.25em 0 rgb(0 0 0 / 0.25);
+  }
+
+  .walk-board__pane {
+    position: relative;
+    flex: 0 0 auto;
   }
 
   .walk-board__label {
@@ -1216,12 +1221,15 @@
     .walk-banner__name { font-size: 1.3em; letter-spacing: 0.03em; }
     .walk-banner__cloth { padding-inline: 0.9em; }
     .walk-loft__row { gap: 0.8em; }
-    .walk-board { padding: 1.2em 0.8em 0.7em; }
+    .walk-board { gap: 0.7em; padding: 0.9em 0.6em 0.4em; }
+    .walk-board__pane { padding-top: 0.45em; }
     .walk-board__books { gap: 0.7em; }
     .walk-board__item { width: 3.3em; }
     .walk-board__item:nth-child(n + 3) { display: none; }
     .walk-stats { width: 15em; padding: 0.45em 0.6em 0.4em; font-size: max(8.5px, calc(0.66 * var(--u))); }
     .walk-stats__cols { grid-template-columns: minmax(0, 1fr); }
+    .walk-stats__head { gap: 0.4em; }
+    .walk-stats__title { letter-spacing: 0.02em; }
     .walk-stats__formats {
       margin-top: 0.35em;
       padding: 0.3em 0 0;
