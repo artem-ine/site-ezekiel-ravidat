@@ -45,6 +45,8 @@ export const SHELF_MIN_BOOKS = 3;
  */
 const COVER_ROW_PATTERN = [3, 2, 3, 1, 2] as const;
 const SPINE_ROW_PATTERN = [2, 1, 2] as const;
+/** Cost of changing a cabinet's row count when pairing it with its loft partner, in rem. */
+const PAIR_ROW_SHIFT_REM = 2;
 /** Series longer than this stand together as a tight set instead of stacking. */
 const STACK_MAX_SERIES = 6;
 const STACK_MAX_HIGH = 3;
@@ -372,6 +374,48 @@ function narrowestRows(items: ShelfItem[], rows: number, maxInnerRem: number): S
  * and is as narrow as that allows, so a three-row cabinet is tall and short. A
  * cabinet never ends up with fewer than SHELF_MIN_BOOKS by borrowing from the one before.
  */
+/**
+ * Pair each ground cabinet with its loft partner by choosing row counts so their widths
+ * match. A column is only as wide as its wider floor, so mismatched cabinets leave bare wall.
+ */
+function matchPairWidths(pieces: Piece[], maxInnerRem: number, maxRows: number): void {
+  for (let i = 0; i + 1 < pieces.length; i += 2) {
+    const ground = pieces[i]!;
+    const upper = pieces[i + 1]!;
+    if (ground.table || upper.table) continue;
+    const groundOptions = cabinetOptions(ground.rows.flat(), maxRows, maxInnerRem);
+    const upperOptions = cabinetOptions(upper.rows.flat(), maxRows, maxInnerRem);
+    let best: { cost: number; ground: CabinetOption; upper: CabinetOption } | null = null;
+    for (const g of groundOptions) {
+      for (const u of upperOptions) {
+        const cost =
+          Math.abs(g.widthRem - u.widthRem) +
+          PAIR_ROW_SHIFT_REM *
+            (Math.abs(g.rows.length - ground.rows.length) + Math.abs(u.rows.length - upper.rows.length));
+        if (!best || cost < best.cost) best = { cost, ground: g, upper: u };
+      }
+    }
+    if (best) {
+      ground.rows = best.ground.rows;
+      upper.rows = best.upper.rows;
+    }
+  }
+}
+
+type CabinetOption = { rows: ShelfItem[][]; widthRem: number };
+
+function cabinetOptions(items: ShelfItem[], maxRows: number, maxInnerRem: number): CabinetOption[] {
+  const options: CabinetOption[] = [];
+  for (let rows = 1; rows <= maxRows; rows += 1) {
+    const packed = narrowestRows(items, rows, maxInnerRem);
+    options.push({
+      rows: packed,
+      widthRem: Math.max(...packed.map((row) => itemsWidthRem(row))),
+    });
+  }
+  return options;
+}
+
 function groupIntoCabinets(
   items: ShelfItem[],
   pattern: readonly number[],
@@ -512,6 +556,8 @@ export function buildFloorPlan(allBooks: LibraryBook[], display: DisplayMode = "
         });
       }
     }
+
+    matchPairWidths(pieces, maxInner, Math.max(...pattern));
 
     const startSlot = slot;
     pieces.forEach((piece, index) => {
