@@ -13,7 +13,10 @@ import {
 } from "react";
 import Link from "next/link";
 import type { LibraryBook } from "@/lib/books";
+import { PixelSprite } from "@/components/library2d/PixelSprite";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
+import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
+import { shortTitle, spineCloth } from "@/lib/spine-style";
 import { ThemeDecor } from "@/components/library2d/ThemeDecor";
 import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
 import {
@@ -129,6 +132,10 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const reading = useMemo(
+    () => books.filter((book) => book.readStatus === "currently-reading").slice(0, READING_SHOWN),
+    [books],
+  );
   const planRef = useRef(plan);
   const columnsRef = useRef(columns);
 
@@ -619,7 +626,7 @@ export function LibraryWalk({ books }: Props) {
           </div>
 
           <div className="walk-layer walk-layer--shelves">
-            <EntranceCap />
+            <EntranceCap reading={reading} />
             {columns.map((column, columnIndex) => (
               <Fragment key={column.slot}>
                 {column.wingStart && (
@@ -779,43 +786,108 @@ function WingGate({ wing }: { wing: WingInfo | undefined }) {
   );
 }
 
-/** Left end of the walk: entrance hall + how-to board (real text). */
-function EntranceCap() {
+const BUNTING_FLAGS = 48;
+const READING_SHOWN = 5;
+const READING_TILTS = [-3, 2, -1.5, 3, -2];
+
+/**
+ * Left end of the walk. The walker never reaches it, so it is a stage set:
+ * a banner and the current reads upstairs, the house cat and dog explaining
+ * the controls downstairs.
+ */
+function EntranceCap({ reading }: { reading: LibraryBook[] }) {
   return (
     <aside className="walk-cap walk-cap--start" aria-label="Library entrance">
-      <div className="walk-cap__storey walk-cap__storey--upper" aria-hidden="true">
-        <div className="walk-cap__paper walk-cap__paper--loft" />
-        <div className="walk-cap__window" />
-        <div className="walk-cap__case walk-cap__case--loft" />
-        <div className="walk-cap__deck" />
-        <p className="walk-cap__plaque">Landing</p>
-        <div className="walk-cap__plant walk-cap__plant--loft" />
-        <div className="walk-cap__rug walk-cap__rug--loft" />
+      <div className="walk-cap__storey walk-cap__storey--upper">
+        <div className="walk-cap__paper walk-cap__paper--loft" aria-hidden="true" />
+        <div className="walk-bunting" aria-hidden="true">
+          {Array.from({ length: BUNTING_FLAGS }, (_, i) => (
+            <span key={i} className="walk-bunting__flag" />
+          ))}
+        </div>
+        <div className="walk-loft">
+          <div className="walk-banner">
+            <span className="walk-banner__rod" aria-hidden="true" />
+            <div className="walk-banner__cloth">
+              <p className="walk-banner__kicker">Welcome to</p>
+              <h1 className="walk-banner__title">
+                <span className="walk-banner__owner">Ezekiel&rsquo;s</span>
+                <span className="walk-banner__name">Personal Library</span>
+              </h1>
+              <span className="walk-banner__rule" aria-hidden="true" />
+            </div>
+          </div>
+          {reading.length > 0 && <ReadingBoard books={reading} />}
+        </div>
+        <div className="walk-cap__deck" aria-hidden="true" />
       </div>
       <div className="walk-cap__storey walk-cap__storey--ground">
         <div className="walk-cap__paper" aria-hidden="true" />
-        <div className="walk-cap__door" aria-hidden="true" />
-        <div className="walk-cap__coat" aria-hidden="true" />
-        <div className="walk-cap__mat" aria-hidden="true" />
-        <div className="walk-cap__plant" aria-hidden="true" />
-        <div className="walk-cap__rug" aria-hidden="true" />
+        <ul className="walk-chat" aria-label="How to walk the stacks, explained by the house cat and dog">
+          <li className="walk-chat__line walk-chat__line--cat">
+            <span className="walk-sr-only">Cat: </span>
+            Welcome! Walk with <kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd>.
+          </li>
+          <li className="walk-chat__line walk-chat__line--dog">
+            <span className="walk-sr-only">Dog: </span>
+            <kbd>Space</kbd> hops between floors.<span className="walk-chat__woof"> Woof.</span>
+          </li>
+          <li className="walk-chat__line walk-chat__line--cat">
+            <span className="walk-sr-only">Cat: </span>
+            Click a book to open it.
+          </li>
+          <li className="walk-chat__line walk-chat__line--dog">
+            <span className="walk-sr-only">Dog: </span>
+            The corner map jumps to any genre.
+          </li>
+          <li className="walk-chat__line walk-chat__line--cat">
+            <span className="walk-sr-only">Cat: </span>
+            On a phone? Drag to walk, swipe up to jump.
+          </li>
+        </ul>
+        <div className="walk-pets__rug" aria-hidden="true" />
+        <PixelSprite sprite={CAT_SPRITE} className="walk-pet walk-pet--cat" />
+        <PixelSprite sprite={DOG_SPRITE} className="walk-pet walk-pet--dog" />
         <div className="walk-cap__deck" aria-hidden="true" />
-        <div className="walk-cap__guide">
-          <p className="walk-cap__guide-title">How to walk the stacks</p>
-          <ul className="walk-cap__guide-list">
-            <li>
-              <kbd>←</kbd> <kbd>→</kbd> or <kbd>A</kbd> <kbd>D</kbd> — walk
-            </li>
-            <li>
-              <kbd>Space</kbd> — jump between floors
-            </li>
-            <li>Click a book — open it</li>
-            <li>Mini-map — jump to a genre</li>
-            <li className="walk-cap__guide-touch">Touch: drag to walk, Jump or swipe up</li>
-          </ul>
-        </div>
       </div>
     </aside>
+  );
+}
+
+/** Cork board with the books Ezekiel is reading right now, pinned cover-out. */
+function ReadingBoard({ books }: { books: LibraryBook[] }) {
+  return (
+    <section className="walk-board" aria-label="Currently reading">
+      <p className="walk-board__label">Currently reading</p>
+      <ul className="walk-board__books">
+        {books.map((book, index) => {
+          const authors = book.authors.join(", ") || "Unknown author";
+          return (
+            <li
+              key={book.uid}
+              className="walk-board__item"
+              style={{ "--tilt": `${READING_TILTS[index % READING_TILTS.length]}deg` } as CSSProperties}
+            >
+              <Link
+                href={`/books/${book.uid}`}
+                className="walk-board__book"
+                style={{ backgroundColor: spineCloth(book) }}
+                aria-label={`${book.title}, by ${authors}. Currently reading.`}
+                title={`${book.title} — ${authors}`}
+              >
+                {book.coverUrl ? (
+                  // Decorative; the link's aria-label carries the title.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="walk-board__cover" src={book.coverUrl} alt="" decoding="async" />
+                ) : (
+                  <span className="walk-board__fallback">{shortTitle(book.title, 30)}</span>
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
