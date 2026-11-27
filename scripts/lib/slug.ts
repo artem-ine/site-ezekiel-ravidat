@@ -61,7 +61,28 @@ export function slugify(input: string, maxLength = 88): string {
     .replace(/^-+|-+$/g, "");
   if (!normalized) return "item";
   if (normalized.length <= maxLength) return normalized;
-  return normalized.slice(0, maxLength).replace(/-+$/g, "") || "item";
+  // Cut at a word boundary so a long title never ends mid-word.
+  const head = normalized.slice(0, maxLength + 1);
+  const lastHyphen = head.lastIndexOf("-");
+  const cut = lastHyphen > 0 ? head.slice(0, lastHyphen) : normalized.slice(0, maxLength);
+  return cut.replace(/-+$/g, "") || "item";
+}
+
+export const BOOK_UID_MAX_LENGTH = 88;
+
+/** Clean book uid: the title slug only, 88 characters or fewer, cut at a word boundary. */
+export function bookTitleSlug(title: string): string {
+  return slugify(title, BOOK_UID_MAX_LENGTH);
+}
+
+/**
+ * Book uid for a new document. Audio editions get the title slug plus "-audio",
+ * every other edition gets the title slug alone.
+ */
+export function bookUid(title: string, format: string | null | undefined): string {
+  if (format !== "audio") return bookTitleSlug(title);
+  const suffix = "-audio";
+  return `${slugify(title, BOOK_UID_MAX_LENGTH - suffix.length)}${suffix}`;
 }
 
 export interface NormalizedIsbn {

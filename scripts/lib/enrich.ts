@@ -8,6 +8,7 @@ import {
   USER_AGENT,
 } from "./env";
 import {
+  bookTitleSlug,
   decodeHtmlEntities,
   looksLikePhysicalCollation,
   normalizeIsbn,
@@ -1036,7 +1037,7 @@ export class BookEnricher {
         }
       }
       if (!title) return null;
-      const uid = slugify(title);
+      const uid = bookTitleSlug(title);
       const enriched = await this.enrichBook({
         title,
         authors,
@@ -1074,7 +1075,7 @@ export class BookEnricher {
       const isbnStr =
         Array.isArray(d.isbn) && typeof d.isbn[0] === "string" ? d.isbn[0] : "";
       const isbn = normalizeIsbn(isbnStr);
-      const uid = slugify(title);
+      const uid = bookTitleSlug(title);
       const enriched = await this.enrichBook({
         title,
         authors,
@@ -1105,7 +1106,7 @@ export class BookEnricher {
         ? (vi.industryIdentifiers as Array<{ identifier?: string }>)
         : [];
       const isbn = normalizeIsbn(ids[0]?.identifier ?? "");
-      const uid = slugify(title);
+      const uid = bookTitleSlug(title);
       const enriched = await this.enrichBook({ title, authors, isbn, uid });
       return { title, authors, isbn, enriched };
     }

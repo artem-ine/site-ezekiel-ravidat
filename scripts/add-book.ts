@@ -8,7 +8,8 @@ import {
   type PreparedBookRecord,
 } from "./lib/prismic-import";
 import type { BookFormat, ReadStatus } from "./lib/csv";
-import { slugify } from "./lib/slug";
+import { findExistingBook } from "./lib/book-match";
+import { bookUid } from "./lib/slug";
 
 interface AddBookArgs {
   query: string;
@@ -75,7 +76,7 @@ async function main() {
 
   const mapped = genreMapper.mapSubjects(match.enriched.rawSubjects);
   const store = new PrismicStateStore();
-  let publishedBookUids = new Map<string, string>();
+  const uid = bookUid(match.title, args.format);
   if (!args.dryRun) {
     const writeClient = getWriteClient();
     const preloaded = await preloadRemoteAssetsAndDocs(
@@ -83,19 +84,23 @@ async function main() {
       writeClient.writeToken,
       store,
     );
-    publishedBookUids = preloaded.publishedUids.book;
-  }
-
-  // Pick a non-colliding URL-safe UID
-  const baseUid = slugify(match.title);
-  let uid = baseUid;
-  const isbnCode = (match.isbn.cleaned || match.enriched.resolvedIsbn || "").toLowerCase();
-  if ((store.hasUid("book", uid) || publishedBookUids.has(uid)) && isbnCode) {
-    uid = `${baseUid}-${isbnCode}`;
-  }
-  let suffix = 2;
-  while (store.hasUid("book", uid) || publishedBookUids.has(uid)) {
-    uid = `${baseUid}-${suffix++}`;
+    const existing = findExistingBook(
+      {
+        title: match.title,
+        uid,
+        isbnRaw: match.isbn.raw || match.enriched.resolvedIsbn || "",
+        format: args.format,
+      },
+      preloaded.publishedBooks,
+    );
+    if (existing.kind !== "none" || preloaded.publishedUids.book.has(uid)) {
+      const where =
+        existing.kind === "match" ? existing.book.uid : existing.kind === "ambiguous" ? existing.candidates.map((c) => c.uid).join(", ") : uid;
+      console.error(
+        `"${match.title}" is already in the library (uid: ${where}). Edit that document in Prismic instead of adding a second copy.`,
+      );
+      process.exit(1);
+    }
   }
 
   const record: PreparedBookRecord = {
