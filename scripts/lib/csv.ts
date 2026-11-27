@@ -3,10 +3,11 @@ import path from "node:path";
 import { parse } from "csv-parse/sync";
 import type { RichTextField } from "@prismicio/client";
 import {
+  bookTitleSlug,
+  bookUid,
   decodeHtmlEntities,
   htmlToRichText,
   normalizeIsbn,
-  slugify,
   type NormalizedIsbn,
 } from "./slug";
 import { REPO_ROOT } from "./env";
@@ -45,6 +46,12 @@ export interface ParsedDateRange {
 export interface ParsedCsvBook {
   rowIndex: number; // 1-based data row index in CSV
   uid: string;
+  /**
+   * True when another importable row already owns this title's clean uid. The
+   * importer may update an existing document for this row but never creates a
+   * second document for the same title.
+   */
+  secondaryCopy?: boolean;
   title: string;
   authors: string[];
   contributors: ParsedContributor[];
@@ -326,7 +333,7 @@ export function parseStorygraphCsv(csvPath: string): {
 
     preliminary.push({
       rowIndex,
-      baseSlug: slugify(title, 68),
+      baseSlug: bookTitleSlug(title),
       title,
       authors,
       contributors: parseContributors(row["Contributors"] ?? ""),
@@ -377,32 +384,47 @@ export function parseStorygraphCsv(csvPath: string): {
     });
   }
 
-  // UIDs are assigned across every importable row, owned or not, so an owned
-  // copy keeps the uid it already has in Prismic when an unowned duplicate exists.
+  // A book's uid is its title slug alone (88 characters or fewer, cut at a word
+  // boundary); audio editions use the title slug plus "-audio". UIDs are assigned
+  // across every importable row, owned or not, so the preferred copy of a title
+  // gets the clean uid. A further row for a title whose uid is already taken is
+  // flagged as a secondary copy instead of getting a suffix.
   const slugCounts = new Map<string, number>();
   for (const item of preliminary) {
     slugCounts.set(item.baseSlug, (slugCounts.get(item.baseSlug) ?? 0) + 1);
   }
   const duplicateTitleCount = [...slugCounts.values()].filter((c) => c > 1).length;
 
-  const usedUids = new Set<string>();
-  const books: ParsedCsvBook[] = preliminary.map((item) => {
-    let candidate = item.baseSlug;
-    if ((slugCounts.get(item.baseSlug) ?? 0) > 1) {
-      if (item.isbn.cleaned) {
-        candidate = `${item.baseSlug}-${item.isbn.cleaned.toLowerCase()}`;
-      } else if (item.format) {
-        candidate = `${item.baseSlug}-${item.format}`;
-      }
+  const statusRank: Record<string, number> = {
+    read: 3,
+    "currently-reading": 2,
+    "did-not-finish": 1,
+  };
+  const preference = (item: (typeof preliminary)[number]): number =>
+    (item.owned ? 100 : 0) + (item.readStatus ? (statusRank[item.readStatus] ?? 0) : 0);
+
+  const primaryByUid = new Map<string, number>();
+  preliminary.forEach((item, index) => {
+    const uid = bookUid(item.title, item.format);
+    const current = primaryByUid.get(uid);
+    if (current === undefined || preference(item) > preference(preliminary[current])) {
+      primaryByUid.set(uid, index);
     }
-    if (usedUids.has(candidate)) {
-      let n = 2;
-      while (usedUids.has(`${candidate}-${n}`)) n++;
-      candidate = `${candidate}-${n}`;
-    }
-    usedUids.add(candidate);
-    const result = { ...item, uid: candidate } as ParsedCsvBook & { baseSlug?: string };
+  });
+
+  const books: ParsedCsvBook[] = preliminary.map((item, index) => {
+    const uid = bookUid(item.title, item.format);
+    const secondaryCopy = primaryByUid.get(uid) !== index;
+    // A secondary copy only needs a distinct key (cover and lookup maps are keyed
+    // by uid); it is never created as a new document.
+    const rowUid = secondaryCopy
+      ? `${uid}-${item.isbn.cleaned.toLowerCase() || `row-${item.rowIndex}`}`
+      : uid;
+    const result = { ...item, uid: rowUid, secondaryCopy } as ParsedCsvBook & {
+      baseSlug?: string;
+    };
     delete result.baseSlug;
+    if (!secondaryCopy) delete result.secondaryCopy;
     return result;
   });
 

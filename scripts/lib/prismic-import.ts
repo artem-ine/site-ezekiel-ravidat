@@ -9,6 +9,7 @@ import { CACHE_DIR, STATE_CACHE_PATH, getReadClient, getWriteClient } from "./en
 import type { ParsedCsvBook } from "./csv";
 import type { EnrichedBook, EnrichedCover } from "./enrich";
 import type { GenreDefinition } from "./genres";
+import { findExistingBook, toPublishedBook, type PublishedBook } from "./book-match";
 import { plainTextToRichText, slugify } from "./slug";
 
 interface StoredAsset {
@@ -51,6 +52,8 @@ export interface PrismicImportStats {
   updated: Record<"genre" | "series" | "author" | "book", number>;
   skippedUnchanged: Record<"genre" | "series" | "author" | "book", number>;
   failed: Array<{ type: string; uid: string; title: string; error: string }>;
+  /** Rows not written because the title already exists as another document. */
+  skippedExistingTitle: Array<{ uid: string; title: string; reason: string }>;
   releaseLimitReached: boolean;
   releaseLimitMessage?: string;
 }
@@ -285,6 +288,7 @@ export async function preloadRemoteAssetsAndDocs(
   store: PrismicStateStore,
 ): Promise<{
   publishedUids: Record<"genre" | "series" | "author" | "book", Map<string, string>>;
+  publishedBooks: PublishedBook[];
 }> {
   const publishedUids: Record<"genre" | "series" | "author" | "book", Map<string, string>> = {
     genre: new Map(),
@@ -292,6 +296,7 @@ export async function preloadRemoteAssetsAndDocs(
     author: new Map(),
     book: new Map(),
   };
+  const publishedBooks: PublishedBook[] = [];
 
   try {
     const readClient = getReadClient();
@@ -299,6 +304,10 @@ export async function preloadRemoteAssetsAndDocs(
       const docs = await readClient.getAllByType(type, { pageSize: 100 });
       for (const d of docs) {
         if (d.uid) publishedUids[type].set(d.uid, d.id);
+        if (type === "book") {
+          const book = toPublishedBook(d as Parameters<typeof toPublishedBook>[0]);
+          if (book) publishedBooks.push(book);
+        }
       }
     }
   } catch {
@@ -353,7 +362,7 @@ export async function preloadRemoteAssetsAndDocs(
     // Non-fatal
   }
 
-  return { publishedUids };
+  return { publishedUids, publishedBooks };
 }
 
 export async function ensureCoverUploaded(
@@ -440,7 +449,7 @@ export async function pushBooksToPrismic(
   const writeClient = getWriteClient();
   const api = new PrismicWriteApi(writeClient.repositoryName, writeClient.writeToken);
   const store = new PrismicStateStore();
-  const { publishedUids } = await preloadRemoteAssetsAndDocs(
+  const { publishedUids, publishedBooks } = await preloadRemoteAssetsAndDocs(
     writeClient.repositoryName,
     writeClient.writeToken,
     store,
@@ -454,6 +463,7 @@ export async function pushBooksToPrismic(
     updated: { genre: 0, series: 0, author: 0, book: 0 },
     skippedUnchanged: { genre: 0, series: 0, author: 0, book: 0 },
     failed: [],
+    skippedExistingTitle: [],
     releaseLimitReached: false,
   };
 
@@ -736,10 +746,35 @@ export async function pushBooksToPrismic(
       if (bookData[k] === undefined) delete bookData[k];
     }
 
+    // Re-runs must update the book that already exists, whatever uid it has,
+    // and must never create a second document for a title.
+    const match = findExistingBook(
+      { title: r.csv.title, uid: r.csv.uid, isbnRaw: isbnValue ?? "", format: r.csv.format },
+      publishedBooks,
+    );
+    let bookUid = r.csv.uid;
+    if (match.kind === "match") {
+      bookUid = match.book.uid;
+    } else {
+      const reason =
+        match.kind === "ambiguous"
+          ? `several existing documents share this title and format (${match.candidates.map((c) => c.uid).join(", ")})`
+          : r.csv.secondaryCopy
+            ? "another row in the CSV owns this title's uid"
+            : publishedUids.book.has(r.csv.uid)
+              ? "a different edition already holds this title's uid"
+              : null;
+      if (reason) {
+        stats.skippedExistingTitle.push({ uid: r.csv.uid, title: r.csv.title, reason });
+        console.warn(`  [book skipped] ${r.csv.title}: ${reason}`);
+        continue;
+      }
+    }
+
     try {
       const res = await upsertDoc(api, store, publishedUids.book, {
         type: "book",
-        uid: r.csv.uid,
+        uid: bookUid,
         title: r.csv.title,
         data: bookData as unknown as BookDocumentData as unknown as Record<string, unknown>,
         updateIfChanged: options.update,

@@ -110,7 +110,7 @@ The components in `slices/` are deliberately bare: semantic HTML, no styling. Li
 Notes on the import mapping:
 
 - Empty cells map to an empty field. Blank `Read Status`, `Format` and `Pace` are valid.
-- `uid` is unique per type. Duplicate editions (same title/author in different formats) are deterministically disambiguated (`<title-slug>`, `<title-slug>-<isbn>`, `<title-slug>-<format>`, or `-<n>`).
+- `uid` is unique per type. A book's `uid` is its title slug only (88 characters or fewer, cut at a word boundary); an audio edition uses `<title-slug>-audio`. When several rows share a title, the preferred copy (owned, then furthest along) gets the clean `uid` and the importer never creates a second document for that title: a re-run matches existing books by title slug and ISBN (then by `uid` and format) and updates them in place, keeping whatever `uid` they already have. Rows it cannot match are listed under `skippedExistingTitle` in the import summary.
 - HTML entities (`&amp;`, `&#39;`, etc.) are decoded and `Review` HTML is converted into Prismic rich text blocks.
 - Only owned books belong on the website. Rows with `Owned? = No` are skipped, whatever their read status, unless the title is listed in `scripts/owned-overrides.json`. That committed file holds exact StoryGraph titles the owner confirmed as owned even though the export says `Owned? = No`. Override titles are imported with `owned = true` and keep their authors, series and genres. Every `book` draft has `owned = true`.
 - `read_status` is sortable and filterable as `read`, `not-read`, `did-not-finish` or `currently-reading`. Empty StoryGraph status and `to-read` both map to `not-read`.
