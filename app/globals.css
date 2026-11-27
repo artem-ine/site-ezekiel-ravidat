@@ -465,8 +465,14 @@
     display: none;
   }
 
-  .walk-scroller:active {
+  .walk-scroller:active,
+  .walk-scroller.is-dragging {
     cursor: grabbing;
+  }
+
+  .walk-scroller.is-dragging,
+  .walk-scroller.is-dragging * {
+    user-select: none;
   }
 
   .walk-scroller:focus-visible {
@@ -621,229 +627,446 @@
   .walk-cap--start .walk-cap__storey--upper::before { left: 0; }
   .walk-cap--end .walk-cap__storey--upper::after { right: 0; }
 
-  .walk-cap__window {
-    position: absolute;
-    top: 12%;
-    right: 14%;
-    width: 3.6rem;
-    height: min(36%, 6.5rem);
-    border: 3px solid var(--walk-wood-deep);
-    background: linear-gradient(180deg, var(--cap-sky), #f4f8ff 60%);
-    box-shadow: 0 0 14px rgb(180 210 240 / 0.45);
-    z-index: 1;
+  /*
+   * Entrance: everything inside scales with the viewport height (the em below),
+   * so the banner, board and chat keep fitting on short screens.
+   */
+  .walk-cap--start {
+    container-type: inline-size;
+    --u: clamp(
+      8px,
+      min(calc((50dvh - var(--walk-deck)) / 23.5), calc(max(50vw, 22rem) / 22)),
+      22px
+    );
+    font-size: var(--u);
   }
 
-  .walk-cap__window::after {
-    content: "";
+  .walk-bunting {
     position: absolute;
-    inset: 0;
-    background:
-      linear-gradient(90deg, transparent 48%, var(--walk-wood-deep) 48% 52%, transparent 52%),
-      linear-gradient(180deg, transparent 48%, var(--walk-wood-deep) 48% 52%, transparent 52%);
-    opacity: 0.65;
-  }
-
-
-
-  .walk-cap__door {
-    position: absolute;
-    left: 8%;
-    bottom: var(--walk-deck);
-    width: 3.4rem;
-    height: min(58%, 11rem);
-    z-index: 2;
-    border: 3px solid var(--walk-wood-deep);
-    background:
-      linear-gradient(90deg, #8a5a34 0 12%, #c4a078 12% 88%, #8a5a34 88%),
-      #a07040;
-    box-shadow: inset 0 0 0 2px rgb(255 220 160 / 0.12);
-  }
-
-  .walk-cap__door::after {
-    content: "";
-    position: absolute;
-    right: 0.45rem;
-    top: 48%;
-    width: 0.45rem;
-    height: 0.45rem;
-    border: 2px solid var(--walk-wood-deep);
-    border-radius: 50%;
-    background: #c9a227;
-  }
-
-  .walk-cap__coat {
-    position: absolute;
-    left: 22%;
-    bottom: calc(var(--walk-deck) + 2.2rem);
-    width: 1.6rem;
-    height: 3.2rem;
-    z-index: 2;
-    border: 2px solid var(--walk-wood-deep);
-    background: linear-gradient(180deg, #6b4a2e 0 18%, transparent 18%);
-  }
-
-  .walk-cap__coat::before,
-  .walk-cap__coat::after {
-    content: "";
-    position: absolute;
-    top: 0.55rem;
-    width: 0.9rem;
-    height: 2.1rem;
-    border: 2px solid var(--walk-wood-deep);
-    background: #7a2e2a;
-  }
-
-  .walk-cap__coat::before { left: -0.55rem; transform: rotate(-8deg); }
-  .walk-cap__coat::after { right: -0.55rem; background: #2f4a3c; transform: rotate(6deg); }
-
-  .walk-cap__mat {
-    position: absolute;
-    left: 7%;
-    bottom: calc(var(--walk-deck) - 0.05rem);
-    width: 4.2rem;
-    height: 0.85rem;
-    z-index: 4;
-    border: 2px solid var(--walk-wood-deep);
-    background: repeating-linear-gradient(90deg, #6b2a24 0 8px, #c4a35a 8px 16px);
-  }
-
-  .walk-cap__plant,
-  .walk-cap__plant--loft,
-
-  .walk-cap__plant { right: 10%; }
-  .walk-cap__plant--loft { left: 12%; height: 22%; }
-  .walk-cap__plant--end { left: 12%; height: 20%; }
-
-  .walk-cap__plant::before,
-  .walk-cap__plant--loft::before,
-  .walk-cap__plant--end::before {
-    content: "";
-    position: absolute;
-    left: -0.4rem;
-    top: -0.3rem;
-    width: 2rem;
-    height: 1rem;
-    border: 2px solid var(--walk-wood-deep);
-    border-radius: 50% 50% 40% 40%;
-    background: #4a7a48;
-  }
-
-
-
-
-  .walk-cap__case {
-    position: absolute;
-    z-index: 1;
-    border: 3px solid var(--walk-wood-deep);
-    background:
-      linear-gradient(180deg, var(--walk-wood) 0 8%, transparent 8%),
-      repeating-linear-gradient(
-        180deg,
-        #8a5a34 0 32%,
-        var(--walk-wood-deep) 32% 36%,
-        #8a5a34 36% 68%,
-        var(--walk-wood-deep) 68% 72%,
-        #8a5a34 72% 100%
-      );
-  }
-
-  .walk-cap__case--loft {
-    left: 28%;
-    right: 22%;
-    bottom: calc(var(--walk-deck) + 0.15rem);
-    height: min(48%, 8.5rem);
-  }
-
-
-  .walk-cap__rug {
-    position: absolute;
-    left: 36%;
-    bottom: calc(var(--walk-deck) - 0.05rem);
-    width: 28%;
-    height: 1rem;
+    inset: 0 0 auto 0;
     z-index: 3;
-    border: 2px solid var(--walk-wood-deep);
-    background: repeating-linear-gradient(90deg, #2f4a3c 0 8px, #e8d9b5 8px 16px);
+    display: flex;
+    height: 1.4em;
+    overflow: hidden;
+    background: linear-gradient(var(--walk-wood-deep) 0 3px, transparent 3px);
   }
 
-  .walk-cap__rug--loft {
-    left: 40%;
-    width: 22%;
-    background: repeating-linear-gradient(90deg, #5c4837 0 8px, #dccaa7 8px 16px);
+  .walk-bunting__flag {
+    flex: 0 0 2.4em;
+    height: 1.2em;
+    margin-top: 3px;
+    background: #b5473f;
+    clip-path: polygon(0 0, 100% 0, 50% 100%);
   }
 
+  .walk-bunting__flag:nth-child(3n + 2) { background: #d9a93f; }
+  .walk-bunting__flag:nth-child(3n) { background: #4f7f74; }
 
-
-
-
-  .walk-cap__plaque {
+  .walk-loft {
     position: absolute;
-    top: 12%;
-    left: 0.75rem;
     z-index: 4;
+    left: 0.9em;
+    right: 0.9em;
+    top: 2.4em;
+    bottom: calc(var(--walk-deck) + 0.9em);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 1.1em;
+  }
+
+  .walk-banner {
+    position: relative;
+    width: min(31em, 100%);
+    flex: 0 1 auto;
+  }
+
+  .walk-banner::before,
+  .walk-banner::after {
+    content: "";
+    position: absolute;
+    top: -8em;
+    height: 8em;
+    width: 3px;
+    background: var(--walk-wood-deep);
+  }
+
+  .walk-banner::before { left: 12%; }
+  .walk-banner::after { right: 12%; }
+
+  .walk-banner__rod {
+    position: absolute;
+    left: -0.5em;
+    right: -0.5em;
+    top: -0.35em;
+    z-index: 2;
+    height: 0.6em;
+    border: 2px solid var(--walk-wood-deep);
+    background: linear-gradient(180deg, #a87648, #6a4426);
+    box-shadow: 0 0.2em 0 rgb(0 0 0 / 0.18);
+  }
+
+  .walk-banner__cloth {
+    --swallow: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%);
+    position: relative;
+    padding: 1.5em 1.6em 2.4em;
+    text-align: center;
+    color: #f8e8bf;
+    background: #43191a;
+    clip-path: var(--swallow);
+  }
+
+  .walk-banner__cloth::before {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    background:
+      repeating-linear-gradient(90deg, transparent 0 0.9em, rgb(0 0 0 / 0.07) 0.9em 1em),
+      linear-gradient(180deg, #a2433c, #7b2d29);
+    clip-path: var(--swallow);
+  }
+
+  .walk-banner__cloth::after {
+    content: "";
+    position: absolute;
+    inset: 0.7em 0.7em 2.1em;
+    border: 2px solid rgb(232 197 100 / 0.8);
+  }
+
+  .walk-banner__cloth > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .walk-banner__kicker {
     margin: 0;
-    padding: 0.25rem 0.4rem;
-    border: 2px solid var(--walk-wood-deep);
-    background: #f0e2c0;
-    color: var(--color-ink);
+    color: #efc968;
     font-family: var(--font-mono);
-    font-size: 0.5rem;
-    letter-spacing: 0.08em;
+    font-size: 0.62em;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    box-shadow: 2px 2px 0 var(--walk-wood-deep);
   }
 
-  .walk-cap__guide {
+  .walk-banner__title {
+    margin: 0.2em 0 0;
+    font-weight: 400;
+    line-height: 1;
+  }
+
+  .walk-banner__owner {
+    display: block;
+    font-size: 1.3em;
+    font-style: italic;
+    text-shadow: 2px 2px 0 #3b1412;
+  }
+
+  .walk-banner__name {
+    display: block;
+    margin-top: 0.08em;
+    font-size: 2.15em;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-shadow: 3px 3px 0 #3b1412;
+  }
+
+  .walk-banner__rule {
+    display: block;
+    width: 7em;
+    height: 2px;
+    margin: 0.65em auto 0;
+    background: #efc968;
+  }
+
+  .walk-banner__rule::after {
+    content: "";
+    display: block;
+    width: 0.55em;
+    height: 0.55em;
+    margin: -0.28em auto 0;
+    background: #efc968;
+    transform: rotate(45deg);
+  }
+
+  .walk-board {
+    position: relative;
+    flex: 0 0 auto;
+    max-width: 100%;
+    padding: 1.35em 1.1em 0.9em;
+    border: 0.3em solid #6a4426;
+    background:
+      radial-gradient(circle at 20% 30%, rgb(70 35 10 / 0.3) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+      radial-gradient(circle at 70% 60%, rgb(255 230 180 / 0.3) 0 1px, transparent 1.5px) 0 0 / 7px 7px,
+      #b98a56;
+    box-shadow:
+      inset 0 0 0 2px #8a6238,
+      0.25em 0.25em 0 rgb(0 0 0 / 0.25);
+  }
+
+  .walk-board__label {
     position: absolute;
-    left: 34%;
-    right: 8%;
-    top: 10%;
-    z-index: 4;
-    max-width: 16rem;
-    padding: 0.55rem 0.65rem 0.6rem;
-    border: 3px solid var(--walk-wood-deep);
-    background: #f0e2c0;
+    top: -0.95em;
+    left: 50%;
+    z-index: 2;
+    margin: 0;
+    padding: 0.24em 0.8em;
+    border: 2px solid var(--walk-wood-deep);
+    background: #f6edd0;
     color: var(--color-ink);
-    box-shadow: 4px 4px 0 var(--walk-wood-deep);
-    pointer-events: none;
-  }
-
-  .walk-cap__guide-title {
-    margin: 0 0 0.4rem;
     font-family: var(--font-mono);
-    font-size: 0.62rem;
-    letter-spacing: 0.1em;
+    font-size: 0.62em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+    white-space: nowrap;
+    transform: translateX(-50%) rotate(-1.5deg);
+    box-shadow: 2px 2px 0 rgb(0 0 0 / 0.25);
   }
 
-  .walk-cap__guide-list {
+  .walk-board__label::before,
+  .walk-board__item::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -0.55em;
+    z-index: 3;
+    width: 0.8em;
+    height: 0.8em;
+    border: 2px solid #4d1812;
+    border-radius: 50%;
+    background: #cf4636;
+    transform: translateX(-50%);
+  }
+
+  .walk-board__label::before { top: -0.7em; }
+  .walk-board__item:nth-child(3n + 2)::before { background: #3f7fb5; border-color: #1a3550; }
+  .walk-board__item:nth-child(3n)::before { background: #e0b13a; border-color: #5a4210; }
+
+  .walk-board__books {
+    display: flex;
+    justify-content: center;
+    gap: 0.95em;
+    margin: 0.35em 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .walk-board__item {
+    position: relative;
+    flex: 0 0 auto;
+    width: 4.5em;
+    aspect-ratio: 2 / 3;
+    transform: rotate(var(--tilt, 0deg));
+  }
+
+  .walk-board__book {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border: 2px solid #2b1c12;
+    box-shadow: 0.2em 0.25em 0 rgb(0 0 0 / 0.35);
+    pointer-events: auto;
+    transition: transform 140ms ease;
+  }
+
+  .walk-board__book:hover,
+  .walk-board__book:focus-visible {
+    transform: translateY(-0.25em) scale(1.04);
+  }
+
+  .walk-board__book:focus-visible {
+    outline: 3px solid var(--color-oxblood);
+    outline-offset: 2px;
+  }
+
+  .walk-board__cover {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    image-rendering: auto;
+  }
+
+  .walk-board__fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 0.3em;
+    color: #f3e6c8;
+    font-size: 0.7em;
+    line-height: 1.15;
+    text-align: center;
+  }
+
+  .walk-cap--start .walk-cap__storey--ground {
+    --pet-lift: calc(0.8 * var(--u));
+    --cat-cx: calc(27% + 3 * var(--u));
+    --cat-top: calc(7.1 * var(--u));
+    --dog-cx: calc(100% - 20% - 3.8 * var(--u));
+    --dog-top: calc(9.5 * var(--u));
+  }
+
+  .walk-chat {
+    --dog-h: 9.6em;
+    position: absolute;
+    z-index: 4;
+    left: 1.5em;
+    right: 1.5em;
+    top: 1em;
+    bottom: calc(var(--walk-deck) + var(--pet-lift) + var(--dog-h) + 0.6em);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: end;
+    gap: 0.5em;
     margin: 0;
     padding: 0;
     list-style: none;
-    display: grid;
-    gap: 0.28rem;
-    font-size: 0.72rem;
-    line-height: 1.35;
   }
 
-  .walk-cap__guide-list kbd {
-    display: inline-block;
-    min-width: 1.1rem;
-    padding: 0.05rem 0.28rem;
-    border: 2px solid var(--walk-wood-deep);
-    background: #e7d9bd;
+  .walk-chat__line {
+    --ink: #2b1c12;
+    position: relative;
+    max-width: 100%;
+    justify-self: start;
+    margin: 0;
+    padding: 0.36em 0.6em 0.42em;
+    background: #fffaf0;
+    color: var(--ink);
     font-family: var(--font-mono);
-    font-size: 0.58rem;
+    font-size: clamp(10px, 1vw, 13px);
+    line-height: 1.3;
+    letter-spacing: 0.01em;
+    box-shadow:
+      0 -0.25em 0 0 var(--ink),
+      0 0.25em 0 0 var(--ink),
+      -0.25em 0 0 0 var(--ink),
+      0.25em 0 0 0 var(--ink),
+      0.4em 0.4em 0 0 rgb(0 0 0 / 0.22);
+  }
+
+  .walk-chat__line--dog { justify-self: end; }
+
+  .walk-chat__line::after {
+    content: "";
+    position: absolute;
+    top: calc(100% + 0.25em);
+    left: 50%;
+    width: 1em;
+    height: 0.5em;
+    background: var(--ink);
+    clip-path: polygon(0 0, 100% 0, 100% 25%, 75% 25%, 75% 50%, 25% 50%, 25% 25%, 0 25%);
+    transform: translateX(-50%);
+  }
+
+  .walk-chat kbd {
+    display: inline-block;
+    white-space: nowrap;
+    min-width: 1.1em;
+    padding: 0 0.22em;
+    border: 0;
+    background: var(--ink);
+    color: #fffaf0;
+    font-family: inherit;
+    font-size: 0.9em;
+    line-height: 1.35;
     text-align: center;
-    box-shadow: 1px 1px 0 var(--walk-wood-deep);
+    box-shadow: 0.15em 0.15em 0 0 rgb(0 0 0 / 0.25);
   }
 
-  .walk-cap__guide-touch {
-    margin-top: 0.15rem;
-    color: var(--color-ink-soft);
-    font-size: 0.65rem;
+  /* Pets stand on the rug, with the conversation floating above whoever is talking. */
+  @media (prefers-reduced-motion: no-preference) {
+    .walk-chat {
+      inset: 0;
+      display: block;
+      --slot: 3.4s;
+    }
+
+    .walk-chat__line {
+      position: absolute;
+      bottom: calc(var(--walk-deck) + var(--pet-lift) + var(--top) + 0.9 * var(--u));
+      left: var(--cx);
+      transform: translateX(-50%);
+      width: max-content;
+      max-width: 15em;
+      opacity: 0;
+      animation: walk-say calc(5 * var(--slot)) linear infinite;
+      animation-delay: calc(var(--say) * var(--slot));
+    }
+
+    .walk-chat__line--cat { --cx: var(--cat-cx); --top: var(--cat-top); }
+    .walk-chat__line--dog { --cx: var(--dog-cx); --top: var(--dog-top); }
   }
 
+  @keyframes walk-say {
+    0% { opacity: 0; }
+    2% { opacity: 1; }
+    16% { opacity: 1; }
+    20% { opacity: 0; }
+    100% { opacity: 0; }
+  }
+
+  .walk-pets__rug {
+    position: absolute;
+    left: 3%;
+    right: 3%;
+    bottom: calc(var(--walk-deck) - 0.1em);
+    z-index: 3;
+    height: 0.9em;
+    border: 2px solid var(--walk-wood-deep);
+    background: repeating-linear-gradient(90deg, #7a2e2a 0 0.5em, #e8d9b5 0.5em 1em);
+    box-shadow: inset 0 -0.2em 0 rgb(0 0 0 / 0.15);
+  }
+
+  .walk-pet {
+    position: absolute;
+    bottom: calc(var(--walk-deck) + var(--pet-lift));
+    z-index: 6;
+    height: auto;
+    transform-origin: 50% 100%;
+    filter: drop-shadow(0.2em 0.2em 0 rgb(0 0 0 / 0.2));
+  }
+
+  .walk-pet--cat { left: 27%; width: 6em; }
+  .walk-pet--dog { right: 20%; width: 7.6em; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .walk-pet { animation: walk-pet-breathe 4.2s ease-in-out infinite; }
+    .walk-pet--dog { animation-delay: -1.6s; }
+  }
+
+  @keyframes walk-pet-breathe {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.025); }
+  }
+
+  /* Wide caps: static dialogue reads in two columns when motion is reduced. */
+  @container (min-width: 36.01em) {
+    .walk-chat { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.2em; }
+    .walk-chat__line--cat { grid-column: 1; }
+    .walk-chat__line--dog { grid-column: 2; }
+  }
+
+  /* Narrow caps (phones, portrait tablets): em here is the cap's own font size. */
+  @container (max-width: 36em) {
+    .walk-cap--start .walk-cap__storey--ground {
+      --cat-cx: calc(14% + 2.8 * var(--u));
+      --cat-top: calc(6.62 * var(--u));
+      --dog-cx: calc(100% - 10% - 3.5 * var(--u));
+      --dog-top: calc(8.75 * var(--u));
+    }
+    .walk-banner__name { font-size: 1.55em; letter-spacing: 0.03em; }
+    .walk-banner__cloth { padding-inline: 1.1em; }
+    .walk-board__item:nth-child(n + 4) { display: none; }
+    .walk-chat { --dog-h: 8.8em; left: 1em; right: 1em; gap: 0.45em; }
+    .walk-chat__line { font-size: clamp(10px, 2.9vw, 12px); max-width: 12em; }
+    .walk-chat__woof { display: none; }
+    .walk-pet--cat { left: 14%; width: 5.6em; }
+    .walk-pet--dog { right: 10%; width: 7em; }
+  }
 
   /* The backrooms door: a tall dark door in the far corner of the second floor. */
   .walk-cap__exit {
