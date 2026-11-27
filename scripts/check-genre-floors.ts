@@ -14,7 +14,7 @@ import {
   buildShelfItems,
   caseWidthRem,
   duplexColumns,
-  needsInterlude,
+  type WalkColumn,
   fitRowCount,
   itemBooks,
   itemsWidthRem,
@@ -285,20 +285,25 @@ for (const [name, input] of [
     cols.every((c, i) => i === 0 || c.parent === cols[i - 1]!.parent || c.wingStart),
     "a wing never mixes into the next without a gate",
   );
-  const sameGenre = cols.flatMap((c, i) =>
-    i > 0 && !c.wingStart && (c.upper.theme.id === cols[i - 1]!.upper.theme.id || c.ground.theme.id === cols[i - 1]!.ground.theme.id)
-      ? [i]
-      : [],
-  );
-  const changed = cols.flatMap((_, i) => (i > 0 && needsInterlude(cols[i - 1], cols[i]!) ? [i] : []));
-  assert(sameGenre.length > 0 && changed.length > 0, "the mixed library has both same-genre and changing boundaries");
+  const floorChanges = (prev: WalkColumn, cur: WalkColumn, floor: "upper" | "ground") =>
+    !cur[floor].empty && prev[floor].theme.id !== cur[floor].theme.id;
+  const expectedUpper = cols.map((c, i) => (i > 0 && !c.wingStart ? floorChanges(cols[i - 1]!, c, "upper") : false));
+  const expectedGround = cols.map((c, i) => (i > 0 && !c.wingStart ? floorChanges(cols[i - 1]!, c, "ground") : false));
   assert(
-    sameGenre.every((i) => !needsInterlude(cols[i - 1], cols[i]!)),
-    "same-genre neighbours on either floor get no interlude",
+    cols.every((c, i) => c.interludeUpper === expectedUpper[i] && c.interludeGround === expectedGround[i]),
+    "a half-floor interlude stands on each floor exactly where its genre changes",
   );
   assert(
-    changed.every((i) => cols[i - 1]!.upper.theme.id !== cols[i]!.upper.theme.id && cols[i - 1]!.ground.theme.id !== cols[i]!.ground.theme.id),
-    "an interlude sits only where the genre changes on both floors",
+    expectedUpper.some(Boolean) && expectedUpper.some((v, i) => !v && i > 0) && expectedGround.some(Boolean),
+    "the mixed library has both changing and same-genre boundaries",
+  );
+  assert(
+    cols.every((c, i) => i === 0 || c.wingStart || c.interludeUpper || c.upper.empty || cols[i - 1]!.upper.theme.id === c.upper.theme.id),
+    "no two genres share the upper floor without an interlude",
+  );
+  assert(
+    cols.every((c, i) => i === 0 || c.wingStart || c.interludeGround || c.ground.empty || cols[i - 1]!.ground.theme.id === c.ground.theme.id),
+    "no two genres share the ground floor without an interlude",
   );
 
   const tables = plan.bays.filter((b) => b.table);

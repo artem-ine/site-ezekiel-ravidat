@@ -24,6 +24,8 @@ export const BAY_CHROME_REM = 3.5;
 export const CASE_SIDE_PAD_REM = 0.55;
 /** Breathing room on the floor beside every cabinet, before the next room's pilaster. */
 export const DECOR_GUTTER_REM = 1.5;
+/** Width of a half-floor interlude, where a genre changes on that floor. */
+export const INTERLUDE_WIDTH_REM = 12;
 
 /** How books sit on the shelves: standing spines, or every cover facing out. */
 export type DisplayMode = "spines" | "covers";
@@ -117,6 +119,9 @@ export type WalkColumn = {
   upper: WalkBay;
   parent: string;
   wingStart: boolean;
+  /** A half-floor interlude stands before the upper / ground bay where its genre changes. */
+  interludeUpper: boolean;
+  interludeGround: boolean;
 };
 
 export function itemBooks(item: ShelfItem): LibraryBook[] {
@@ -415,7 +420,7 @@ function emptyBay(
 ): WalkBay {
   return {
     id: `empty-f${floor}-s${slot}`,
-    label: floor === 0 ? "Hall" : "Landing",
+    label: floor === 0 ? "Hall" : "",
     books: [],
     shelfRows: [],
     theme,
@@ -575,9 +580,22 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
       upper,
       parent: ground.parent,
       wingStart: ground.wingStart,
+      interludeUpper: false,
+      interludeGround: false,
     });
   }
+  columns.forEach((column, i) => {
+    const previous = columns[i - 1];
+    if (!previous || column.wingStart) return;
+    column.interludeUpper = genreChanges(previous.upper, column.upper);
+    column.interludeGround = genreChanges(previous.ground, column.ground);
+  });
   return columns;
+}
+
+/** A change of genre on a floor gets a half-floor interlude there; empty bays never do. */
+function genreChanges(previous: WalkBay, bay: WalkBay): boolean {
+  return !bay.empty && previous.theme.id !== bay.theme.id;
 }
 
 /**
@@ -591,19 +609,14 @@ export function bayRailWidthRem(bay: WalkBay): number {
   return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + DECOR_GUTTER_REM, needed));
 }
 
-/**
- * An interlude only marks a change of genre on both floors. Where one floor
- * carries on in the same genre, its shelves simply run on side by side.
- */
-export function needsInterlude(previous: WalkColumn | undefined, column: WalkColumn): boolean {
-  if (!previous) return false;
-  return (
-    previous.upper.theme.id !== column.upper.theme.id &&
-    previous.ground.theme.id !== column.ground.theme.id
+/** Column width: wide enough for the fuller of ground / upper floors, interlude included. */
+export function columnWidthRem(column: WalkColumn): number {
+  return Math.max(
+    floorWidthRem(column.ground, column.interludeGround),
+    floorWidthRem(column.upper, column.interludeUpper),
   );
 }
 
-/** Column width: wide enough for the fuller of ground / upper rails. */
-export function columnWidthRem(column: WalkColumn): number {
-  return Math.max(bayRailWidthRem(column.ground), bayRailWidthRem(column.upper));
+function floorWidthRem(bay: WalkBay, interlude: boolean): number {
+  return bayRailWidthRem(bay) + (interlude ? INTERLUDE_WIDTH_REM : 0);
 }

@@ -14,7 +14,7 @@
 
 .walk-bay__pattern {
   inset: 0;
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 .walk-bay__trim {
@@ -60,7 +60,7 @@
 .walk-t-horror { --walk-wood: #3e2c28; --walk-wood-deep: #140c0a; --walk-shelf: #30221e; }
 .walk-t-history { --walk-wood: #8a6238; --walk-wood-deep: #3a2610; --walk-shelf: #7a5430; }
 .walk-t-nature { --walk-wood: #b08a5a; --walk-wood-deep: #5a4220; --walk-shelf: #a07a4a; }
-.walk-t-ya { --walk-wood: #4fb6c6; --walk-wood-deep: #1f5a68; --walk-shelf: #3a9aaa; }
+.walk-t-ya { --walk-wood: #5d6470; --walk-wood-deep: #2a2433; --walk-shelf: #4a4f5c; }
 .walk-t-civic { --walk-wood: #8a9098; --walk-wood-deep: #3a4048; --walk-shelf: #6e747c; }
 .walk-t-mind { --walk-wood: #cdb48a; --walk-wood-deep: #6a5238; --walk-shelf: #bda274; }
 
@@ -72,7 +72,7 @@
 .walk-t-horror .walk-sign { background: #2a1c1c; color: #c0392b; border-color: #5a1010; box-shadow: 3px 3px 0 #000; }
 .walk-t-history .walk-sign { background: #c9a227; color: #3a2610; border-color: #6a4a10; box-shadow: inset 0 0 0 2px #e8cf6a; }
 .walk-t-nature .walk-sign { background: #8a6a40; color: #eaf4d4; border-color: #3a4a20; }
-.walk-t-ya .walk-sign { background: #e0527a; color: #fff; border-color: #fff; transform: rotate(-3deg); box-shadow: 3px 3px 0 #1f5a68; }
+.walk-t-ya .walk-sign { background: #3b3446; color: #ebe4f0; border-color: #2a2433; box-shadow: 3px 3px 0 #2a2433; }
 .walk-t-civic .walk-sign { background: #c9a878; color: #1a1612; border-color: #3a3028; font-weight: 700; letter-spacing: 0.14em; }
 .walk-t-mind .walk-sign { background: #f4efe0; color: #4a5a50; border-color: #7a9a8a; border-radius: 0.2rem; }
 
@@ -136,10 +136,7 @@
     repeating-linear-gradient(90deg, transparent 0 5.8rem, rgb(50 100 50 / 0.35) 5.8rem calc(5.8rem + 3px));
 }
 .walk-t-ya .walk-bay__pattern {
-  background:
-    radial-gradient(circle, rgb(224 82 122 / 0.55) 4px, transparent 5px) 1rem 1rem / 7rem 6rem,
-    linear-gradient(135deg, transparent 45%, rgb(60 170 190 / 0.5) 45% 55%, transparent 55%) 3rem 2rem / 3rem 3rem,
-    radial-gradient(circle, rgb(250 190 40 / 0.6) 3px, transparent 4px) 4.5rem 4rem / 7rem 6rem;
+  background: repeating-linear-gradient(90deg, transparent 0 2.6rem, rgb(60 50 80 / 0.16) 2.6rem calc(2.6rem + 1px));
 }
 .walk-t-civic .walk-bay__pattern {
   background:
@@ -196,9 +193,7 @@
     radial-gradient(circle, rgb(60 50 30 / 0.55) 2px, transparent 3px) 0 0.8rem / 2.2rem 1.2rem;
 }
 .walk-t-ya .walk-bay__deck::before {
-  background:
-    linear-gradient(180deg, transparent 0.9rem, rgb(224 82 122 / 0.6) 0.9rem 1.2rem, transparent 1.2rem),
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.24) 0 1.8rem, transparent 1.8rem 3.6rem);
+  background: repeating-linear-gradient(90deg, rgb(40 30 50 / 0.2) 0 1px, transparent 1px 3.6rem);
 }
 .walk-t-civic .walk-bay__deck::before {
   background:

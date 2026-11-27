@@ -170,14 +170,13 @@ function Storey({
   );
 }
 
-/** A small furnished room between two genre columns; `index` counts the rooms along the walk. */
-export function Interlude({ index }: { index: number }) {
+/** A half-floor room where the genre changes on one floor; `index` counts the rooms along the walk. */
+export function Interlude({ index, upper }: { index: number; upper: boolean }) {
   const kind = interludeKind(index);
   const scene = INTERLUDE_SCENES[kind];
   return (
     <div className={`walk-gap walk-gap--${kind}`} aria-hidden="true">
-      <Storey id={`gap-${index}-up`} upper scene={scene.upper} />
-      <Storey id={`gap-${index}-down`} upper={false} scene={scene.ground} />
+      <Storey id={`gap-${index}-${upper ? "up" : "down"}`} upper={upper} scene={upper ? scene.upper : scene.ground} />
     </div>
   );
 }

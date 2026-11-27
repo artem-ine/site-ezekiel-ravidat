@@ -29,7 +29,6 @@ import {
   itemKey,
   type DisplayMode,
   type FloorLevel,
-  needsInterlude,
   type WalkBay,
   type WingInfo,
 } from "@/components/library2d/floorLayout";
@@ -137,12 +136,11 @@ export function LibraryWalk({ books }: Props) {
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
   const interludeIndex = useMemo(() => {
-    const index = new Map<number, number>();
-    columns.forEach((column, i) => {
-      if (!column.wingStart && needsInterlude(columns[i - 1], column)) {
-        index.set(column.slot, index.size);
-      }
-    });
+    const index = new Map<string, number>();
+    for (const column of columns) {
+      if (column.interludeUpper) index.set(`${column.slot}-upper`, index.size);
+      if (column.interludeGround) index.set(`${column.slot}-ground`, index.size);
+    }
     return index;
   }, [columns]);
   const stats = useMemo(() => readingStats(books), [books]);
@@ -667,12 +665,8 @@ export function LibraryWalk({ books }: Props) {
             <EntranceCap reading={reading} stats={stats} />
             {columns.map((column) => (
               <Fragment key={column.slot}>
-                {column.wingStart ? (
+                {column.wingStart && (
                   <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
-                ) : (
-                  interludeIndex.has(column.slot) && (
-                    <Interlude index={interludeIndex.get(column.slot)!} />
-                  )
                 )}
                 <div
                   className="walk-column"
@@ -683,11 +677,22 @@ export function LibraryWalk({ books }: Props) {
                     } as CSSProperties
                   }
                 >
-                  <LevelBay bay={column.upper} display={display} />
-                  <LevelBay bay={column.ground} display={display} />
+                  <div className="walk-row walk-row--upper">
+                    {column.interludeUpper && (
+                      <Interlude index={interludeIndex.get(`${column.slot}-upper`)!} upper />
+                    )}
+                    <LevelBay bay={column.upper} display={display} />
+                  </div>
+                  <div className="walk-row walk-row--ground">
+                    {column.interludeGround && (
+                      <Interlude index={interludeIndex.get(`${column.slot}-ground`)!} upper={false} />
+                    )}
+                    <LevelBay bay={column.ground} display={display} />
+                  </div>
                 </div>
               </Fragment>
             ))}
+            <div className="walk-fog" aria-hidden="true" />
             <EndingCap />
           </div>
         </div>
@@ -1100,10 +1105,14 @@ const LevelBay = memo(function LevelBay({
 
       <div className="walk-bay__deck" aria-hidden="true" />
 
-      <div className="walk-sign" aria-hidden="true">
-        <span>{bay.label}</span>
-      </div>
-      <h3 className="walk-sr-only">{bay.label}</h3>
+      {bay.label && (
+        <>
+          <div className="walk-sign" aria-hidden="true">
+            <span>{bay.label}</span>
+          </div>
+          <h3 className="walk-sr-only">{bay.label}</h3>
+        </>
+      )}
 
       {!bay.empty && (
         <>

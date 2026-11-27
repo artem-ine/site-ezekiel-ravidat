@@ -1232,6 +1232,41 @@
     mask-image: linear-gradient(90deg, transparent, #000 5rem);
   }
 
+  /* Fog rolling in over the last shelves: clear at the far side, thick and blurred at the door. */
+  .walk-fog {
+    --fog: 233 227 214;
+    position: relative;
+    flex: 0 0 auto;
+    width: 30rem;
+    height: 100%;
+    margin-left: -30rem;
+    z-index: 6;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgb(var(--fog) / 0), rgb(var(--fog) / 0.5));
+  }
+
+  .walk-fog::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 100%);
+  }
+
+  /* The fog carries on over the end cap and thickens toward the door, which stays clear above it. */
+  .walk-cap--end::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgb(233 227 214 / 0.5), rgb(233 227 214 / 0.82));
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+  }
+
   .walk-cap__exit-sign {
     padding: 0.35rem 0.5rem;
     border: 3px solid var(--walk-wood-deep);
@@ -1452,6 +1487,21 @@
     flex-direction: column;
     justify-content: flex-end;
     overflow: hidden;
+  }
+
+  /* Each floor is a row: an optional half-floor interlude, then the bay. */
+  .walk-row {
+    flex: 1 1 50%;
+    min-height: 0;
+    height: 50%;
+    display: flex;
+    pointer-events: none;
+  }
+
+  .walk-row > .walk-bay {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
   }
 
   .walk-bay--upper {

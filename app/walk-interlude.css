@@ -4,6 +4,7 @@
  * stairs and windows live here so the genre bays stay quiet.
  */
 
+/* A half-floor interlude: one storey, sitting in the row of the floor whose genre changes. */
 .walk-gap {
   --gap-wall: #e6d7b6;
   --gap-panel: color-mix(in srgb, var(--gap-wall) 70%, #6a4a26);
@@ -15,17 +16,13 @@
   flex: 0 0 auto;
   width: 12rem;
   height: 100%;
-  display: flex;
-  flex-direction: column;
   pointer-events: none;
   image-rendering: pixelated;
 }
 
 .walk-gap__storey {
   position: relative;
-  flex: 1 1 50%;
-  min-height: 0;
-  height: 50%;
+  height: 100%;
   overflow: hidden;
 }
 
