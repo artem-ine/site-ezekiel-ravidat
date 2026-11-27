@@ -852,23 +852,23 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
       <div className="walk-cap__storey walk-cap__storey--ground">
         <div className="walk-cap__paper" aria-hidden="true" />
         <ul className="walk-chat" aria-label="How to walk the stacks, explained by the house cat and dog">
-          <li className="walk-chat__line walk-chat__line--cat">
+          <li className="walk-chat__line walk-chat__line--cat" style={{ "--say": 0 } as CSSProperties}>
             <span className="walk-sr-only">Cat: </span>
             Welcome! Walk with <kbd>←</kbd><kbd>→</kbd> or <kbd>A</kbd><kbd>D</kbd>.
           </li>
-          <li className="walk-chat__line walk-chat__line--dog">
+          <li className="walk-chat__line walk-chat__line--dog" style={{ "--say": 1 } as CSSProperties}>
             <span className="walk-sr-only">Dog: </span>
             <kbd>Space</kbd> hops between floors.<span className="walk-chat__woof"> Woof.</span>
           </li>
-          <li className="walk-chat__line walk-chat__line--cat">
+          <li className="walk-chat__line walk-chat__line--cat" style={{ "--say": 2 } as CSSProperties}>
             <span className="walk-sr-only">Cat: </span>
             Click a book to open it.
           </li>
-          <li className="walk-chat__line walk-chat__line--dog">
+          <li className="walk-chat__line walk-chat__line--dog" style={{ "--say": 3 } as CSSProperties}>
             <span className="walk-sr-only">Dog: </span>
             The corner map jumps to any genre.
           </li>
-          <li className="walk-chat__line walk-chat__line--cat">
+          <li className="walk-chat__line walk-chat__line--cat" style={{ "--say": 4 } as CSSProperties}>
             <span className="walk-sr-only">Cat: </span>
             On a phone? Drag to walk, swipe up to jump.
           </li>
