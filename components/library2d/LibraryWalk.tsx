@@ -1054,7 +1054,6 @@ function EndingCap() {
         <div className="walk-cap__paper" />
         <div className="walk-cap__deck" />
       </div>
-      <span className="walk-fog" aria-hidden="true" />
       <Link
         href="/cozy"
         prefetch={false}
