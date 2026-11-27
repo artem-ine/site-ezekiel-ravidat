@@ -136,6 +136,7 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const stats = useMemo(() => readingStats(books), [books]);
   const reading = useMemo(
     () => books.filter((book) => book.readStatus === "currently-reading").slice(0, READING_SHOWN),
     [books],
@@ -654,7 +655,7 @@ export function LibraryWalk({ books }: Props) {
           </div>
 
           <div className="walk-layer walk-layer--shelves">
-            <EntranceCap reading={reading} />
+            <EntranceCap reading={reading} stats={stats} />
             {columns.map((column, columnIndex) => (
               <Fragment key={column.slot}>
                 {column.wingStart && (
@@ -815,15 +816,38 @@ function WingGate({ wing }: { wing: WingInfo | undefined }) {
 }
 
 const BUNTING_FLAGS = 48;
+const STATS_YEARS_SHOWN = 6;
 const READING_SHOWN = 5;
 const READING_TILTS = [-3, 2, -1.5, 3, -2];
+
+type ReadingStats = {
+  rows: { year: number; count: number }[];
+  max: number;
+  total: number;
+  since: number;
+};
+
+/** Books marked read with a year read, per year (most recent years), and the total since the oldest record. */
+function readingStats(books: LibraryBook[]): ReadingStats | null {
+  const perYear = new Map<number, number>();
+  for (const book of books) {
+    if (book.readStatus !== "read" || book.yearRead == null) continue;
+    perYear.set(book.yearRead, (perYear.get(book.yearRead) ?? 0) + 1);
+  }
+  if (perYear.size === 0) return null;
+
+  const years = [...perYear.keys()].sort((a, b) => a - b);
+  const rows = years.slice(-STATS_YEARS_SHOWN).map((year) => ({ year, count: perYear.get(year)! }));
+  const total = [...perYear.values()].reduce((sum, count) => sum + count, 0);
+  return { rows, max: Math.max(...rows.map((row) => row.count)), total, since: years[0]! };
+}
 
 /**
  * Left end of the walk. The walker never reaches it, so it is a stage set:
  * a banner and the current reads upstairs, the house cat and dog explaining
  * the controls downstairs.
  */
-function EntranceCap({ reading }: { reading: LibraryBook[] }) {
+function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: ReadingStats | null }) {
   return (
     <aside className="walk-cap walk-cap--start" aria-label="Library entrance">
       <div className="walk-cap__storey walk-cap__storey--upper">
@@ -845,7 +869,12 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
               <span className="walk-banner__rule" aria-hidden="true" />
             </div>
           </div>
-          {reading.length > 0 && <ReadingBoard books={reading} />}
+          {(reading.length > 0 || stats) && (
+            <div className="walk-loft__row">
+              {reading.length > 0 && <ReadingBoard books={reading} />}
+              {stats && <StatsWhiteboard stats={stats} />}
+            </div>
+          )}
         </div>
         <div className="walk-cap__deck" aria-hidden="true" />
       </div>
@@ -879,6 +908,34 @@ function EntranceCap({ reading }: { reading: LibraryBook[] }) {
         <div className="walk-cap__deck" aria-hidden="true" />
       </div>
     </aside>
+  );
+}
+
+/** Little whiteboard: books read per year and the running total. */
+function StatsWhiteboard({ stats }: { stats: ReadingStats }) {
+  const latest = stats.rows[stats.rows.length - 1]!.year;
+  return (
+    <section className="walk-stats" aria-label="Reading stats">
+      <p className="walk-stats__title">Books read</p>
+      <table className="walk-stats__table">
+        <caption className="walk-sr-only">Books read per year</caption>
+        <tbody>
+          {stats.rows.map((row) => (
+            <tr key={row.year} className={row.year === latest ? "is-latest" : undefined}>
+              <th scope="row">{row.year}</th>
+              <td className="walk-stats__bar">
+                <span aria-hidden="true" style={{ width: `${(row.count / stats.max) * 100}%` }} />
+              </td>
+              <td className="walk-stats__count">{row.count}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="walk-stats__total">
+        <span>Since {stats.since}</span> <strong>{stats.total}</strong>
+      </p>
+      <span className="walk-stats__tray" aria-hidden="true" />
+    </section>
   );
 }
 
