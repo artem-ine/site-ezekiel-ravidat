@@ -22,8 +22,6 @@ export const BAY_MIN_WIDTH_REM = 22;
 export const BAY_CHROME_REM = 3.5;
 /** Wood frame on each side of the book row inside the cabinet. */
 export const CASE_SIDE_PAD_REM = 0.55;
-/** Extra bay width reserved for a decorative ladder when the loft has books. */
-export const LADDER_SPACE_REM = 2.4;
 /** Breathing room on the floor beside every cabinet, before the next room's pilaster. */
 export const DECOR_GUTTER_REM = 1.5;
 
@@ -88,7 +86,7 @@ export type WalkBay = {
   /** Shared column — both levels always share the same slot count. */
   slot: number;
   empty: boolean;
-  /** The other floor of this column has books too, so a ladder links them. */
+  /** The other floor of this column has books too. */
   paired: boolean;
   /** A small display table of books rather than a shelf. */
   table: boolean;
@@ -584,15 +582,25 @@ export function duplexColumns(plan: FloorPlan): WalkColumn[] {
 
 /**
  * Width needed so every shelf row sits in a single line (no wrap),
- * including case chrome and optional ladder space for loft pairs.
+ * including case chrome.
  */
 export function bayRailWidthRem(bay: WalkBay): number {
   if (bay.empty || bay.shelfRows.length === 0) return BAY_MIN_WIDTH_REM;
   const caseW = caseWidthRem(bay);
-  const ladder = bay.paired ? LADDER_SPACE_REM : 0;
-  // Case + bay padding/margins; ladder sits beside the cabinet.
-  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + ladder + DECOR_GUTTER_REM;
-  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + ladder + DECOR_GUTTER_REM, needed));
+  const needed = caseW + (BAY_CHROME_REM - CASE_SIDE_PAD_REM * 2) + DECOR_GUTTER_REM;
+  return Math.max(BAY_MIN_WIDTH_REM, Math.min(BAY_MAX_WIDTH_REM + DECOR_GUTTER_REM, needed));
+}
+
+/**
+ * An interlude only marks a change of genre on both floors. Where one floor
+ * carries on in the same genre, its shelves simply run on side by side.
+ */
+export function needsInterlude(previous: WalkColumn | undefined, column: WalkColumn): boolean {
+  if (!previous) return false;
+  return (
+    previous.upper.theme.id !== column.upper.theme.id &&
+    previous.ground.theme.id !== column.ground.theme.id
+  );
 }
 
 /** Column width: wide enough for the fuller of ground / upper rails. */

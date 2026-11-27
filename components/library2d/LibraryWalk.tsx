@@ -29,6 +29,7 @@ import {
   itemKey,
   type DisplayMode,
   type FloorLevel,
+  needsInterlude,
   type WalkBay,
   type WingInfo,
 } from "@/components/library2d/floorLayout";
@@ -135,6 +136,15 @@ export function LibraryWalk({ books }: Props) {
   const display = useSyncExternalStore<DisplayMode>(subscribeDisplay, readDisplay, () => "covers");
   const plan = useMemo(() => buildFloorPlan(books, display), [books, display]);
   const columns = useMemo(() => duplexColumns(plan), [plan]);
+  const interludeIndex = useMemo(() => {
+    const index = new Map<number, number>();
+    columns.forEach((column, i) => {
+      if (!column.wingStart && needsInterlude(columns[i - 1], column)) {
+        index.set(column.slot, index.size);
+      }
+    });
+    return index;
+  }, [columns]);
   const stats = useMemo(() => readingStats(books), [books]);
   const reading = useMemo(
     () => books.filter((book) => book.readStatus === "currently-reading").slice(0, READING_SHOWN),
@@ -655,12 +665,14 @@ export function LibraryWalk({ books }: Props) {
 
           <div className="walk-layer walk-layer--shelves">
             <EntranceCap reading={reading} stats={stats} />
-            {columns.map((column, columnIndex) => (
+            {columns.map((column) => (
               <Fragment key={column.slot}>
                 {column.wingStart ? (
                   <WingGate wing={plan.wings.find((w) => w.startSlot === column.slot)} />
                 ) : (
-                  columnIndex > 0 && <Interlude slot={column.slot} />
+                  interludeIndex.has(column.slot) && (
+                    <Interlude index={interludeIndex.get(column.slot)!} />
+                  )
                 )}
                 <div
                   className="walk-column"
@@ -1067,7 +1079,6 @@ const LevelBay = memo(function LevelBay({
   } as CSSProperties;
 
   const multi = bay.shelfRows.length > 1;
-  const showLadder = bay.paired && !bay.empty;
 
   return (
     <section
@@ -1101,7 +1112,6 @@ const LevelBay = memo(function LevelBay({
           ) : (
             <SectionShelves kit={bay.kit} rows={bay.shelfRows.length} display={display} />
           )}
-          {showLadder && <LibraryLadder />}
           <div
             className={`walk-rails${bay.table ? " walk-rails--table" : ""}`}
             data-rows={bay.shelfRows.length}
@@ -1131,23 +1141,6 @@ const LevelBay = memo(function LevelBay({
     </section>
   );
 });
-
-function LibraryLadder() {
-  const rungs = [12, 28, 44, 60, 76];
-  return (
-    <div className="walk-ladder" aria-hidden="true">
-      <span className="walk-ladder__rail walk-ladder__rail--l" />
-      <span className="walk-ladder__rail walk-ladder__rail--r" />
-      {rungs.map((top) => (
-        <span
-          key={top}
-          className="walk-ladder__rung"
-          style={{ top: `${top}%` }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function SectionShelves({
   kit,

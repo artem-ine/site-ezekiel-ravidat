@@ -8,13 +8,13 @@ import {
   BAY_MIN_WIDTH_REM,
   DECOR_GUTTER_REM,
   CASE_SIDE_PAD_REM,
-  LADDER_SPACE_REM,
   bayContentWidthRem,
   bayRailWidthRem,
   buildFloorPlan,
   buildShelfItems,
   caseWidthRem,
   duplexColumns,
+  needsInterlude,
   fitRowCount,
   itemBooks,
   itemsWidthRem,
@@ -193,7 +193,7 @@ for (const [name, input] of [
         caseWidthRem(bay) >= content + CASE_SIDE_PAD_REM * 2 - 0.001,
         `${bay.label}: case covers widest row`,
       );
-      const maxBay = BAY_MAX_WIDTH_REM + (bay.paired ? LADDER_SPACE_REM : 0) + DECOR_GUTTER_REM + 0.01;
+      const maxBay = BAY_MAX_WIDTH_REM + DECOR_GUTTER_REM + 0.01;
       assert(
         bayRailWidthRem(bay) <= maxBay,
         `${bay.label} width within max (${bayRailWidthRem(bay).toFixed(1)})`,
@@ -284,6 +284,21 @@ for (const [name, input] of [
   assert(
     cols.every((c, i) => i === 0 || c.parent === cols[i - 1]!.parent || c.wingStart),
     "a wing never mixes into the next without a gate",
+  );
+  const sameGenre = cols.flatMap((c, i) =>
+    i > 0 && !c.wingStart && (c.upper.theme.id === cols[i - 1]!.upper.theme.id || c.ground.theme.id === cols[i - 1]!.ground.theme.id)
+      ? [i]
+      : [],
+  );
+  const changed = cols.flatMap((_, i) => (i > 0 && needsInterlude(cols[i - 1], cols[i]!) ? [i] : []));
+  assert(sameGenre.length > 0 && changed.length > 0, "the mixed library has both same-genre and changing boundaries");
+  assert(
+    sameGenre.every((i) => !needsInterlude(cols[i - 1], cols[i]!)),
+    "same-genre neighbours on either floor get no interlude",
+  );
+  assert(
+    changed.every((i) => cols[i - 1]!.upper.theme.id !== cols[i]!.upper.theme.id && cols[i - 1]!.ground.theme.id !== cols[i]!.ground.theme.id),
+    "an interlude sits only where the genre changes on both floors",
   );
 
   const tables = plan.bays.filter((b) => b.table);

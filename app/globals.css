@@ -1999,50 +1999,6 @@
   .walk-table__leg--l { left: 0.6rem; }
   .walk-table__leg--r { right: 0.6rem; }
 
-  /* Decorative library ladder — pure chrome, never interactive. */
-  .walk-ladder {
-    --walk-case-left: 0.55rem;
-    position: absolute;
-    z-index: 2;
-    left: calc(var(--walk-case-left) + var(--walk-case-width, 0px) + 0.2rem);
-    bottom: var(--walk-deck);
-    width: 1.15rem;
-    height: min(58%, 10.5rem);
-    pointer-events: none;
-    image-rendering: pixelated;
-  }
-
-  .walk-ladder__rail {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: var(--walk-wood-deep);
-    box-shadow: 1px 0 0 #c4a078;
-  }
-
-  .walk-ladder__rail--l { left: 0; }
-  .walk-ladder__rail--r { right: 0; }
-
-  .walk-ladder__rung {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: #a07242;
-    box-shadow: 0 1px 0 var(--walk-wood-deep);
-  }
-
-  .walk-bay--ground .walk-ladder {
-    height: min(72%, 13rem);
-    transform: skewX(-6deg);
-    transform-origin: bottom left;
-  }
-
-  .walk-bay--upper .walk-ladder {
-    height: min(48%, 8.5rem);
-  }
-
   .walk-pile {
     position: absolute;
     left: 1rem;
