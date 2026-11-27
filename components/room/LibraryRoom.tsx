@@ -46,6 +46,14 @@ type Props = {
   books: LibraryBook[];
 };
 
+function AbandonedNotice({ calm }: { calm?: boolean }) {
+  return (
+    <p className={`room-notice${calm ? " room-notice--calm" : ""}`} role="note">
+      This was an abandoned 3D version: ambitious and buggy, and probably absurd.
+    </p>
+  );
+}
+
 const STATUS_OPTIONS: Array<ReadStatus | "all"> = [
   "all",
   "currently-reading",
@@ -423,6 +431,7 @@ export function LibraryRoom({ books }: Props) {
   return (
     <RoomErrorBoundary fallback={calmView}>
       <div className="room" aria-label="Library room">
+        <AbandonedNotice />
         <p className="room-sr-only">
           Cozy pixel reading room with floor piles and furniture. Hold W S or arrows to walk, A D
           to turn. Scroll also walks. Drag vertically or hold R and F to look up and down. Home or
@@ -845,6 +854,7 @@ function CalmRoom({
 }: CalmProps) {
   return (
     <div className="room-calm">
+      <AbandonedNotice calm />
       <header className="room-calm__head">
         <p className="label">Library of</p>
         <h1>

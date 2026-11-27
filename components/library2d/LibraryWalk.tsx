@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import Link from "next/link";
 import type { LibraryBook } from "@/lib/books";
 import { ShelfItemView } from "@/components/library2d/ShelfItemView";
 import { WallWindow, WallWindowPatch } from "@/components/library2d/WallWindow";
@@ -833,6 +834,18 @@ function EndingCap() {
         <div className="walk-cap__deck" aria-hidden="true" />
         <p className="walk-cap__end-sign">End of the shelves</p>
       </div>
+      <Link
+        href="/cozy"
+        prefetch={false}
+        className="walk-cap__exit"
+        aria-label="Bonus: the backrooms. An abandoned 3D version of the library."
+      >
+        <span className="walk-cap__exit-sign" aria-hidden="true">
+          <span>Bonus: the backrooms</span>
+        </span>
+        <span className="walk-cap__exit-arrow" aria-hidden="true" />
+        <span className="walk-cap__exit-door" aria-hidden="true" />
+      </Link>
     </aside>
   );
 }
