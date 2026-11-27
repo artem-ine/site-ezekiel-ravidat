@@ -861,7 +861,7 @@ function readingStats(books: LibraryBook[]): ReadingStats | null {
       count: perYear.get(year)!,
       latest: index === shown.length - 1,
     }));
-  if (undated > 0) yearRows.push({ label: "(no year)", count: undated, muted: true });
+  if (undated > 0) yearRows.push({ label: "others", count: undated, muted: true });
 
   const formatRows: StatRow[] = [...STAT_FORMATS.map((option) => option.label), "Other"]
     .map((label) => ({ label, count: perFormat.get(label) ?? 0 }))
@@ -892,7 +892,6 @@ function EntranceCap({ reading, stats }: { reading: LibraryBook[]; stats: Readin
         </div>
         <div className="walk-loft">
           <div className="walk-banner">
-            <span className="walk-banner__rod" aria-hidden="true" />
             <div className="walk-banner__cloth">
               <p className="walk-banner__kicker">Welcome to</p>
               <h1 className="walk-banner__title">
