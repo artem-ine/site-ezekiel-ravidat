@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { LibraryBook, ReadStatus } from "@/lib/books";
+import { BookDescription } from "@/components/BookDescription";
 import { BookSpine } from "@/components/library/BookSpine";
 import {
   applyFilters,
@@ -677,7 +678,7 @@ function InspectPanel({ book, onClose }: { book: LibraryBook; onClose: () => voi
           </>
         )}
       </dl>
-      {book.description && <p className="room-book-card__blurb">{book.description}</p>}
+      <BookDescription field={book.descriptionRichText} className="room-book-card__blurb" />
       <Link className="room-book-card__link" href={`/books/${book.uid}`}>
         Full page
       </Link>

@@ -1,4 +1,4 @@
-import { asText, isFilled, type Content } from "@prismicio/client";
+import { asText, isFilled, type Content, type RichTextField } from "@prismicio/client";
 import { cacheLife } from "next/cache";
 import { createClient } from "@/prismicio";
 import { authorSortKey } from "@/lib/author-sort";
@@ -26,7 +26,10 @@ export type LibraryBook = {
   publishYear: number | null;
   yearRead: number | null;
   readStatus: ReadStatus | null;
+  /** Plain-text blurb, for metadata and other flat uses. */
   description: string | null;
+  /** Blurb as Structured Text, so paragraphs can render separately. Null when empty. */
+  descriptionRichText: RichTextField | null;
   format: string | null;
 };
 
@@ -129,6 +132,8 @@ function mapBook(
     statusRaw && READ_STATUSES.has(statusRaw) ? (statusRaw as ReadStatus) : null;
 
   const description = asText(doc.data.blurb)?.trim() || null;
+  const descriptionRichText =
+    description && isFilled.richText(doc.data.blurb) ? doc.data.blurb : null;
   const coverUrl = isFilled.image(doc.data.cover) ? doc.data.cover.url : null;
 
   return {
@@ -149,6 +154,7 @@ function mapBook(
     yearRead: doc.data.year_read ?? null,
     readStatus,
     description,
+    descriptionRichText,
     format: doc.data.format || null,
   };
 }

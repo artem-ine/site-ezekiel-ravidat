@@ -30,6 +30,7 @@ function book(uid: string, title: string, over: Partial<LibraryBook> = {}): Libr
     yearRead: 2024,
     readStatus: "read",
     description: null,
+    descriptionRichText: null,
     format: "paperback",
     ...over,
   };
