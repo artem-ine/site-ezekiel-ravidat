@@ -88,8 +88,17 @@ const undated = readingStats([
   book("f-audio", "Leviathan Wakes - audio", { yearRead: null, format: "audio" }),
 ]);
 assert(undated?.total === 2, "undated and 2021 reads of one title collapse together");
-assert(yearCount(undated, "2021") === 2, "undated reads sit in the 2021 bucket");
+assert(yearCount(undated, "≤2021") === 2, "undated reads sit in the ≤2021 row");
 assert(formatCount(undated, "Hardback") === 1 && formatCount(undated, "Audio") === 0, "2021 copy that is visible wins");
+
+const earlier = readingStats([
+  book("k", "Old Friends", { yearRead: 2019 }),
+  book("k2", "Older Friends", { yearRead: 2020 }),
+  book("k3", "Newer Friends", { yearRead: 2022 }),
+]);
+assert(yearCount(earlier, "≤2021") === 2, "2021 and earlier years share one row");
+assert(yearCount(earlier, "2022") === 1, "later years keep their own row");
+assert(earlier?.since === 2019, "since still names the oldest year read");
 
 const ignored = readingStats([
   book("g", "Dune", { readStatus: "not-read" }),

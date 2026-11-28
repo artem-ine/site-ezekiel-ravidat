@@ -856,6 +856,7 @@
   }
 
   .walk-stats__bar {
+    min-width: 3.2em;
     padding: 0.1em 0.4em;
   }
 
