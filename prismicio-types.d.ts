@@ -434,12 +434,13 @@ interface BookDocumentData {
 	 * - **Documentation**: https://prismic.io/docs/fields/number
 	 */
 	rating: prismic.NumberField;
-
+	
 	/**
 	 * Favorite field in *Book*
 	 *
 	 * - **Field Type**: Boolean
 	 * - **Placeholder**: *None*
+	 * - **Default Value**: false
 	 * - **API ID Path**: book.favorite
 	 * - **Tab**: Reading
 	 * - **Documentation**: https://prismic.io/docs/fields/boolean
@@ -710,6 +711,82 @@ interface PageDocumentData {
 export type PageDocument<Lang extends string = string> = prismic.PrismicDocumentWithUID<Simplify<PageDocumentData>, "page", Lang>;
 
 /**
+ * Item in *Real shelves → Photos*
+ */
+export interface RealShelvesDocumentDataPhotosItem {
+	/**
+	 * Photo field in *Real shelves → Photos*
+	 *
+	 * - **Field Type**: Image
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: real_shelves.photos[].photo
+	 * - **Documentation**: https://prismic.io/docs/fields/image
+	 */
+	photo: prismic.ImageField<never>;
+	
+	/**
+	 * Caption field in *Real shelves → Photos*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: real_shelves.photos[].caption
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	caption: prismic.KeyTextField;
+}
+
+/**
+ * Content for Real shelves documents
+ */
+interface RealShelvesDocumentData {
+	/**
+	 * Board title field in *Real shelves*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: the real shelves
+	 * - **Default Value**: the real shelves
+	 * - **API ID Path**: real_shelves.title
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	title: prismic.KeyTextField;
+	
+	/**
+	 * Board subtitle field in *Real shelves*
+	 *
+	 * - **Field Type**: Text
+	 * - **Placeholder**: more cramped but equally cherished
+	 * - **Default Value**: more cramped but equally cherished
+	 * - **API ID Path**: real_shelves.subtitle
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/text
+	 */
+	subtitle: prismic.KeyTextField;
+	
+	/**
+	 * Photos field in *Real shelves*
+	 *
+	 * - **Field Type**: Group
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: real_shelves.photos[]
+	 * - **Tab**: Main
+	 * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+	 */
+	photos: prismic.GroupField<Simplify<RealShelvesDocumentDataPhotosItem>>;
+}
+
+/**
+ * Real shelves document from Prismic
+ *
+ * - **API ID**: `real_shelves`
+ * - **Repeatable**: `false`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type RealShelvesDocument<Lang extends string = string> = prismic.PrismicDocumentWithoutUID<Simplify<RealShelvesDocumentData>, "real_shelves", Lang>;
+
+/**
  * Content for Series documents
  */
 interface SeriesDocumentData {
@@ -916,7 +993,7 @@ interface SiteSettingsDocumentData {
  */
 export type SiteSettingsDocument<Lang extends string = string> = prismic.PrismicDocumentWithoutUID<Simplify<SiteSettingsDocumentData>, "site_settings", Lang>;
 
-export type AllDocumentTypes = AuthorDocument | BookDocument | GenreDocument | PageDocument | SeriesDocument | ShelfDocument | SiteSettingsDocument;
+export type AllDocumentTypes = AuthorDocument | BookDocument | GenreDocument | PageDocument | RealShelvesDocument | SeriesDocument | ShelfDocument | SiteSettingsDocument;
 
 /**
  * Primary content in *Book Spotlight → Default → Primary*
@@ -1260,6 +1337,9 @@ declare module "@prismicio/client" {
 			PageDocument,
 			PageDocumentData,
 			PageDocumentDataSlicesSlice,
+			RealShelvesDocument,
+			RealShelvesDocumentData,
+			RealShelvesDocumentDataPhotosItem,
 			SeriesDocument,
 			SeriesDocumentData,
 			ShelfDocument,
