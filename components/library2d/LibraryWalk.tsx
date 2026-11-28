@@ -703,7 +703,6 @@ export function LibraryWalk({ books }: Props) {
             ))}
             <WingArch label="the real shelves" detail="at home" ariaLabel="The real shelves" />
             <RealShelvesRoom photos={REAL_SHELF_PHOTOS} />
-            <EndingCap />
           </div>
         </div>
       </div>
@@ -842,14 +841,26 @@ function WingArch({ label, detail, ariaLabel }: { label: string; detail: string;
 const PHOTO_TILTS = [-2, 1.5, -1, 2.5, -1.8, 1.2];
 const EMPTY_PHOTO_SLOTS = 3;
 
-/** Past the last genre wing: a corkboard for photos of the real shelves, before the backrooms door. */
+/** Past the last genre wing: a corkboard of photos of the real shelves, with the backrooms door on the loft above it. */
 function RealShelvesRoom({ photos }: { photos: RealShelfPhoto[] }) {
   const slots = photos.length > 0 ? photos : Array.from({ length: EMPTY_PHOTO_SLOTS }, () => null);
   return (
     <section className="walk-real" aria-label="The real shelves">
-      <div className="walk-real__storey walk-real__storey--upper" aria-hidden="true">
-        <div className="walk-cap__paper walk-cap__paper--loft" />
-        <div className="walk-cap__deck" />
+      <div className="walk-real__storey walk-real__storey--upper">
+        <div className="walk-cap__paper walk-cap__paper--loft" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+        <Link
+          href="/cozy"
+          prefetch={false}
+          className="walk-cap__exit walk-real__exit"
+          aria-label="Bonus: the backrooms. An abandoned 3D version of the library."
+        >
+          <span className="walk-cap__exit-sign" aria-hidden="true">
+            <span>Bonus: the backrooms</span>
+          </span>
+          <span className="walk-cap__exit-arrow" aria-hidden="true" />
+          <span className="walk-cap__exit-door" aria-hidden="true" />
+        </Link>
       </div>
       <div className="walk-real__storey walk-real__storey--ground">
         <div className="walk-cap__paper" aria-hidden="true" />
@@ -1037,33 +1048,6 @@ function ReadingPane({ books }: { books: LibraryBook[] }) {
 }
 
 /** Right end of the walk: reading nook / end of the shelves. */
-function EndingCap() {
-  return (
-    <aside className="walk-cap walk-cap--end" aria-label="The backrooms">
-      <div className="walk-cap__storey walk-cap__storey--upper">
-        <div className="walk-cap__paper" aria-hidden="true" />
-        <div className="walk-cap__deck" aria-hidden="true" />
-      </div>
-      <div className="walk-cap__storey walk-cap__storey--ground" aria-hidden="true">
-        <div className="walk-cap__paper" />
-        <div className="walk-cap__deck" />
-      </div>
-      <Link
-        href="/cozy"
-        prefetch={false}
-        className="walk-cap__exit"
-        aria-label="Bonus: the backrooms. An abandoned 3D version of the library."
-      >
-        <span className="walk-cap__exit-sign" aria-hidden="true">
-          <span>Bonus: the backrooms</span>
-        </span>
-        <span className="walk-cap__exit-arrow" aria-hidden="true" />
-        <span className="walk-cap__exit-door" aria-hidden="true" />
-      </Link>
-    </aside>
-  );
-}
-
 const LevelBay = memo(function LevelBay({
   bay,
   display,

@@ -617,7 +617,6 @@
     box-shadow: inset 0 3px 0 var(--walk-wood-deep);
   }
 
-  .walk-cap--end .walk-cap__storey--ground::after,
   .walk-cap--start .walk-cap__storey--ground::before {
     content: "";
     position: absolute;
@@ -630,9 +629,7 @@
   }
 
   .walk-cap--start .walk-cap__storey--ground::before { left: 0; }
-  .walk-cap--end .walk-cap__storey--ground::after { right: 0; }
-  .walk-cap--start .walk-cap__storey--upper::before,
-  .walk-cap--end .walk-cap__storey--upper::after {
+  .walk-cap--start .walk-cap__storey--upper::before {
     content: "";
     position: absolute;
     top: 0;
@@ -642,7 +639,6 @@
     background: var(--walk-wood-deep);
   }
   .walk-cap--start .walk-cap__storey--upper::before { left: 0; }
-  .walk-cap--end .walk-cap__storey--upper::after { right: 0; }
 
   /*
    * Entrance: everything inside scales with the viewport height (the em below),
@@ -1210,7 +1206,7 @@
     .walk-pet--dog { right: 10%; width: 7em; }
   }
 
-  /* The backrooms door: a tall dark door in the far corner of the second floor. */
+  /* The backrooms door: a tall dark door on the loft, above the real shelves board. */
   .walk-cap__exit {
     position: absolute;
     top: 0;
@@ -1229,13 +1225,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  .walk-cap--end .walk-cap__paper {
-    background: linear-gradient(180deg, #ecdcbc 0%, #d6bc92 100%);
-  }
-
-  .walk-cap--end .walk-cap__deck {
-    background: linear-gradient(180deg, #b58a5c, #8a6038);
-    box-shadow: inset 0 3px 0 #5a3a22;
+  .walk-real__exit {
+    top: 0;
+    bottom: var(--walk-deck);
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
   }
 
   .walk-cap__exit-sign {
