@@ -26,6 +26,8 @@ export type LibraryBook = {
   publishYear: number | null;
   yearRead: number | null;
   readStatus: ReadStatus | null;
+  /** Marked as a favorite in Prismic; shows a heart on the book's cover. */
+  favorite: boolean;
   description: string | null;
   format: string | null;
 };
@@ -148,6 +150,7 @@ function mapBook(
     publishYear: doc.data.publish_year ?? null,
     yearRead: doc.data.year_read ?? null,
     readStatus,
+    favorite: doc.data.favorite === true,
     description,
     format: doc.data.format || null,
   };

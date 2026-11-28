@@ -231,6 +231,13 @@
         },
         "type": "Number"
       },
+      "favorite": {
+        "config": {
+          "default_value": false,
+          "label": "Favorite"
+        },
+        "type": "Boolean"
+      },
       "review": {
         "config": {
           "label": "Review (private, not displayed in v1)",

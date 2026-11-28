@@ -27,7 +27,7 @@ export function WalkBook({ book, pose = "shelf", size, style }: Props) {
   const cloth = spineCloth(book);
   const authors = book.authors.join(", ") || "Unknown author";
   const status = book.readStatus ? STATUS_LABEL[book.readStatus] : "Status unknown";
-  const label = `${book.title}, by ${authors}. ${status}.`;
+  const label = `${book.title}, by ${authors}. ${status}.${book.favorite ? " Favorite." : ""}`;
 
   return (
     <Link
@@ -61,6 +61,27 @@ export function WalkBook({ book, pose = "shelf", size, style }: Props) {
           decoding="async"
         />
       )}
+      {book.favorite && book.coverUrl && <PixelHeart />}
     </Link>
+  );
+}
+
+/** Pixel heart drawn on a 7x6 grid, so it stays crisp next to the pixel shelves. */
+const HEART_PIXELS: [number, number, number, number][] = [
+  [1, 0, 2, 1],
+  [4, 0, 2, 1],
+  [0, 1, 7, 2],
+  [1, 3, 5, 1],
+  [2, 4, 3, 1],
+  [3, 5, 1, 1],
+];
+
+function PixelHeart() {
+  return (
+    <svg className="walk-book__heart" viewBox="0 0 7 6" aria-hidden="true" focusable="false">
+      {HEART_PIXELS.map(([x, y, w, h]) => (
+        <rect key={`${x}-${y}`} x={x} y={y} width={w} height={h} />
+      ))}
+    </svg>
   );
 }

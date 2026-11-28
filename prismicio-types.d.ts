@@ -434,6 +434,17 @@ interface BookDocumentData {
 	 * - **Documentation**: https://prismic.io/docs/fields/number
 	 */
 	rating: prismic.NumberField;
+
+	/**
+	 * Favorite field in *Book*
+	 *
+	 * - **Field Type**: Boolean
+	 * - **Placeholder**: *None*
+	 * - **API ID Path**: book.favorite
+	 * - **Tab**: Reading
+	 * - **Documentation**: https://prismic.io/docs/fields/boolean
+	 */
+	favorite: prismic.BooleanField;
 	
 	/**
 	 * Review (private, not displayed in v1) field in *Book*

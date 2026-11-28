@@ -29,6 +29,7 @@ function book(uid: string, title: string, over: Partial<LibraryBook> = {}): Libr
     publishYear: null,
     yearRead: 2024,
     readStatus: "read",
+    favorite: false,
     description: null,
     format: "paperback",
     ...over,

@@ -60,6 +60,7 @@ function fakeBook(
     publishYear: null,
     yearRead: null,
     readStatus: "read",
+    favorite: false,
     description: null,
     format: null,
     ...extra,
