@@ -21,6 +21,7 @@ import { CAT_SPRITE, DOG_SPRITE } from "@/components/library2d/petSprites";
 import { shortTitle, spineCloth } from "@/lib/spine-style";
 import { Interlude, assignInterludeKinds } from "@/components/library2d/Interlude";
 import { readingStats, type ReadingStats, type StatRow } from "@/components/library2d/readingStats";
+import { REAL_SHELF_PHOTOS, type RealShelfPhoto } from "@/lib/real-shelves";
 import {
   baysOnFloor,
   buildFloorPlan,
@@ -700,7 +701,8 @@ export function LibraryWalk({ books }: Props) {
                 </div>
               </Fragment>
             ))}
-            <div className="walk-fog" aria-hidden="true" />
+            <WingArch label="the real shelves" detail="at home" ariaLabel="The real shelves" />
+            <RealShelvesRoom photos={REAL_SHELF_PHOTOS} />
             <EndingCap />
           </div>
         </div>
@@ -809,23 +811,76 @@ function bayTitle(bay: WalkBay): string {
 function WingGate({ wing }: { wing: WingInfo | undefined }) {
   if (!wing) return null;
   return (
-    <div className="walk-wing" role="group" aria-label={`${wing.label} wing, ${wing.sections} sections`}>
+    <WingArch
+      label={wing.label}
+      detail={`${wing.sections} ${wing.sections === 1 ? "section" : "sections"} · ${wing.books} books`}
+      ariaLabel={`${wing.label} wing, ${wing.sections} sections`}
+    />
+  );
+}
+
+function WingArch({ label, detail, ariaLabel }: { label: string; detail: string; ariaLabel: string }) {
+  return (
+    <div className="walk-wing" role="group" aria-label={ariaLabel}>
       <div className="walk-wing__storey walk-wing__storey--upper" aria-hidden="true">
         <div className="walk-cap__paper walk-cap__paper--loft" />
         <div className="walk-cap__deck" />
-        <p className="walk-wing__banner">{wing.label}</p>
+        <p className="walk-wing__banner">{label}</p>
       </div>
       <div className="walk-wing__storey walk-wing__storey--ground">
         <div className="walk-cap__paper" aria-hidden="true" />
         <div className="walk-cap__deck" aria-hidden="true" />
         <div className="walk-wing__sign">
-          <p className="walk-wing__title">{wing.label}</p>
-          <p className="walk-wing__count">
-            {wing.sections} {wing.sections === 1 ? "section" : "sections"} · {wing.books} books
-          </p>
+          <p className="walk-wing__title">{label}</p>
+          <p className="walk-wing__count">{detail}</p>
         </div>
       </div>
     </div>
+  );
+}
+
+const PHOTO_TILTS = [-2, 1.5, -1, 2.5, -1.8, 1.2];
+const EMPTY_PHOTO_SLOTS = 3;
+
+/** Past the last genre wing: a corkboard for photos of the real shelves, before the backrooms door. */
+function RealShelvesRoom({ photos }: { photos: RealShelfPhoto[] }) {
+  const slots = photos.length > 0 ? photos : Array.from({ length: EMPTY_PHOTO_SLOTS }, () => null);
+  return (
+    <section className="walk-real" aria-label="The real shelves">
+      <div className="walk-real__storey walk-real__storey--upper" aria-hidden="true">
+        <div className="walk-cap__paper walk-cap__paper--loft" />
+        <div className="walk-cap__deck" />
+      </div>
+      <div className="walk-real__storey walk-real__storey--ground">
+        <div className="walk-cap__paper" aria-hidden="true" />
+        <div className="walk-cap__deck" aria-hidden="true" />
+        <div className="walk-board walk-real__board">
+          <div className="walk-note walk-real__note">
+            <h2 className="walk-real__title">the real shelves</h2>
+            <p className="walk-real__subtitle">more cramped but equally cherished</p>
+          </div>
+          <ul className="walk-real__photos">
+            {slots.map((photo, i) => (
+              <li
+                key={photo?.src ?? `empty-${i}`}
+                className={`walk-real__photo${photo ? "" : " walk-real__photo--empty"}`}
+                style={{ "--tilt": `${PHOTO_TILTS[i % PHOTO_TILTS.length]}deg` } as CSSProperties}
+              >
+                {photo ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.src} alt={photo.caption} loading="lazy" decoding="async" />
+                    <span className="walk-real__caption">{photo.caption}</span>
+                  </>
+                ) : (
+                  <span className="walk-real__blank">photo soon</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </section>
   );
 }
 
