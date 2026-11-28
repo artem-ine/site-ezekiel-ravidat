@@ -2270,19 +2270,39 @@
 
   .walk-book__heart {
     position: absolute;
-    top: 0.3rem;
-    right: 0.3rem;
+    top: 0.2rem;
+    right: 0.2rem;
     z-index: 2;
-    width: 0.9rem;
-    height: 0.77rem;
-    display: none;
+    width: 0.6rem;
+    height: 0.51rem;
     pointer-events: none;
     shape-rendering: crispEdges;
     fill: #c0463d;
-    filter: drop-shadow(0 0.07rem 0 #2b1c12) drop-shadow(0.07rem 0 0 #2b1c12) drop-shadow(-0.07rem 0 0 #2b1c12);
+    filter: drop-shadow(0 0.06rem 0 #2b1c12) drop-shadow(0.06rem 0 0 #2b1c12) drop-shadow(-0.06rem 0 0 #2b1c12);
   }
 
-  .walk-book--cover .walk-book__heart { display: block; }
+  .walk-book--cover .walk-book__heart {
+    top: 0.3rem;
+    right: 0.3rem;
+    width: 0.95rem;
+    height: 0.81rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .walk-book__heart {
+      animation: walk-heart-spin 2.4s steps(3, end) infinite;
+      transform-origin: 50% 50%;
+    }
+  }
+
+  /* A favorite heart flipping edge-on and back, like a coin. */
+  @keyframes walk-heart-spin {
+    0% { transform: scaleX(1); }
+    25% { transform: scaleX(0.12); }
+    50% { transform: scaleX(-1); }
+    75% { transform: scaleX(0.12); }
+    100% { transform: scaleX(1); }
+  }
 
   .walk-book--cover .walk-book__mark {
     z-index: 2;
