@@ -61,7 +61,7 @@ export function WalkBook({ book, pose = "shelf", size, style }: Props) {
           decoding="async"
         />
       )}
-      {book.favorite && book.coverUrl && <PixelHeart />}
+      {book.favorite && <PixelHeart delay={heartDelay(book.uid)} />}
     </Link>
   );
 }
@@ -76,9 +76,22 @@ const HEART_PIXELS: [number, number, number, number][] = [
   [3, 5, 1, 1],
 ];
 
-function PixelHeart() {
+/** Spreads the spins apart so a shelf of favorites does not turn in unison. */
+function heartDelay(uid: string): string {
+  let sum = 0;
+  for (const ch of uid) sum += ch.charCodeAt(0);
+  return `${-((sum % 24) / 10)}s`;
+}
+
+function PixelHeart({ delay }: { delay: string }) {
   return (
-    <svg className="walk-book__heart" viewBox="0 0 7 6" aria-hidden="true" focusable="false">
+    <svg
+      className="walk-book__heart"
+      viewBox="0 0 7 6"
+      aria-hidden="true"
+      focusable="false"
+      style={{ animationDelay: delay }}
+    >
       {HEART_PIXELS.map(([x, y, w, h]) => (
         <rect key={`${x}-${y}`} x={x} y={y} width={w} height={h} />
       ))}

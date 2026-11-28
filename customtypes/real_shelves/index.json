@@ -1,0 +1,47 @@
+{
+  "format": "custom",
+  "id": "real_shelves",
+  "json": {
+    "Main": {
+      "title": {
+        "config": {
+          "default_value": "the real shelves",
+          "label": "Board title",
+          "placeholder": "the real shelves"
+        },
+        "type": "Text"
+      },
+      "subtitle": {
+        "config": {
+          "default_value": "more cramped but equally cherished",
+          "label": "Board subtitle",
+          "placeholder": "more cramped but equally cherished"
+        },
+        "type": "Text"
+      },
+      "photos": {
+        "config": {
+          "fields": {
+            "photo": {
+              "config": {
+                "label": "Photo"
+              },
+              "type": "Image"
+            },
+            "caption": {
+              "config": {
+                "label": "Caption"
+              },
+              "type": "Text"
+            }
+          },
+          "label": "Photos"
+        },
+        "type": "Group"
+      }
+    }
+  },
+  "label": "Real shelves",
+  "repeatable": false,
+  "status": true
+}

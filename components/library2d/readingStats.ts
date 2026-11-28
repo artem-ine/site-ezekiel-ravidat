@@ -20,6 +20,9 @@ const STAT_FORMATS = [
 /** Read books with no year read are counted under this year. */
 const UNDATED_READS_YEAR = 2021;
 
+/** Every read up to and including this year shares one row, labelled "2021 & earlier". */
+const EARLIEST_ROW_YEAR = 2021;
+
 function statGroup(rows: StatRow[]): StatGroup {
   return { rows, max: Math.max(1, ...rows.map((row) => row.count)) };
 }
@@ -57,8 +60,8 @@ export function readBooksOncePerYear(books: LibraryBook[]): { book: LibraryBook;
 }
 
 /**
- * Books marked read: per year read (most recent years), per format, and the
- * total across all of them. A title read in several formats in one year counts once.
+ * Books marked read: per year read (most recent years, with 2021 and earlier
+ * combined), per format, and the total across all of them. A title read in several formats in one year counts once.
  */
 export function readingStats(books: LibraryBook[]): ReadingStats | null {
   const reads = readBooksOncePerYear(books);
@@ -67,16 +70,17 @@ export function readingStats(books: LibraryBook[]): ReadingStats | null {
   const perYear = new Map<number, number>();
   const perFormat = new Map<string, number>();
   for (const { book, year } of reads) {
-    perYear.set(year, (perYear.get(year) ?? 0) + 1);
+    const row = Math.max(year, EARLIEST_ROW_YEAR);
+    perYear.set(row, (perYear.get(row) ?? 0) + 1);
     const format = STAT_FORMATS.find((option) => option.value === book.format)?.label ?? "Other";
     perFormat.set(format, (perFormat.get(format) ?? 0) + 1);
   }
 
-  const years = [...perYear.keys()].sort((a, b) => a - b);
-  const yearRows: StatRow[] = years
+  const rows = [...perYear.keys()].sort((a, b) => a - b);
+  const yearRows: StatRow[] = rows
     .slice(-STATS_YEARS_SHOWN)
     .map((year, index, shown) => ({
-      label: String(year),
+      label: year === EARLIEST_ROW_YEAR ? `≤${EARLIEST_ROW_YEAR}` : String(year),
       count: perYear.get(year)!,
       latest: index === shown.length - 1,
     }));
@@ -89,6 +93,6 @@ export function readingStats(books: LibraryBook[]): ReadingStats | null {
     years: statGroup(yearRows),
     formats: formatRows,
     total: reads.length,
-    since: years[0] ?? null,
+    since: Math.min(...reads.map(({ year }) => year)),
   };
 }
